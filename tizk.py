@@ -181,7 +181,7 @@ class TikZPlotConverter(QMainWindow):
         dataSourceGroup.setLayout(dataSourceLayout)
         
         # 列選択グループ
-        columnGroup = QGroupBox("データ列の設定")
+        columnGroup = QGroupBox("CSV/Excel列の選択")
         columnLayout = QGridLayout()
         
         xColLabel = QLabel('X軸データ列:')
@@ -194,10 +194,14 @@ class TikZPlotConverter(QMainWindow):
         columnLayout.addWidget(yColLabel, 1, 0)
         columnLayout.addWidget(self.yColCombo, 1, 1)
         
+        columnHelpLabel = QLabel('※ CSVまたはExcelファイルからデータを読み込む際の列を選択します')
+        columnHelpLabel.setStyleSheet('color: gray; font-style: italic;')
+        columnLayout.addWidget(columnHelpLabel, 2, 0, 1, 2)
+        
         loadDataButton = QPushButton('データ読み込み')
         loadDataButton.clicked.connect(self.load_data)
         loadDataButton.setStyleSheet('background-color: #4CAF50; color: white;')
-        columnLayout.addWidget(loadDataButton, 2, 0, 1, 2)
+        columnLayout.addWidget(loadDataButton, 3, 0, 1, 2)
         
         columnGroup.setLayout(columnLayout)
         
@@ -995,11 +999,16 @@ class TikZPlotConverter(QMainWindow):
                     return
                 final_name = text_from_dialog.strip()
             else:
-                final_name = str(name_arg).strip() # Ensure argument is also a string and stripped
+                if name_arg is False:  # Falseが渡された場合の対策
+                    dataset_count = self.datasetList.count() + 1
+                    final_name = f"データセット{dataset_count}"
+                else:
+                    final_name = str(name_arg).strip() # Ensure argument is also a string and stripped
 
             if not final_name: # Double check if somehow final_name is empty
-                self.statusBar.showMessage("データセット名が空のため追加できませんでした。", 3000)
-                return
+                dataset_count = self.datasetList.count() + 1
+                final_name = f"データセット{dataset_count}"
+                self.statusBar.showMessage("データセット名が空のため、デフォルト名を使用します。", 3000)
 
             dataset = {
                 'name': final_name, # Always a string
