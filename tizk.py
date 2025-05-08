@@ -22,6 +22,23 @@ class TikZPlotConverter(QMainWindow):
         self.datasets = []  # 複数のデータセットを格納するリスト
         self.current_dataset_index = -1  # 現在選択されているデータセットのインデックス
         
+        # グラフ全体の設定（すべてのデータセットに共通）
+        self.global_settings = {
+            'x_label': 'x',          # X軸ラベル
+            'y_label': 'y',          # Y軸ラベル
+            'x_min': 0,              # X軸最小値
+            'x_max': 10,             # X軸最大値
+            'y_min': 0,              # Y軸最小値
+            'y_max': 10,             # Y軸最大値
+            'grid': True,            # グリッド表示
+            'legend_pos': 'north east', # 凡例位置
+            'caption': 'グラフのタイトル', # キャプション
+            'label': 'fig:plot',     # ラベル
+            'position': 'H',         # 図の位置
+            'width': 0.8,            # 図の幅
+            'height': 0.5            # 図の高さ
+        }
+        
         # UIを初期化
         self.initUI()
         
@@ -109,6 +126,48 @@ class TikZPlotConverter(QMainWindow):
         dataTab = QWidget()
         dataTabLayout = QVBoxLayout()
         
+        # データソースタイプの選択（実測値か数式か）
+        dataSourceTypeGroup = QGroupBox("データソースタイプ")
+        dataSourceTypeLayout = QVBoxLayout()
+        
+        # ラジオボタン
+        self.measuredRadio = QRadioButton("実測値データ（CSV/Excel/手入力）")
+        self.formulaRadio = QRadioButton("数式によるグラフ生成")
+        self.measuredRadio.setChecked(True)  # デフォルトは実測値
+        
+        # ラジオボタングループ
+        dataSourceTypeButtonGroup = QButtonGroup(self)
+        dataSourceTypeButtonGroup.addButton(self.measuredRadio)
+        dataSourceTypeButtonGroup.addButton(self.formulaRadio)
+        
+        # ラジオボタンのスタイル設定
+        radioStyle = "QRadioButton { font-weight: bold; font-size: 14px; padding: 5px; }"
+        self.measuredRadio.setStyleSheet(radioStyle)
+        self.formulaRadio.setStyleSheet(radioStyle)
+        
+        # 説明ラベル
+        measuredLabel = QLabel("実験などで取得した実測データを使用してグラフを生成します")
+        measuredLabel.setStyleSheet("color: gray; font-style: italic; padding-left: 20px;")
+        formulaLabel = QLabel("入力した数式に基づいて理論曲線を生成します")
+        formulaLabel.setStyleSheet("color: gray; font-style: italic; padding-left: 20px;")
+        
+        # レイアウトに追加
+        dataSourceTypeLayout.addWidget(self.measuredRadio)
+        dataSourceTypeLayout.addWidget(measuredLabel)
+        dataSourceTypeLayout.addWidget(self.formulaRadio)
+        dataSourceTypeLayout.addWidget(formulaLabel)
+        
+        # イベントハンドラーの接続
+        self.measuredRadio.toggled.connect(self.on_data_source_type_changed)
+        self.formulaRadio.toggled.connect(self.on_data_source_type_changed)
+        
+        dataSourceTypeGroup.setLayout(dataSourceTypeLayout)
+        dataTabLayout.addWidget(dataSourceTypeGroup)
+        
+        # データソースコンテナ（実測値）
+        self.measuredContainer = QWidget()
+        measuredLayout = QVBoxLayout(self.measuredContainer)
+        
         # データソース選択
         dataSourceGroup = QGroupBox("データソース")
         dataSourceLayout = QVBoxLayout()
@@ -143,21 +202,22 @@ class TikZPlotConverter(QMainWindow):
         sheetLayout.addWidget(sheetLabel)
         sheetLayout.addWidget(self.sheetCombobox)
         
+        # データ直接入力
+        self.manualRadio = QRadioButton("データを直接入力:")
+        
         # ボタングループの設定
         sourceGroup = QButtonGroup(self)
         sourceGroup.addButton(self.csvRadio)
         sourceGroup.addButton(self.excelRadio)
-        sourceGroup.buttonClicked.connect(self.toggle_source_fields)
-        
-        # データ直接入力
-        self.manualRadio = QRadioButton("データを直接入力:")
         sourceGroup.addButton(self.manualRadio)
+        sourceGroup.buttonClicked.connect(self.toggle_source_fields)
         
         # データテーブル
         self.dataTable = QTableWidget(10, 2)  # 行数, 列数
         self.dataTable.setHorizontalHeaderLabels(['X', 'Y'])
         self.dataTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.dataTable.setEnabled(False)  # 初期状態では無効
+        self.dataTable.setMinimumHeight(200)  # 高さを設定
         
         # データテーブル操作ボタン
         tableButtonLayout = QHBoxLayout()
@@ -165,11 +225,8 @@ class TikZPlotConverter(QMainWindow):
         addRowButton.clicked.connect(self.add_table_row)
         removeRowButton = QPushButton('選択行を削除')
         removeRowButton.clicked.connect(self.remove_table_row)
-        addColumnButton = QPushButton('列を追加')
-        addColumnButton.clicked.connect(self.add_table_column)
         tableButtonLayout.addWidget(addRowButton)
         tableButtonLayout.addWidget(removeRowButton)
-        tableButtonLayout.addWidget(addColumnButton)
         
         # データソースレイアウトに追加
         dataSourceLayout.addLayout(csvLayout)
@@ -205,9 +262,168 @@ class TikZPlotConverter(QMainWindow):
         
         columnGroup.setLayout(columnLayout)
         
-        # データタブレイアウトに追加
-        dataTabLayout.addWidget(dataSourceGroup)
-        dataTabLayout.addWidget(columnGroup)
+        # 実測値コンテナに追加
+        measuredLayout.addWidget(dataSourceGroup)
+        measuredLayout.addWidget(columnGroup)
+        
+        # データソースコンテナ（数式）
+        self.formulaContainer = QWidget()
+        formulaLayout = QVBoxLayout(self.formulaContainer)
+        
+        # 数式フォームグループ
+        formulaFormGroup = QGroupBox("数式入力")
+        formulaFormLayout = QVBoxLayout()
+        
+        # 数式入力フィールド
+        equationLayout = QHBoxLayout()
+        equationLabel = QLabel('数式 (x変数を使用):')
+        self.equationEntry = QLineEdit('x^2')
+        self.equationEntry.setPlaceholderText('例: x^2, sin(x), exp(-x/2)')
+        equationLayout.addWidget(equationLabel)
+        equationLayout.addWidget(self.equationEntry)
+        formulaFormLayout.addLayout(equationLayout)
+        
+        # ドメイン範囲
+        domainLayout = QHBoxLayout()
+        domainLabel = QLabel('x軸範囲:')
+        self.domainMinSpin = QDoubleSpinBox()
+        self.domainMinSpin.setRange(-1000, 1000)
+        self.domainMinSpin.setValue(0)
+        self.domainMaxSpin = QDoubleSpinBox()
+        self.domainMaxSpin.setRange(-1000, 1000)
+        self.domainMaxSpin.setValue(10)
+        domainLayout.addWidget(domainLabel)
+        domainLayout.addWidget(self.domainMinSpin)
+        domainLayout.addWidget(QLabel('〜'))
+        domainLayout.addWidget(self.domainMaxSpin)
+        formulaFormLayout.addLayout(domainLayout)
+        
+        # サンプル数
+        samplesLayout = QHBoxLayout()
+        samplesLabel = QLabel('サンプル数:')
+        self.samplesSpin = QSpinBox()
+        self.samplesSpin.setRange(10, 1000)
+        self.samplesSpin.setValue(200)
+        samplesLayout.addWidget(samplesLabel)
+        samplesLayout.addWidget(self.samplesSpin)
+        formulaFormLayout.addLayout(samplesLayout)
+        
+        # 数式説明
+        formulaInfoLabel = QLabel('※ 数式内では以下の関数と演算が使用可能です：\nsin, cos, tan, exp, ln, log, sqrt, ^（累乗）, +, -, *, /')
+        formulaInfoLabel.setStyleSheet('color: gray;')
+        formulaFormLayout.addWidget(formulaInfoLabel)
+        
+        # 数式適用ボタン
+        applyFormulaButton = QPushButton('数式を適用')
+        applyFormulaButton.clicked.connect(self.apply_formula)
+        applyFormulaButton.setStyleSheet('background-color: #4CAF50; color: white;')
+        formulaFormLayout.addWidget(applyFormulaButton)
+        
+        formulaFormGroup.setLayout(formulaFormLayout)
+        formulaLayout.addWidget(formulaFormGroup)
+        
+        # パラメーターグループ（数式モードでも表示）
+        parameterSweepGroup = QGroupBox("パラメータスイープ設定（オプション）")
+        parameterSweepLayout = QVBoxLayout()
+        
+        # パラメータスイープ
+        self.paramSweepCheck = QCheckBox('パラメータスイープを有効にする')
+        parameterSweepLayout.addWidget(self.paramSweepCheck)
+        
+        # パラメータ名
+        paramNameLayout = QHBoxLayout()
+        paramNameLabel = QLabel('パラメータ名:')
+        self.paramNameEntry = QLineEdit('a')
+        self.paramNameEntry.setEnabled(False)
+        paramNameLayout.addWidget(paramNameLabel)
+        paramNameLayout.addWidget(self.paramNameEntry)
+        parameterSweepLayout.addLayout(paramNameLayout)
+        
+        # パラメータ範囲
+        paramRangeLayout = QHBoxLayout()
+        paramRangeLabel = QLabel('パラメータ範囲:')
+        self.paramMinSpin = QDoubleSpinBox()
+        self.paramMinSpin.setRange(-1000, 1000)
+        self.paramMinSpin.setValue(0.01)
+        self.paramMinSpin.setEnabled(False)
+        self.paramMaxSpin = QDoubleSpinBox()
+        self.paramMaxSpin.setRange(-1000, 1000)
+        self.paramMaxSpin.setValue(0.1)
+        self.paramMaxSpin.setEnabled(False)
+        self.paramStepSpin = QDoubleSpinBox()
+        self.paramStepSpin.setRange(0.001, 100)
+        self.paramStepSpin.setValue(0.01)
+        self.paramStepSpin.setEnabled(False)
+        paramRangeLayout.addWidget(paramRangeLabel)
+        paramRangeLayout.addWidget(self.paramMinSpin)
+        paramRangeLayout.addWidget(QLabel('〜'))
+        paramRangeLayout.addWidget(self.paramMaxSpin)
+        paramRangeLayout.addWidget(QLabel('ステップ:'))
+        paramRangeLayout.addWidget(self.paramStepSpin)
+        parameterSweepLayout.addLayout(paramRangeLayout)
+        
+        # パラメータスイープのための曲線リスト
+        self.sweepCurvesList = QListWidget()
+        self.sweepCurvesList.setEnabled(False)
+        self.sweepCurvesList.setMinimumHeight(100)
+        parameterSweepLayout.addWidget(QLabel("パラメータ値のリスト:"))
+        parameterSweepLayout.addWidget(self.sweepCurvesList)
+        
+        # 追加ボタン
+        addSweepButtonLayout = QHBoxLayout()
+        addSweepButton = QPushButton('パラメータ値を追加')
+        addSweepButton.setEnabled(False)
+        addSweepButton.clicked.connect(self.add_param_value)
+        removeSweepButton = QPushButton('選択した値を削除')
+        removeSweepButton.setEnabled(False)
+        removeSweepButton.clicked.connect(self.remove_param_value)
+        addSweepButtonLayout.addWidget(addSweepButton)
+        addSweepButtonLayout.addWidget(removeSweepButton)
+        parameterSweepLayout.addLayout(addSweepButtonLayout)
+        
+        # イベント接続
+        self.paramSweepCheck.toggled.connect(lambda checked: [
+            self.paramNameEntry.setEnabled(checked),
+            self.paramMinSpin.setEnabled(checked),
+            self.paramMaxSpin.setEnabled(checked),
+            self.paramStepSpin.setEnabled(checked),
+            self.sweepCurvesList.setEnabled(checked),
+            addSweepButton.setEnabled(checked),
+            removeSweepButton.setEnabled(checked)
+        ])
+        
+        parameterSweepGroup.setLayout(parameterSweepLayout)
+        formulaLayout.addWidget(parameterSweepGroup)
+        
+        # 数式用凡例設定
+        formulaLegendGroup = QGroupBox("理論曲線の凡例設定")
+        formulaLegendLayout = QFormLayout()
+        
+        self.theoryLegendEntry = QLineEdit('理論曲線')
+        self.theoryColorButton = QPushButton()
+        self.theoryColorButton.setStyleSheet('background-color: green;')
+        self.theoryCurrentColor = QColor('green')
+        self.theoryColorButton.clicked.connect(self.select_theory_color)
+        
+        self.theoryLineWidthSpin = QDoubleSpinBox()
+        self.theoryLineWidthSpin.setRange(0.1, 5.0)
+        self.theoryLineWidthSpin.setSingleStep(0.1)
+        self.theoryLineWidthSpin.setValue(1.0)
+        
+        formulaLegendLayout.addRow('凡例ラベル:', self.theoryLegendEntry)
+        formulaLegendLayout.addRow('線の色:', self.theoryColorButton)
+        formulaLegendLayout.addRow('線の太さ:', self.theoryLineWidthSpin)
+        
+        formulaLegendGroup.setLayout(formulaLegendLayout)
+        formulaLayout.addWidget(formulaLegendGroup)
+        
+        # 初期状態ではコンテナの表示/非表示を設定
+        dataTabLayout.addWidget(self.measuredContainer)
+        dataTabLayout.addWidget(self.formulaContainer)
+        self.measuredContainer.setVisible(True)
+        self.formulaContainer.setVisible(False)
+        
+        # タブに設定
         dataTab.setLayout(dataTabLayout)
         
         # タブ2: グラフ設定
@@ -215,7 +431,7 @@ class TikZPlotConverter(QMainWindow):
         plotTabLayout = QVBoxLayout()
         
         # グラフタイプの選択
-        plotTypeGroup = QGroupBox("グラフタイプ")
+        plotTypeGroup = QGroupBox("データセット個別設定 - グラフタイプ")
         plotTypeLayout = QHBoxLayout()
         
         self.lineRadio = QRadioButton("線グラフ")
@@ -231,7 +447,7 @@ class TikZPlotConverter(QMainWindow):
         plotTypeGroup.setLayout(plotTypeLayout)
         
         # グラフスタイル設定
-        styleGroup = QGroupBox("スタイル設定")
+        styleGroup = QGroupBox("データセット個別設定 - スタイル")
         styleLayout = QGridLayout()
         
         # 色選択
@@ -276,18 +492,18 @@ class TikZPlotConverter(QMainWindow):
         styleGroup.setLayout(styleLayout)
         
         # 軸設定
-        axisGroup = QGroupBox("軸設定")
+        axisGroup = QGroupBox("グラフ全体設定 - 軸")
         axisLayout = QGridLayout()
         
         # X軸ラベル
         xLabelLabel = QLabel('X軸ラベル:')
-        self.xLabelEntry = QLineEdit('x')
+        self.xLabelEntry = QLineEdit(self.global_settings['x_label'])
         axisLayout.addWidget(xLabelLabel, 0, 0)
         axisLayout.addWidget(self.xLabelEntry, 0, 1)
         
         # Y軸ラベル
         yLabelLabel = QLabel('Y軸ラベル:')
-        self.yLabelEntry = QLineEdit('y')
+        self.yLabelEntry = QLineEdit(self.global_settings['y_label'])
         axisLayout.addWidget(yLabelLabel, 1, 0)
         axisLayout.addWidget(self.yLabelEntry, 1, 1)
         
@@ -296,10 +512,10 @@ class TikZPlotConverter(QMainWindow):
         xRangeLayout = QHBoxLayout()
         self.xMinSpin = QDoubleSpinBox()
         self.xMinSpin.setRange(-1000, 1000)
-        self.xMinSpin.setValue(0)
+        self.xMinSpin.setValue(self.global_settings['x_min'])
         self.xMaxSpin = QDoubleSpinBox()
         self.xMaxSpin.setRange(-1000, 1000)
-        self.xMaxSpin.setValue(10)
+        self.xMaxSpin.setValue(self.global_settings['x_max'])
         xRangeLayout.addWidget(self.xMinSpin)
         xRangeLayout.addWidget(QLabel('〜'))
         xRangeLayout.addWidget(self.xMaxSpin)
@@ -311,10 +527,10 @@ class TikZPlotConverter(QMainWindow):
         yRangeLayout = QHBoxLayout()
         self.yMinSpin = QDoubleSpinBox()
         self.yMinSpin.setRange(-1000, 1000)
-        self.yMinSpin.setValue(0)
+        self.yMinSpin.setValue(self.global_settings['y_min'])
         self.yMaxSpin = QDoubleSpinBox()
         self.yMaxSpin.setRange(-1000, 1000)
-        self.yMaxSpin.setValue(10)
+        self.yMaxSpin.setValue(self.global_settings['y_max'])
         yRangeLayout.addWidget(self.yMinSpin)
         yRangeLayout.addWidget(QLabel('〜'))
         yRangeLayout.addWidget(self.yMaxSpin)
@@ -323,13 +539,13 @@ class TikZPlotConverter(QMainWindow):
         
         # グリッド表示
         self.gridCheck = QCheckBox('グリッド表示')
-        self.gridCheck.setChecked(True)
+        self.gridCheck.setChecked(self.global_settings['grid'])
         axisLayout.addWidget(self.gridCheck, 4, 0, 1, 2)
         
         axisGroup.setLayout(axisLayout)
         
         # 凡例設定
-        legendGroup = QGroupBox("凡例設定")
+        legendGroup = QGroupBox("データセット個別設定 - 凡例")
         legendLayout = QFormLayout()
         
         self.legendCheck = QCheckBox('凡例を表示')
@@ -340,7 +556,7 @@ class TikZPlotConverter(QMainWindow):
         legendPosLabel = QLabel('凡例の位置:')
         self.legendPosCombo = QComboBox()
         self.legendPosCombo.addItems(['north west', 'north east', 'south west', 'south east', 'north', 'south', 'east', 'west'])
-        self.legendPosCombo.setCurrentText('north east')
+        self.legendPosCombo.setCurrentText(self.global_settings['legend_pos'])
         
         legendLayout.addRow(self.legendCheck)
         legendLayout.addRow('凡例ラベル:', self.legendLabel)
@@ -349,33 +565,33 @@ class TikZPlotConverter(QMainWindow):
         legendGroup.setLayout(legendLayout)
         
         # 図の設定
-        figureGroup = QGroupBox("図の設定")
+        figureGroup = QGroupBox("グラフ全体設定 - 図")
         figureLayout = QFormLayout()
         
         # キャプション
-        self.captionEntry = QLineEdit('グラフのタイトル')
+        self.captionEntry = QLineEdit(self.global_settings['caption'])
         
         # ラベル
-        self.labelEntry = QLineEdit('fig:plot')
+        self.labelEntry = QLineEdit(self.global_settings['label'])
         
         # 位置
         self.positionCombo = QComboBox()
         self.positionCombo.addItems(['h', 'htbp', 't', 'b', 'p', 'H'])
-        self.positionCombo.setCurrentText('H')
+        self.positionCombo.setCurrentText(self.global_settings['position'])
         
         # 幅と高さ
         widthLayout = QHBoxLayout()
         self.widthSpin = QDoubleSpinBox()
         self.widthSpin.setRange(0.1, 1.0)
         self.widthSpin.setSingleStep(0.1)
-        self.widthSpin.setValue(0.8)
+        self.widthSpin.setValue(self.global_settings['width'])
         self.widthSpin.setSuffix('\\textwidth')
         
         heightLayout = QHBoxLayout()
         self.heightSpin = QDoubleSpinBox()
         self.heightSpin.setRange(0.1, 1.0)
         self.heightSpin.setSingleStep(0.1)
-        self.heightSpin.setValue(0.5)
+        self.heightSpin.setValue(self.global_settings['height'])
         self.heightSpin.setSuffix('\\textwidth')
         
         figureLayout.addRow('キャプション:', self.captionEntry)
@@ -387,187 +603,22 @@ class TikZPlotConverter(QMainWindow):
         figureGroup.setLayout(figureLayout)
         
         # プロットタブレイアウトに追加
+        plotTabLayout.addWidget(QLabel("【グラフ全体の設定】"))
+        plotTabLayout.addWidget(axisGroup)
+        plotTabLayout.addWidget(figureGroup)
+        
+        # 区切り線
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        plotTabLayout.addWidget(separator)
+        
+        plotTabLayout.addWidget(QLabel("【データセット個別の設定】"))
         plotTabLayout.addWidget(plotTypeGroup)
         plotTabLayout.addWidget(styleGroup)
-        plotTabLayout.addWidget(axisGroup)
         plotTabLayout.addWidget(legendGroup)
-        plotTabLayout.addWidget(figureGroup)
+        
         plotTab.setLayout(plotTabLayout)
-        
-        # タブ3: 理論曲線
-        theoryTab = QWidget()
-        theoryTabLayout = QVBoxLayout()
-        
-        # 理論曲線追加
-        theoryGroup = QGroupBox("理論曲線")
-        theoryLayout = QVBoxLayout()
-        
-        self.theoryCurveCheck = QCheckBox('理論曲線を追加')
-        theoryLayout.addWidget(self.theoryCurveCheck)
-        
-        # 方程式入力
-        equationLayout = QHBoxLayout()
-        equationLabel = QLabel('方程式:')
-        self.equationEntry = QLineEdit('x^2')
-        self.equationEntry.setEnabled(False)
-        self.equationEntry.setPlaceholderText('例: x^2 or sin(x) or exp(-x/2)')
-        equationLayout.addWidget(equationLabel)
-        equationLayout.addWidget(self.equationEntry)
-        theoryLayout.addLayout(equationLayout)
-        
-        # 理論曲線パラメータ設定
-        paramsGroup = QGroupBox("パラメータ設定")
-        paramsLayout = QVBoxLayout()
-        
-        # ドメイン範囲
-        domainLayout = QHBoxLayout()
-        domainLabel = QLabel('ドメイン範囲:')
-        self.domainMinSpin = QDoubleSpinBox()
-        self.domainMinSpin.setRange(-1000, 1000)
-        self.domainMinSpin.setValue(0)
-        self.domainMinSpin.setEnabled(False)
-        self.domainMaxSpin = QDoubleSpinBox()
-        self.domainMaxSpin.setRange(-1000, 1000)
-        self.domainMaxSpin.setValue(10)
-        self.domainMaxSpin.setEnabled(False)
-        domainLayout.addWidget(domainLabel)
-        domainLayout.addWidget(self.domainMinSpin)
-        domainLayout.addWidget(QLabel('〜'))
-        domainLayout.addWidget(self.domainMaxSpin)
-        paramsLayout.addLayout(domainLayout)
-        
-        # サンプル数
-        samplesLayout = QHBoxLayout()
-        samplesLabel = QLabel('サンプル数:')
-        self.samplesSpin = QSpinBox()
-        self.samplesSpin.setRange(10, 1000)
-        self.samplesSpin.setValue(200)
-        self.samplesSpin.setEnabled(False)
-        samplesLayout.addWidget(samplesLabel)
-        samplesLayout.addWidget(self.samplesSpin)
-        paramsLayout.addLayout(samplesLayout)
-        
-        # パラメータスイープ
-        self.paramSweepCheck = QCheckBox('パラメータスイープ')
-        self.paramSweepCheck.setEnabled(False)
-        paramsLayout.addWidget(self.paramSweepCheck)
-        
-        # パラメータ名
-        paramNameLayout = QHBoxLayout()
-        paramNameLabel = QLabel('パラメータ名:')
-        self.paramNameEntry = QLineEdit('a')
-        self.paramNameEntry.setEnabled(False)
-        paramNameLayout.addWidget(paramNameLabel)
-        paramNameLayout.addWidget(self.paramNameEntry)
-        paramsLayout.addLayout(paramNameLayout)
-        
-        # パラメータ範囲
-        paramRangeLayout = QHBoxLayout()
-        paramRangeLabel = QLabel('パラメータ範囲:')
-        self.paramMinSpin = QDoubleSpinBox()
-        self.paramMinSpin.setRange(-1000, 1000)
-        self.paramMinSpin.setValue(0.01)
-        self.paramMinSpin.setEnabled(False)
-        self.paramMaxSpin = QDoubleSpinBox()
-        self.paramMaxSpin.setRange(-1000, 1000)
-        self.paramMaxSpin.setValue(0.1)
-        self.paramMaxSpin.setEnabled(False)
-        self.paramStepSpin = QDoubleSpinBox()
-        self.paramStepSpin.setRange(0.001, 100)
-        self.paramStepSpin.setValue(0.01)
-        self.paramStepSpin.setEnabled(False)
-        paramRangeLayout.addWidget(paramRangeLabel)
-        paramRangeLayout.addWidget(self.paramMinSpin)
-        paramRangeLayout.addWidget(QLabel('〜'))
-        paramRangeLayout.addWidget(self.paramMaxSpin)
-        paramRangeLayout.addWidget(QLabel('ステップ:'))
-        paramRangeLayout.addWidget(self.paramStepSpin)
-        paramsLayout.addLayout(paramRangeLayout)
-        
-        # パラメータスイープのための曲線リスト
-        self.sweepCurvesList = QListWidget()
-        self.sweepCurvesList.setEnabled(False)
-        paramsLayout.addWidget(self.sweepCurvesList)
-        
-        # 追加ボタン
-        addSweepButtonLayout = QHBoxLayout()
-        addSweepButton = QPushButton('パラメータ値を追加')
-        addSweepButton.setEnabled(False)
-        addSweepButton.clicked.connect(self.add_param_value)
-        removeSweepButton = QPushButton('選択した値を削除')
-        removeSweepButton.setEnabled(False)
-        removeSweepButton.clicked.connect(self.remove_param_value)
-        addSweepButtonLayout.addWidget(addSweepButton)
-        addSweepButtonLayout.addWidget(removeSweepButton)
-        paramsLayout.addLayout(addSweepButtonLayout)
-        
-        # イベント接続
-        self.theoryCurveCheck.toggled.connect(lambda checked: [
-            self.equationEntry.setEnabled(checked),
-            self.domainMinSpin.setEnabled(checked),
-            self.domainMaxSpin.setEnabled(checked),
-            self.samplesSpin.setEnabled(checked),
-            self.paramSweepCheck.setEnabled(checked)
-        ])
-        
-        self.paramSweepCheck.toggled.connect(lambda checked: [
-            self.paramNameEntry.setEnabled(checked),
-            self.paramMinSpin.setEnabled(checked),
-            self.paramMaxSpin.setEnabled(checked),
-            self.paramStepSpin.setEnabled(checked),
-            self.sweepCurvesList.setEnabled(checked),
-            addSweepButton.setEnabled(checked),
-            removeSweepButton.setEnabled(checked)
-        ])
-        
-        paramsGroup.setLayout(paramsLayout)
-        theoryLayout.addWidget(paramsGroup)
-        theoryGroup.setLayout(theoryLayout)
-        
-        # 理論曲線のスタイル設定
-        theoryStyleGroup = QGroupBox("理論曲線のスタイル")
-        theoryStyleLayout = QGridLayout()
-        
-        # 色選択
-        theoryColorLabel = QLabel('線の色:')
-        self.theoryColorButton = QPushButton()
-        self.theoryColorButton.setStyleSheet('background-color: green;')
-        self.theoryCurrentColor = QColor('green')
-        self.theoryColorButton.clicked.connect(self.select_theory_color)
-        self.theoryColorButton.setEnabled(False)
-        theoryStyleLayout.addWidget(theoryColorLabel, 0, 0)
-        theoryStyleLayout.addWidget(self.theoryColorButton, 0, 1)
-        
-        # 線の太さ
-        theoryLineWidthLabel = QLabel('線の太さ:')
-        self.theoryLineWidthSpin = QDoubleSpinBox()
-        self.theoryLineWidthSpin.setRange(0.1, 5.0)
-        self.theoryLineWidthSpin.setSingleStep(0.1)
-        self.theoryLineWidthSpin.setValue(1.0)
-        self.theoryLineWidthSpin.setEnabled(False)
-        theoryStyleLayout.addWidget(theoryLineWidthLabel, 1, 0)
-        theoryStyleLayout.addWidget(self.theoryLineWidthSpin, 1, 1)
-        
-        # 凡例ラベル
-        theoryLegendLabel = QLabel('凡例ラベル:')
-        self.theoryLegendEntry = QLineEdit('理論曲線')
-        self.theoryLegendEntry.setEnabled(False)
-        theoryStyleLayout.addWidget(theoryLegendLabel, 2, 0)
-        theoryStyleLayout.addWidget(self.theoryLegendEntry, 2, 1)
-        
-        theoryStyleGroup.setLayout(theoryStyleLayout)
-        
-        # イベント接続
-        self.theoryCurveCheck.toggled.connect(lambda checked: [
-            self.theoryColorButton.setEnabled(checked),
-            self.theoryLineWidthSpin.setEnabled(checked),
-            self.theoryLegendEntry.setEnabled(checked)
-        ])
-        
-        # 理論曲線タブレイアウトに追加
-        theoryTabLayout.addWidget(theoryGroup)
-        theoryTabLayout.addWidget(theoryStyleGroup)
-        theoryTab.setLayout(theoryTabLayout)
         
         # タブ4: 特殊点・注釈
         annotationTab = QWidget()
@@ -655,8 +706,7 @@ class TikZPlotConverter(QMainWindow):
         # タブ追加
         tabWidget.addTab(dataTab, "データ入力")
         tabWidget.addTab(plotTab, "グラフ設定")
-        tabWidget.addTab(theoryTab, "理論曲線")
-        tabWidget.addTab(annotationTab, "特殊点・注釈")
+        tabWidget.addTab(annotationTab, "詳細設定")
         
         # 設定部分のレイアウトに追加
         settingsLayout.addLayout(infoLayout)
@@ -961,7 +1011,36 @@ class TikZPlotConverter(QMainWindow):
             clipboard.setText(latex_code)
             self.statusBar.showMessage("LaTeXコードをクリップボードにコピーしました", 3000)  # 3秒間表示
 
-    # TikZコードに変換する
+    def update_global_settings(self):
+        """UIからグラフ全体の設定を更新する"""
+        try:
+            # 軸ラベル
+            self.global_settings['x_label'] = self.xLabelEntry.text()
+            self.global_settings['y_label'] = self.yLabelEntry.text()
+            
+            # 軸範囲
+            self.global_settings['x_min'] = self.xMinSpin.value()
+            self.global_settings['x_max'] = self.xMaxSpin.value()
+            self.global_settings['y_min'] = self.yMinSpin.value()
+            self.global_settings['y_max'] = self.yMaxSpin.value()
+            
+            # グリッド
+            self.global_settings['grid'] = self.gridCheck.isChecked()
+            
+            # 凡例位置
+            self.global_settings['legend_pos'] = self.legendPosCombo.currentText()
+            
+            # 図の設定
+            self.global_settings['caption'] = self.captionEntry.text()
+            self.global_settings['label'] = self.labelEntry.text()
+            self.global_settings['position'] = self.positionCombo.currentText()
+            self.global_settings['width'] = self.widthSpin.value()
+            self.global_settings['height'] = self.heightSpin.value()
+            
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"グラフ全体設定の更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+
     def convert_to_tikz(self):
         # データセットが空かチェック
         if not self.datasets or all(not dataset.get('data_x') for dataset in self.datasets):
@@ -969,6 +1048,9 @@ class TikZPlotConverter(QMainWindow):
             return
         
         try:
+            # グラフ全体の設定を更新
+            self.update_global_settings()
+            
             # 各データセットを処理
             latex_code = self.generate_tikz_code_multi_datasets()
             
@@ -1012,19 +1094,35 @@ class TikZPlotConverter(QMainWindow):
 
             dataset = {
                 'name': final_name, # Always a string
+                'data_source_type': 'measured',  # 'measured' または 'formula'
                 'data_x': [],
                 'data_y': [],
-                'color': QColor('blue'),
+                'color': QColor('blue'),  # QColorオブジェクトを新規作成
                 'line_width': 1.0,
                 'marker_style': '*',
                 'marker_size': 3.0,
                 'plot_type': "line",
                 'legend_label': final_name, # Always a string, initialized with name
                 'show_legend': True,
-                'is_theory': False,
                 'equation': '',
+                'domain_min': 0,
+                'domain_max': 10,
+                'samples': 200,
                 'special_points': [],
-                'annotations': []
+                'annotations': [],
+                # ファイル読み込み関連の設定
+                'file_path': '',
+                'file_type': 'csv',  # 'csv' or 'excel' or 'manual'
+                'sheet_name': '',
+                'x_column': '',
+                'y_column': '',
+                # 理論曲線関連の設定
+                'theory_color': QColor('green'),  # QColorオブジェクトを新規作成
+                'theory_line_width': 1.0,
+                'theory_legend': '理論曲線',
+                'param_sweep': False,
+                'param_name': 'a',
+                'param_values': []
             }
             
             self.datasets.append(dataset)
@@ -1130,6 +1228,11 @@ class TikZPlotConverter(QMainWindow):
     def on_dataset_selected(self, row):
         """データセットが選択されたときに呼ばれる"""
         try:
+            # 以前のデータセットの状態を保存（存在する場合）
+            old_index = self.current_dataset_index
+            if old_index >= 0 and old_index < len(self.datasets):
+                self.update_current_dataset()
+                
             if row < 0 or row >= len(self.datasets):
                 # 選択が無効になった場合（例：最後のアイテム削除直後など）
                 # current_dataset_index を無効な値に設定し、UIを適切に処理
@@ -1138,25 +1241,134 @@ class TikZPlotConverter(QMainWindow):
                     self.update_ui_for_no_datasets()
                 return
             
+            # 現在のインデックスを更新
             self.current_dataset_index = row
+            
+            # UIを更新
             dataset = self.datasets[row]
             self.update_ui_from_dataset(dataset)
+            
+            self.statusBar.showMessage(f"データセット '{dataset['name']}' を選択しました", 3000)
         except Exception as e:
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット選択処理中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+            
+    def update_current_dataset(self):
+        """UIの値を現在のデータセットに反映する"""
+        try:
+            if self.current_dataset_index < 0 or not self.datasets or self.current_dataset_index >= len(self.datasets):
+                return
+                
+            dataset = self.datasets[self.current_dataset_index]
+            
+            # 共通設定を保存（プロットタイプ、色、線の太さなど）
+            # 色
+            dataset['color'] = QColor(self.currentColor)  # QColorオブジェクトをコピー
+            # 線の太さ
+            dataset['line_width'] = self.lineWidthSpin.value()
+            # マーカースタイル
+            dataset['marker_style'] = self.markerCombo.currentText()
+            # マーカーサイズ
+            dataset['marker_size'] = self.markerSizeSpin.value()
+            # 凡例表示
+            dataset['show_legend'] = self.legendCheck.isChecked()
+            # 凡例ラベル
+            dataset['legend_label'] = self.legendLabel.text()
+            
+            # プロットタイプ
+            if self.lineRadio.isChecked():
+                dataset['plot_type'] = "line"
+            elif self.scatterRadio.isChecked():
+                dataset['plot_type'] = "scatter"
+            elif self.lineScatterRadio.isChecked():
+                dataset['plot_type'] = "line_scatter"
+            else:
+                dataset['plot_type'] = "bar"
+            
+            # データソースタイプによって異なる設定を保存
+            if hasattr(self, 'measuredRadio') and hasattr(self, 'formulaRadio'):
+                # データソースタイプ
+                dataset['data_source_type'] = 'measured' if self.measuredRadio.isChecked() else 'formula'
+                
+                if self.measuredRadio.isChecked():
+                    # 実測値モードの設定
+                    
+                    # ファイル種類
+                    if self.csvRadio.isChecked():
+                        dataset['file_type'] = 'csv'
+                        dataset['file_path'] = self.fileEntry.text()
+                    elif self.excelRadio.isChecked():
+                        dataset['file_type'] = 'excel'
+                        dataset['file_path'] = self.excelEntry.text()
+                        dataset['sheet_name'] = self.sheetCombobox.currentText()
+                    else:
+                        dataset['file_type'] = 'manual'
+                    
+                    # 列名
+                    dataset['x_column'] = self.xColCombo.currentText()
+                    dataset['y_column'] = self.yColCombo.currentText()
+                    
+                    # 手動入力データ
+                    if self.manualRadio.isChecked():
+                        data_x = []
+                        data_y = []
+                        
+                        for row in range(self.dataTable.rowCount()):
+                            x_item = self.dataTable.item(row, 0)
+                            y_item = self.dataTable.item(row, 1)
+                            
+                            if x_item and y_item and x_item.text() and y_item.text():
+                                try:
+                                    x_val = float(x_item.text())
+                                    y_val = float(y_item.text())
+                                    data_x.append(x_val)
+                                    data_y.append(y_val)
+                                except ValueError:
+                                    pass
+                        
+                        dataset['data_x'] = data_x
+                        dataset['data_y'] = data_y
+                else:
+                    # 数式モードの設定
+                    dataset['equation'] = self.equationEntry.text()
+                    dataset['domain_min'] = self.domainMinSpin.value()
+                    dataset['domain_max'] = self.domainMaxSpin.value()
+                    dataset['samples'] = self.samplesSpin.value()
+                    
+                    # パラメータスイープ設定
+                    dataset['param_sweep'] = self.paramSweepCheck.isChecked()
+                    dataset['param_name'] = self.paramNameEntry.text()
+                    
+                    # パラメータ値を保存
+                    param_values = []
+                    for i in range(self.sweepCurvesList.count()):
+                        item_text = self.sweepCurvesList.item(i).text()
+                        try:
+                            param_val = float(item_text.split('=')[1].strip())
+                            param_values.append(param_val)
+                        except (ValueError, IndexError):
+                            pass
+                    dataset['param_values'] = param_values
+                    
+                    # 理論曲線のスタイル
+                    dataset['theory_color'] = QColor(self.theoryCurrentColor)  # QColorオブジェクトをコピー
+                    dataset['theory_line_width'] = self.theoryLineWidthSpin.value()
+                    dataset['theory_legend'] = self.theoryLegendEntry.text()
+        
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"データセット更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     def update_ui_from_dataset(self, dataset):
         """現在のデータセットに基づいてUIを更新する"""
         try:
-            # UIを更新
-            # 凡例ラベル
-            legend_text = str(dataset.get('legend_label', dataset.get('name', '')))
-            self.legendLabel.setText(legend_text)
+            # データソースタイプの設定
+            data_source_type = dataset.get('data_source_type', 'measured')
             
-            # 色
+            # 色の設定（共通項目）
             color = dataset.get('color', QColor('blue'))
-            self.currentColor = color
-            self.colorButton.setStyleSheet(f'background-color: {color.name()};')
+            self.currentColor = QColor(color)  # 確実にQColorオブジェクトにする
+            self.colorButton.setStyleSheet(f'background-color: {self.currentColor.name()};')
             
             # 線の太さ
             self.lineWidthSpin.setValue(dataset.get('line_width', 1.0))
@@ -1173,6 +1385,10 @@ class TikZPlotConverter(QMainWindow):
             # 凡例表示
             self.legendCheck.setChecked(dataset.get('show_legend', True))
             
+            # 凡例ラベル
+            legend_text = str(dataset.get('legend_label', dataset.get('name', '')))
+            self.legendLabel.setText(legend_text)
+            
             # プロットタイプ
             plot_type = str(dataset.get('plot_type', 'line'))
             if plot_type == "line": 
@@ -1183,14 +1399,134 @@ class TikZPlotConverter(QMainWindow):
                 self.lineScatterRadio.setChecked(True)
             else: 
                 self.barRadio.setChecked(True)
+                
+            # ラジオボタンを更新（イベントハンドラが発生）
+            # 注：ここでイベントが発生するため、下記のコードはイベントハンドラー内で上書きされる可能性がある
+            if data_source_type == 'measured':
+                if not self.measuredRadio.isChecked():
+                    self.measuredRadio.setChecked(True)
+            else:
+                if not self.formulaRadio.isChecked():
+                    self.formulaRadio.setChecked(True)
             
-            # データテーブルの更新
-            if self.manualRadio.isChecked():
-                self.update_data_table_from_dataset(dataset)
+            # データソースタイプに応じた設定の更新
+            if data_source_type == 'measured':
+                # 実測値の場合
+                # CSVファイルパス
+                file_path = dataset.get('file_path', '')
+                file_type = dataset.get('file_type', 'csv')
+                
+                if file_type == 'csv':
+                    self.csvRadio.setChecked(True)
+                    self.fileEntry.setText(file_path)
+                    self.toggle_source_fields()  # UIの有効/無効を更新
+                elif file_type == 'excel':
+                    self.excelRadio.setChecked(True)
+                    self.excelEntry.setText(file_path)
+                    self.toggle_source_fields()  # UIの有効/無効を更新
+                    
+                    # シート名を設定
+                    sheet_name = dataset.get('sheet_name', '')
+                    if sheet_name:
+                        index = self.sheetCombobox.findText(sheet_name)
+                        if index >= 0:
+                            self.sheetCombobox.setCurrentIndex(index)
+                elif file_type == 'manual':
+                    self.manualRadio.setChecked(True)
+                    self.toggle_source_fields()
+                
+                # 列名が設定されている場合は選択
+                x_column = dataset.get('x_column', '')
+                y_column = dataset.get('y_column', '')
+                if x_column:
+                    index = self.xColCombo.findText(x_column)
+                    if index >= 0:
+                        self.xColCombo.setCurrentIndex(index)
+                if y_column:
+                    index = self.yColCombo.findText(y_column)
+                    if index >= 0:
+                        self.yColCombo.setCurrentIndex(index)
+                
+                # データテーブルを更新
+                if dataset.get('data_x') and len(dataset.get('data_x')) > 0:
+                    self.update_data_table_from_dataset(dataset)
+            else:
+                # 数式モードの場合
+                # 数式設定を更新
+                self.equationEntry.setText(dataset.get('equation', 'x^2'))
+                self.domainMinSpin.setValue(dataset.get('domain_min', 0))
+                self.domainMaxSpin.setValue(dataset.get('domain_max', 10))
+                self.samplesSpin.setValue(dataset.get('samples', 200))
+                
+                # パラメータスイープ設定
+                self.paramSweepCheck.setChecked(dataset.get('param_sweep', False))
+                self.paramNameEntry.setText(dataset.get('param_name', 'a'))
+                
+                # パラメータ値リストを更新
+                self.sweepCurvesList.clear()
+                param_name = dataset.get('param_name', 'a')
+                param_values = dataset.get('param_values', [])
+                
+                for val in param_values:
+                    self.sweepCurvesList.addItem(f"{param_name} = {val:.4g}")
+                
+                # 理論曲線スタイル
+                theory_color = dataset.get('theory_color', QColor('green'))
+                self.theoryCurrentColor = QColor(theory_color)  # 確実にQColorオブジェクトにする
+                self.theoryColorButton.setStyleSheet(f'background-color: {self.theoryCurrentColor.name()};')
+                
+                self.theoryLineWidthSpin.setValue(dataset.get('theory_line_width', 1.0))
+                self.theoryLegendEntry.setText(dataset.get('theory_legend', '理論曲線'))
+            
+            # データソースに応じたUIの表示/非表示を更新
+            self.update_ui_based_on_data_source_type()
                 
         except Exception as e:
             import traceback
             QMessageBox.critical(self, "エラー", f"UI更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+    
+    def update_ui_based_on_data_source_type(self):
+        """データソースタイプに基づいてUIの表示/非表示を更新する"""
+        if not hasattr(self, 'measuredRadio') or not hasattr(self, 'formulaRadio'):
+            return  # UIがまだ初期化されていない場合
+            
+        # 測定値モードの場合
+        if self.measuredRadio.isChecked():
+            # 測定値関連のUIを表示
+            self.csvRadio.setEnabled(True)
+            self.excelRadio.setEnabled(True)
+            self.fileEntry.setEnabled(self.csvRadio.isChecked())
+            self.excelEntry.setEnabled(self.excelRadio.isChecked())
+            self.sheetCombobox.setEnabled(self.excelRadio.isChecked())
+            self.xColCombo.setEnabled(True)
+            self.yColCombo.setEnabled(True)
+            self.manualRadio.setEnabled(True)
+            self.dataTable.setEnabled(self.manualRadio.isChecked())
+            
+            # 数式関連のUIを非表示または無効化
+            self.equationEntry.setEnabled(False)
+            self.domainMinSpin.setEnabled(False)
+            self.domainMaxSpin.setEnabled(False)
+            self.samplesSpin.setEnabled(False)
+            
+        # 数式モードの場合
+        else:
+            # 測定値関連のUIを非表示または無効化
+            self.csvRadio.setEnabled(False)
+            self.excelRadio.setEnabled(False)
+            self.fileEntry.setEnabled(False)
+            self.excelEntry.setEnabled(False)
+            self.sheetCombobox.setEnabled(False)
+            self.xColCombo.setEnabled(False)
+            self.yColCombo.setEnabled(False)
+            self.manualRadio.setEnabled(False)
+            self.dataTable.setEnabled(False)
+            
+            # 数式関連のUIを表示
+            self.equationEntry.setEnabled(True)
+            self.domainMinSpin.setEnabled(True)
+            self.domainMaxSpin.setEnabled(True)
+            self.samplesSpin.setEnabled(True)
     
     def update_data_table_from_dataset(self, dataset):
         """データテーブルにデータセットの内容を反映する"""
@@ -1215,38 +1551,13 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"データテーブル更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
-    def update_current_dataset(self):
-        """UIの値を現在のデータセットに反映する"""
-        if self.current_dataset_index < 0 or not self.datasets:
-            return
-            
-        dataset = self.datasets[self.current_dataset_index]
-        
-        # UIから値を取得してデータセットを更新
-        dataset['color'] = self.currentColor
-        dataset['line_width'] = self.lineWidthSpin.value()
-        dataset['marker_style'] = self.markerCombo.currentText()
-        dataset['marker_size'] = self.markerSizeSpin.value()
-        dataset['show_legend'] = self.legendCheck.isChecked()
-        dataset['legend_label'] = self.legendLabel.text()
-        
-        # プロットタイプ
-        if self.lineRadio.isChecked():
-            dataset['plot_type'] = "line"
-        elif self.scatterRadio.isChecked():
-            dataset['plot_type'] = "scatter"
-        elif self.lineScatterRadio.isChecked():
-            dataset['plot_type'] = "line_scatter"
-        else:
-            dataset['plot_type'] = "bar"
-
     def generate_tikz_code_multi_datasets(self):
         """複数のデータセットを持つTikZコードを生成する"""
         # 結果のLaTeXコード
         latex = []
         
         # figure環境の開始
-        latex.append(f"\\begin{{figure}}[{self.positionCombo.currentText()}]")
+        latex.append(f"\\begin{{figure}}[{self.global_settings['position']}]")
         latex.append("    \\centering")
         
         # tikzpictureの開始
@@ -1254,26 +1565,26 @@ class TikZPlotConverter(QMainWindow):
         
         # axis環境の設定
         axis_options = []
-        axis_options.append(f"width={self.widthSpin.value()}\\textwidth")
-        axis_options.append(f"height={self.heightSpin.value()}\\textwidth")
-        axis_options.append(f"xlabel={{{self.xLabelEntry.text()}}}")
-        axis_options.append(f"ylabel={{{self.yLabelEntry.text()}}}")
+        axis_options.append(f"width={self.global_settings['width']}\\textwidth")
+        axis_options.append(f"height={self.global_settings['height']}\\textwidth")
+        axis_options.append(f"xlabel={{{self.global_settings['x_label']}}}")
+        axis_options.append(f"ylabel={{{self.global_settings['y_label']}}}")
         
-        x_min = self.xMinSpin.value()
-        x_max = self.xMaxSpin.value()
-        y_min = self.yMinSpin.value()
-        y_max = self.yMaxSpin.value()
+        x_min = self.global_settings['x_min']
+        x_max = self.global_settings['x_max']
+        y_min = self.global_settings['y_min']
+        y_max = self.global_settings['y_max']
         
         if x_min != x_max:
             axis_options.append(f"xmin={x_min}, xmax={x_max}")
         if y_min != y_max:
             axis_options.append(f"ymin={y_min}, ymax={y_max}")
         
-        if self.gridCheck.isChecked():
+        if self.global_settings['grid']:
             axis_options.append("grid=both")
         
         if self.legendCheck.isChecked():
-            axis_options.append(f"legend pos={self.legendPosCombo.currentText()}")
+            axis_options.append(f"legend pos={self.global_settings['legend_pos']}")
         
         # axis環境の開始
         latex.append(f"        \\begin{{axis}}[")
@@ -1282,8 +1593,11 @@ class TikZPlotConverter(QMainWindow):
         
         # 各データセットのプロット処理
         for i, dataset in enumerate(self.datasets):
-            if not dataset.get('data_x') or not dataset.get('data_y'):
-                continue  # データがないデータセットはスキップ
+            if dataset.get('data_source_type') == 'formula' and not dataset.get('equation'):
+                continue  # 数式が空の場合はスキップ
+                
+            if dataset.get('data_source_type') == 'measured' and (not dataset.get('data_x') or not dataset.get('data_y')):
+                continue  # 測定データがない場合はスキップ
             
             # データセットの設定を取得
             plot_type = dataset.get('plot_type', 'line')
@@ -1294,14 +1608,9 @@ class TikZPlotConverter(QMainWindow):
             show_legend = dataset.get('show_legend', True)
             legend_label = dataset.get('legend_label', dataset.get('name', ''))
             
-            # データセットがグラフタイプに応じたプロット処理
-            if dataset.get('is_theory', False):
-                # 理論曲線の処理
-                self.add_theory_curve_to_latex(latex, dataset, i)
-            else:
-                # 通常のデータセットの処理
-                self.add_dataset_to_latex(latex, dataset, i, plot_type, color, line_width, 
-                                         marker_style, marker_size, show_legend, legend_label)
+            # データセットを処理
+            self.add_dataset_to_latex(latex, dataset, i, plot_type, color, line_width, 
+                                     marker_style, marker_size, show_legend, legend_label)
             
             # 特殊点の追加
             special_points = dataset.get('special_points', [])
@@ -1317,58 +1626,59 @@ class TikZPlotConverter(QMainWindow):
                 latex.append(f"        % 注釈 (データセット{i+1}: {dataset.get('name', '')})")
                 latex.append(f"        \\node at (axis cs:{x},{y}) [anchor={pos}, font=\\small] {{{text}}};")
         
-        # 理論曲線の追加 (パラメータスイープによる複数曲線)
-        show_theory = self.theoryCurveCheck.isChecked()
-        if show_theory and self.paramSweepCheck.isChecked():
-            equation = self.equationEntry.text()
-            domain_min = self.domainMinSpin.value()
-            domain_max = self.domainMaxSpin.value()
-            samples = self.samplesSpin.value()
-            theory_color = self.theoryCurrentColor.name()
-            theory_line_width = self.theoryLineWidthSpin.value()
-            theory_legend = self.theoryLegendEntry.text()
-            
-            # パラメータスイープ設定の取得
-            param_name = self.paramNameEntry.text()
+        # パラメータスイープによる理論曲線
+        if self.paramSweepCheck.isChecked() and self.theoryLegendEntry.text().strip():
+            # パラメータスイープのリストから値を取得
             param_values = []
+            param_name = self.paramNameEntry.text() or "param"
+            
             for i in range(self.sweepCurvesList.count()):
                 item_text = self.sweepCurvesList.item(i).text()
-                param_val = float(item_text.split('=')[1].strip())
-                param_values.append((param_name, param_val))
+                try:
+                    param_val = float(item_text.split('=')[1].strip())
+                    param_values.append((param_name, param_val))
+                except (ValueError, IndexError):
+                    continue
             
-            # 理論曲線のオプション
-            theory_options = []
-            theory_options.append(f"domain={domain_min}:{domain_max}")
-            theory_options.append(f"samples={samples}")
-            theory_options.append("smooth")
-            theory_options.append("thick")
-            theory_options.append(theory_color)
-            theory_options.append(f"line width={theory_line_width}pt")
-            
-            # 色のリスト（理論曲線ごとに色を変える）
-            colors = ["red", "green", "blue", "orange", "purple", "cyan", "magenta", "brown", "gray", "darkgray"]
-            
-            # パラメータ値ごとに理論曲線を追加
-            for i, (param_name, param_val) in enumerate(param_values):
-                # 色の設定
-                theory_options_copy = theory_options.copy()
-                if i > 0:  # 最初の曲線以外は色を変える
-                    # 色の部分を置き換え
-                    for j, opt in enumerate(theory_options_copy):
-                        if opt.startswith("rgb") or QColor(opt).isValid():
-                            theory_options_copy[j] = colors[i % len(colors)]
-                            break
+            if param_values:
+                # 理論曲線のプロパティ
+                equation = self.equationEntry.text()
+                domain_min = self.domainMinSpin.value()
+                domain_max = self.domainMaxSpin.value()
+                samples = self.samplesSpin.value()
+                base_color = self.theoryCurrentColor.name()
+                line_width = self.theoryLineWidthSpin.value()
+                legend_text = self.theoryLegendEntry.text()
                 
-                eq_with_param = equation.replace(param_name, str(param_val))
+                # 色のリスト
+                colors = ["red", "green", "blue", "orange", "purple", "cyan", "magenta", "brown", "gray", "darkgray"]
                 
-                latex.append(f"        % 理論曲線 ({param_name}={param_val})")
-                latex.append(f"        \\addplot[{', '.join(theory_options_copy)}] {{")
-                latex.append(f"            {eq_with_param}")
-                latex.append("        };")
-                
-                # 凡例エントリを別途追加
-                if self.legendCheck.isChecked():
-                    latex.append(f"        \\addlegendentry{{{theory_legend} ($\\{param_name}={param_val}$)}}")
+                # 各パラメータ値に対して曲線を追加
+                for i, (param_name, param_val) in enumerate(param_values):
+                    # 色の設定（最初はベース色、それ以降は色リストから）
+                    curve_color = base_color if i == 0 else colors[i % len(colors)]
+                    
+                    # パラメータを数式に適用
+                    eq_with_param = equation.replace(param_name, str(param_val))
+                    
+                    # 理論曲線のスタイル
+                    theory_options = []
+                    theory_options.append(f"domain={domain_min}:{domain_max}")
+                    theory_options.append(f"samples={samples}")
+                    theory_options.append("smooth")
+                    theory_options.append("thick")
+                    theory_options.append(curve_color)
+                    theory_options.append(f"line width={line_width}pt")
+                    
+                    # 曲線の追加
+                    latex.append(f"        % パラメータスイープ曲線 ({param_name}={param_val})")
+                    latex.append(f"        \\addplot[{', '.join(theory_options)}] {{")
+                    latex.append(f"            {eq_with_param}")
+                    latex.append("        };")
+                    
+                    # 凡例エントリ
+                    if self.legendCheck.isChecked():
+                        latex.append(f"        \\addlegendentry{{{legend_text} ($\\{param_name}={param_val}$)}}")
         
         # axis環境の終了
         latex.append("        \\end{axis}")
@@ -1377,8 +1687,8 @@ class TikZPlotConverter(QMainWindow):
         latex.append("    \\end{tikzpicture}")
         
         # キャプションとラベル
-        latex.append(f"    \\caption{{{self.captionEntry.text()}}}")
-        latex.append(f"    \\label{{{self.labelEntry.text()}}}")
+        latex.append(f"    \\caption{{{self.global_settings['caption']}}}")
+        latex.append(f"    \\label{{{self.global_settings['label']}}}")
         
         # figure環境の終了
         latex.append("\\end{figure}")
@@ -1388,6 +1698,35 @@ class TikZPlotConverter(QMainWindow):
     def add_dataset_to_latex(self, latex, dataset, index, plot_type, color, line_width, 
                              marker_style, marker_size, show_legend, legend_label):
         """LaTeXコードにデータセットを追加する"""
+        data_source_type = dataset.get('data_source_type', 'measured')
+        
+        if data_source_type == 'formula':
+            # 数式の場合は理論曲線として描画
+            equation = dataset.get('equation', 'x^2')
+            domain_min = dataset.get('domain_min', 0)
+            domain_max = dataset.get('domain_max', 10)
+            samples = dataset.get('samples', 200)
+            
+            # 理論曲線のオプション
+            theory_options = []
+            theory_options.append(f"domain={domain_min}:{domain_max}")
+            theory_options.append(f"samples={samples}")
+            theory_options.append("smooth")
+            theory_options.append("thick")
+            theory_options.append(color)
+            theory_options.append(f"line width={line_width}pt")
+            
+            latex.append(f"        % データセット{index+1}: {dataset.get('name', '')} （数式: {equation}）")
+            latex.append(f"        \\addplot[{', '.join(theory_options)}] {{")
+            latex.append(f"            {equation}")
+            latex.append("        };")
+            
+            # 凡例エントリを追加
+            if show_legend:
+                latex.append(f"        \\addlegendentry{{{legend_label}}}")
+            return
+            
+        # 実測値の場合（以下は既存のコード）
         # データポイントのフォーマット
         coordinates = []
         for x, y in zip(dataset.get('data_x', []), dataset.get('data_y', [])):
@@ -1558,6 +1897,69 @@ class TikZPlotConverter(QMainWindow):
         
         QMessageBox.information(self, "成功", 
                               f"データセット '{dataset['name']}' に {len(annotations)} 個の注釈を割り当てました")
+
+    def on_data_source_type_changed(self, checked):
+        """データソースタイプが変更されたときに呼ばれる"""
+        if not checked:  # イベントはtoggleで発生するため、チェックされたラジオボタンのみ処理
+            return
+            
+        # 現在のデータセットがあれば状態を保存
+        if self.current_dataset_index >= 0:
+            self.update_current_dataset()
+            
+        # UIの表示/非表示を切り替え
+        is_measured = self.measuredRadio.isChecked()
+        
+        self.measuredContainer.setVisible(is_measured)
+        self.formulaContainer.setVisible(not is_measured)
+        
+        # 現在のデータセットの状態を更新
+        if self.current_dataset_index >= 0:
+            dataset = self.datasets[self.current_dataset_index]
+            dataset['data_source_type'] = 'measured' if is_measured else 'formula'
+            
+        # UIの要素の有効/無効を更新
+        self.update_ui_based_on_data_source_type()
+
+    def apply_formula(self):
+        """数式を適用してデータを生成する"""
+        if self.current_dataset_index < 0:
+            QMessageBox.warning(self, "警告", "数式を適用するデータセットを選択してください")
+            return
+            
+        equation = self.equationEntry.text().strip()
+        if not equation:
+            QMessageBox.warning(self, "警告", "有効な数式を入力してください")
+            return
+            
+        try:
+            # 数式、ドメイン、サンプル数を取得
+            domain_min = self.domainMinSpin.value()
+            domain_max = self.domainMaxSpin.value()
+            samples = self.samplesSpin.value()
+            
+            # データセットを更新
+            dataset = self.datasets[self.current_dataset_index]
+            dataset['data_source_type'] = 'formula'
+            dataset['equation'] = equation
+            dataset['domain_min'] = domain_min
+            dataset['domain_max'] = domain_max
+            dataset['samples'] = samples
+            
+            # X値（ドメイン）の生成
+            x_values = np.linspace(domain_min, domain_max, samples).tolist()
+            dataset['data_x'] = x_values
+            
+            # 数式に基づいてデータを生成（実際のプロット時に計算されるため、ここではデータ生成なし）
+            dataset['data_y'] = []  # 実際の値はTikZコード生成時に計算
+            
+            QMessageBox.information(self, "成功", f"データセット '{dataset['name']}' に数式 '{equation}' を適用しました")
+            self.statusBar.showMessage(f"数式を適用しました: {equation}", 3000)
+            
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"数式適用中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+            self.statusBar.showMessage("数式適用エラー")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
