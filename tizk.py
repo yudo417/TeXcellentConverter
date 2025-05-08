@@ -1070,6 +1070,10 @@ class TikZPlotConverter(QMainWindow):
     def add_dataset(self, name_arg=None):
         """新しいデータセットを追加する"""
         try:
+            # 既存のデータセットの状態を保存（存在する場合）
+            if self.current_dataset_index >= 0 and self.current_dataset_index < len(self.datasets):
+                self.update_current_dataset()
+                
             final_name = ""
             if name_arg is None:
                 dataset_count = self.datasetList.count() + 1
@@ -1092,6 +1096,7 @@ class TikZPlotConverter(QMainWindow):
                 final_name = f"データセット{dataset_count}"
                 self.statusBar.showMessage("データセット名が空のため、デフォルト名を使用します。", 3000)
 
+            # 明示的に空のデータと初期設定を持つデータセットを作成
             dataset = {
                 'name': final_name, # Always a string
                 'data_source_type': 'measured',  # 'measured' または 'formula'
@@ -1127,7 +1132,9 @@ class TikZPlotConverter(QMainWindow):
             
             self.datasets.append(dataset)
             self.datasetList.addItem(final_name) # addItem directly with the guaranteed string
-            self.datasetList.setCurrentRow(len(self.datasets) - 1) # This will trigger on_dataset_selected
+            
+            # 新しく追加したデータセットを選択（これがon_dataset_selectedを呼び出す）
+            self.datasetList.setCurrentRow(len(self.datasets) - 1)
             self.statusBar.showMessage(f"データセット '{final_name}' を追加しました", 3000)
 
         except Exception as e:
@@ -1244,7 +1251,7 @@ class TikZPlotConverter(QMainWindow):
             # 現在のインデックスを更新
             self.current_dataset_index = row
             
-            # UIを更新
+            # UIを更新（この中でデータテーブルも更新される）
             dataset = self.datasets[row]
             self.update_ui_from_dataset(dataset)
             
@@ -1447,7 +1454,9 @@ class TikZPlotConverter(QMainWindow):
                     if index >= 0:
                         self.yColCombo.setCurrentIndex(index)
                 
-                # データテーブルを更新
+                # データテーブルを必ずクリアして更新
+                self.dataTable.setRowCount(0)
+                # 既存のデータがある場合のみテーブルに表示
                 if dataset.get('data_x') and len(dataset.get('data_x')) > 0:
                     self.update_data_table_from_dataset(dataset)
             else:
@@ -1540,6 +1549,10 @@ class TikZPlotConverter(QMainWindow):
                 
             data_x = dataset.get('data_x', [])
             data_y = dataset.get('data_y', [])
+            
+            # 空のリストの場合も処理せずに終了
+            if not data_x or not data_y:
+                return
             
             # データを表示
             for i, (x, y) in enumerate(zip(data_x, data_y)):
