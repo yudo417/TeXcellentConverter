@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                             QFormLayout, QRadioButton, QButtonGroup, QInputDialog)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor
+import re
 
 
 class TikZPlotConverter(QMainWindow):
@@ -1645,6 +1646,8 @@ class TikZPlotConverter(QMainWindow):
         if data_source_type == 'formula':
             # 数式の場合は理論曲線として描画
             equation = dataset.get('equation', 'x^2')
+            # TikZ互換の数式に変換
+            tikz_equation = self.format_equation_for_tikz(equation)
             domain_min = dataset.get('domain_min', 0)
             domain_max = dataset.get('domain_max', 10)
             samples = dataset.get('samples', 200)
@@ -1667,7 +1670,7 @@ class TikZPlotConverter(QMainWindow):
             
             latex.append(f"        % データセット{index+1}: {dataset.get('name', '')} （数式: {equation}）")
             latex.append(f"        \\addplot[{', '.join(theory_options)}] {{")
-            latex.append(f"            {equation}")
+            latex.append(f"            {tikz_equation}")
             latex.append("        };")
             
             # 凡例エントリを追加
@@ -1702,7 +1705,7 @@ class TikZPlotConverter(QMainWindow):
                 latex.append(f"        % 微分曲線 （データセット{index+1}: {dataset.get('name', '')}）")
                 latex.append(f"        \\addplot[{', '.join(deriv_options)}] {{")
                 # 微分を計算するための数式変換（簡易的な実装）
-                latex.append(f"            derivative({equation}, x)")
+                latex.append(f"            derivative({tikz_equation}, x)")
                 latex.append("        };")
                 
                 # 凡例エントリを追加
@@ -1740,7 +1743,7 @@ class TikZPlotConverter(QMainWindow):
                 latex.append(f"        % 積分曲線 （データセット{index+1}: {dataset.get('name', '')}）")
                 latex.append(f"        \\addplot[{', '.join(integral_options)}] {{")
                 # 積分を計算するための数式変換（簡易的な実装）
-                latex.append(f"            integral({equation}, x) + {integral_const}")
+                latex.append(f"            integral({tikz_equation}, x) + {integral_const}")
                 latex.append("        };")
                 
                 # 凡例エントリを追加
@@ -1786,15 +1789,27 @@ class TikZPlotConverter(QMainWindow):
                     
                     # TikZ式をPython式に変換（^ を ** に置換）
                     python_formula = formula.replace('^', '**')
+                    # 数字の後に変数が来る場合に * を挿入
+                    python_formula = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', python_formula)
+                    
+                    # グラフの表示範囲を取得
+                    y_min = self.global_settings['y_min']
+                    y_max = self.global_settings['y_max']
                     
                     # 式を評価 - 数学関数を使用できるようにmath名前空間も提供
                     y_val = eval(python_formula.replace('x', str(x_val)), {"__builtins__": {}}, {"math": math})
                     
+                    # y値が異常に大きくないかチェック - 表示範囲外なら警告
+                    if y_val < y_min or y_val > y_max:
+                        latex.append(f"        % 警告: 計算されたy値 ({y_val}) がグラフ範囲外です。範囲: [{y_min}, {y_max}]")
+                        # 範囲外の場合でも計算は続行するが、後で表示位置を調整する
+                    
+                    # 点の表示 - 実際の計算値を使用
                     point_code = f"""        % 接線の点をマーク
         \\addplot[only marks, mark=*, {tangent_color}, mark size=3] coordinates {{({x_val}, {y_val})}};\n"""
                     latex.append(point_code)
                     
-                    # 数値微分で接線の傾きを計算
+                    # 数値微分で接線の傾きを計算 - 精度改善
                     dx = 0.0001  # 十分小さい値
                     # 安全な評価のためmathを提供
                     globals_dict = {"__builtins__": {}}
@@ -1809,8 +1824,16 @@ class TikZPlotConverter(QMainWindow):
                     intercept = round(y_val - slope * x_val, 3)
                     equation_text = f"y = {slope_rounded}x + {intercept}" if intercept >= 0 else f"y = {slope_rounded}x - {abs(intercept)}"
                     
+                    # デバッグ情報を追加
+                    latex.append(f"        % デバッグ情報: x={x_val}, y={y_val}, 傾き={slope_rounded}, 切片={intercept}")
+                    
+                    # 接線方程式のチェック - 計算式で元の点を通るか検証
+                    test_y = slope_rounded * x_val + intercept
+                    if abs(test_y - y_val) > 0.1:  # 許容誤差
+                        latex.append(f"        % 警告: 接線方程式が元の点を通りません。式による計算値: {test_y}, 元の点: {y_val}")
+                    
                     # 関数形式での接線の方程式
-                    tangent_equation = f"{round(y_val, 6)} + {round(slope, 6)}*(x - {round(x_val, 6)})"
+                    tangent_equation = f"{y_val} + {slope}*(x - {x_val})"
                     
                     # 接線を関数形式でプロット
                     tangent_code = f"""        % 接線を関数形式でプロット
@@ -1821,9 +1844,15 @@ class TikZPlotConverter(QMainWindow):
                     
                     # 接線の式を表示（オプションがオンの場合）
                     if dataset.get('show_tangent_equation', False):
-                        # 式の表示位置を調整（接線の少し上に配置）
+                        # 式の表示位置を調整（接線の少し上に配置）- 範囲外対応
                         equation_pos_x = x_val
-                        equation_pos_y = y_val + 0.5  # 接線の上に配置
+                        # y値が範囲外の場合、表示位置を調整
+                        if y_val < y_min:
+                            equation_pos_y = y_min + 0.5  # 下限より少し上
+                        elif y_val > y_max:
+                            equation_pos_y = y_max - 0.5  # 上限より少し下
+                        else:
+                            equation_pos_y = y_val + 0.5  # 通常は点の少し上
                         
                         # 式の表示コード
                         equation_display = f"""        % 接線の方程式を表示
@@ -1848,6 +1877,7 @@ class TikZPlotConverter(QMainWindow):
                     try:
                         # TikZ式をPython式に変換し、安全に評価
                         python_formula = formula.replace('^', '**')
+                        python_formula = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', python_formula)
                         point_y = eval(python_formula.replace('x', str(x_val)), {"__builtins__": {}}, {"math": math})
                         latex.append(f"        \\addplot[only marks, mark=*, {tangent_color}, mark size=3] coordinates {{({tangent_x}, {point_y})}}; % 接線計算エラーだが点は表示")
                     except:
@@ -2325,6 +2355,16 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"数式プレビュー中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
             self.statusBar.showMessage("プレビューエラー")
+
+    # まず、クラスのトップレベルに数式を変換するヘルパーメソッドを追加
+    def format_equation_for_tikz(self, equation):
+        """数式をTikZ互換形式に変換する
+        例: 'x^2+3x-2' → 'x^2+3*x-2'
+        """
+        import re
+        # 数字の後に変数が来る場合に * を挿入
+        formatted = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', equation)
+        return formatted
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
