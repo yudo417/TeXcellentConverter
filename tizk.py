@@ -421,13 +421,87 @@ class TikZPlotConverter(QMainWindow):
         formulaOptionsGroup.setLayout(formulaOptionsLayout)
         formulaLayout.addWidget(formulaOptionsGroup)
         
-        # 新規追加: グラフプレビューボタン
-        previewButtonLayout = QHBoxLayout()
-        self.previewButton = QPushButton('数式グラフをプレビュー')
-        self.previewButton.setStyleSheet('background-color: #2196F3; color: white; font-size: 14px; padding: 8px;')
-        self.previewButton.clicked.connect(self.preview_formula_graph)
-        previewButtonLayout.addWidget(self.previewButton)
-        formulaLayout.addLayout(previewButtonLayout)
+        # 新規追加: TikZ数式ガイドセクション
+        tikzGuideGroup = QGroupBox("TikZ数式ガイド")
+        tikzGuideLayout = QVBoxLayout()
+        
+        # ガイド説明
+        guideLabel = QLabel('TikZで使える特殊な数学関数:')
+        guideLabel.setStyleSheet("font-weight: bold;")
+        tikzGuideLayout.addWidget(guideLabel)
+        
+        # 関数一覧と説明をテーブルで表示
+        self.tikzFunctionsTable = QTableWidget(0, 2)  # 行数は動的に設定
+        self.tikzFunctionsTable.setHorizontalHeaderLabels(['関数名', '説明と使用例'])
+        self.tikzFunctionsTable.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.tikzFunctionsTable.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.tikzFunctionsTable.verticalHeader().setVisible(False)  # 行番号を非表示
+        self.tikzFunctionsTable.setEditTriggers(QTableWidget.NoEditTriggers)  # 編集不可
+        
+        # TikZで使える関数のリスト
+        tikz_functions = [
+            ("add(x,y)", "x+y(x+yでも可)"),
+            ("subtract(x,y)", "x-y(x-yでも可)"),
+            ("multiply(x,y)", "x×y(x*yでも可)"),
+            ("divide(x,y)", "x÷y(x/yでも可)"),
+            ("sin(x)", "正弦関数:(度数法で入力)"),
+            ("cos(x)", "余弦関数:(度数法で入力)"),
+            ("tan(x)", "正接関数:(度数法で入力)"),
+            ("pi", "円周率: (3.14159...)"),
+            ("e", "自然対数の底:（2.71828...）"),
+            ("exp(x)", "指数関数: exp(x)（eの累乗）"),
+            ("ln(x)", "自然対数: ln(x)（底はe）"),
+            ("log10(x)", "常用対数: log10(x)（底は10）"),
+            ("log2(x)", "二進対数: log2(x)（底は2）"),
+            ("sqrt(x)", "平方根: xの平方根"),
+            ("pow(x,y)", "累乗: x^y"),
+            ("factorial(x)", "階乗: x!（xは整数）"),
+            ("abs(x)", "絶対値: xの絶対値"),
+            ("asin(x)", "逆正弦関数(度数法で出力)"),
+            ("acos(x)", "逆余弦関数(度数法で出力)"),
+            ("atan(x)", "逆正接関数(度数法で出力)"),
+            ("atan2(y,x)", "2引数の逆正接関数(度数法で出力)"),
+            ("sinh(x)", "双曲線正弦関数: sinh(x)"),
+            ("cosh(x)", "双曲線余弦関数: cosh(x)"),
+            ("tanh(x)", "双曲線正接関数: tanh(x)"),
+            ("min(x,y)", "xとyの小さい方"),
+            ("max(x,y)", "xとyの大きい方"),
+            ("deg(x)", "ラジアンから度に変換"),
+            ("rad(x)", "度からラジアンに変換"),
+            ("mod(x,y)", "剰余:xをyで割った余り"),
+            ("floor(x)", "床関数: xを超えない最大の整数"),
+            ("ceil(x)", "天井関数: x以上の最小の整数"),
+            ("round(x)", "四捨五入: 小数点以下を四捨五入"),
+            ("equal(x,y)", "等号: x=yなら1, そうでないなら0"),
+            ("greater(x,y)", "不等号: x>yなら1, そうでないなら0"),
+            ("less(x,y)", "不等号: x<yなら1, そうでないなら0"),
+            ("rand", "乱数: 0から1の乱数を生成"),
+        ]
+        
+        # テーブルに関数を追加
+        self.tikzFunctionsTable.setRowCount(len(tikz_functions))
+        for i, (func, desc) in enumerate(tikz_functions):
+            self.tikzFunctionsTable.setItem(i, 0, QTableWidgetItem(func))
+            self.tikzFunctionsTable.setItem(i, 1, QTableWidgetItem(desc))
+            
+        # テーブルの高さを調整（全ての行を表示）
+        table_height = self.tikzFunctionsTable.horizontalHeader().height()
+        for i in range(len(tikz_functions)):
+            table_height += self.tikzFunctionsTable.rowHeight(i)
+        self.tikzFunctionsTable.setMinimumHeight(min(250, table_height))  # 最大高さを制限
+        
+        tikzGuideLayout.addWidget(self.tikzFunctionsTable)
+        
+        # テーブルの説明ラベルを追加
+        tableHelpLabel = QLabel('※ 関数をダブルクリックすると数式に挿入できます')
+        tableHelpLabel.setStyleSheet("color: #666666; font-style: italic;")
+        tikzGuideLayout.addWidget(tableHelpLabel)
+        
+        # 関数をダブルクリックで挿入
+        self.tikzFunctionsTable.cellDoubleClicked.connect(self.insert_function_from_table)
+        
+        tikzGuideGroup.setLayout(tikzGuideLayout)
+        formulaLayout.addWidget(tikzGuideGroup)
         
         # データ確定ボタン（数式入力モード用）
         formulaDataActionGroup = QGroupBox("データ確定")
@@ -2365,6 +2439,141 @@ class TikZPlotConverter(QMainWindow):
         # 数字の後に変数が来る場合に * を挿入
         formatted = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', equation)
         return formatted
+
+    def insert_formula_preset(self, formula):
+        """数式プリセットをクリックしたときに呼ばれる関数"""
+        try:
+            # 現在のカーソル位置に数式を挿入するか現在の内容を置き換える
+            current_text = self.equationEntry.text()
+            if current_text.strip() == "":
+                # テキストが空の場合は単純に設定
+                self.equationEntry.setText(formula)
+            else:
+                # 確認ダイアログを表示
+                reply = QMessageBox.question(
+                    self, 
+                    "数式の挿入", 
+                    f"現在の数式を\n「{formula}」\nに置き換えますか？\n\n「いいえ」を選択すると現在の数式に追加します。",
+                    QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # 内容を置き換え
+                    self.equationEntry.setText(formula)
+                elif reply == QMessageBox.No:
+                    # 現在のテキストの末尾に追加
+                    self.equationEntry.setText(f"{current_text} + {formula}")
+                # Cancelの場合は何もしない
+            
+            # フォーカスを数式入力欄に戻す
+            self.equationEntry.setFocus()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"数式の挿入中にエラーが発生しました: {str(e)}")
+
+    def insert_function_from_table(self, row, column):
+        """関数テーブルの関数をダブルクリックして挿入"""
+        try:
+            # 選択された関数を取得（常に0列目の項目を使用）
+            function_item = self.tikzFunctionsTable.item(row, 0)
+            if function_item:
+                function_text = function_item.text()
+                
+                # 単一の定数（pi, e）の場合は直接挿入
+                if function_text in ["pi", "e"]:
+                    self.insert_into_equation(function_text)
+                else:
+                    # 括弧を含む関数の場合、カーソル位置を括弧内に設定するために
+                    # 括弧部分を抽出し、カーソルを括弧内に配置
+                    if "(" in function_text and ")" in function_text:
+                        # 括弧内の内容を抽出
+                        bracket_content = function_text[function_text.find("(")+1:function_text.find(")")]
+                        # 括弧内にカーソルを配置するため、内容を削除
+                        insert_text = function_text.replace(bracket_content, "")
+                        self.insert_into_equation(insert_text)
+                    else:
+                        # 括弧のない関数の場合はそのまま挿入
+                        self.insert_into_equation(function_text)
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"関数の挿入中にエラーが発生しました: {str(e)}")
+
+    def insert_into_equation(self, text):
+        """数式入力欄にテキストを挿入"""
+        current_text = self.equationEntry.text()
+        current_pos = self.equationEntry.cursorPosition()
+        
+        # 現在のテキストが空の場合は単純に設定
+        if current_text.strip() == "":
+            self.equationEntry.setText(text)
+            # 括弧がある場合はカーソルを括弧の中に配置
+            if "(" in text and ")" in text:
+                self.equationEntry.setCursorPosition(text.find("(")+1)
+        else:
+            # テキストの挿入
+            new_text = current_text[:current_pos] + text + current_text[current_pos:]
+            self.equationEntry.setText(new_text)
+            # 括弧がある場合はカーソルを括弧の中に配置
+            if "(" in text and ")" in text:
+                new_cursor_pos = current_pos + text.find("(")+1
+                self.equationEntry.setCursorPosition(new_cursor_pos)
+            else:
+                # 括弧がない場合は挿入したテキストの後にカーソルを配置
+                self.equationEntry.setCursorPosition(current_pos + len(text))
+        
+        # フォーカスを数式入力欄に戻す
+        self.equationEntry.setFocus()
+
+    def show_tikz_function_help(self):
+        """TikZ数式の詳細ガイドを表示"""
+        help_text = """
+<h2>TikZ数式の使い方ガイド</h2>
+
+<h3>基本構文</h3>
+<p>TikZでは、数式は以下のように記述します：</p>
+<pre>\\addplot[domain=0:10] {数式};</pre>
+
+<h3>数式の例</h3>
+<ul>
+    <li><b>基本演算:</b> <code>x^2 + 3*x - 5</code></li>
+    <li><b>三角関数:</b> <code>sin(pi*x)</code> （引数はラジアン）</li>
+    <li><b>指数関数:</b> <code>exp(-x^2/2)</code> （正規分布）</li>
+    <li><b>条件分岐:</b> <code>x>0 ? x^2 : -x^2</code> （三項演算子）</li>
+</ul>
+
+<h3>TikZ数式の特徴</h3>
+<ul>
+    <li>変数と定数の積は <code>2*x</code> のように<b>明示的に乗算記号を記述</b>してください</li>
+    <li>べき乗は <code>x^2</code> のように <code>^</code> を使います</li>
+    <li>角度はラジアンで指定します（piを使用: <code>sin(pi/2)</code>）</li>
+    <li>関数は入れ子にできます（<code>sin(cos(x))</code>）</li>
+</ul>
+
+<h3>よく使う関数の組み合わせ</h3>
+<ul>
+    <li><b>正規分布:</b> <code>exp(-((x-5)^2)/(2*2^2))</code></li>
+    <li><b>対数スケール:</b> <code>ln(1+x)</code></li>
+    <li><b>信号処理:</b> <code>sin(2*pi*x)*exp(-x/5)</code>（減衰振動）</li>
+    <li><b>ロジスティック成長:</b> <code>10/(1+exp(-x+5))</code></li>
+</ul>
+
+<h3>注意点</h3>
+<p>TikZの数式はTeX環境で評価されるため、Pythonなど他の言語とは一部記法が異なります。</p>
+<p>特に以下の点に注意してください：</p>
+<ul>
+    <li>数字の後に変数が来る場合は必ず <code>*</code> を使う（<code>2x</code> ではなく <code>2*x</code>）</li>
+    <li>ラジアンと度の変換に注意（<code>sin(90)</code> ではなく <code>sin(pi/2)</code>）</li>
+    <li>関数名は英語表記（<code>tan</code>, <code>exp</code> など）</li>
+</ul>
+    """
+        
+        # 詳細ガイドウィンドウの作成
+        help_dialog = QMessageBox(self)
+        help_dialog.setWindowTitle("TikZ数式詳細ガイド")
+        help_dialog.setTextFormat(Qt.RichText)
+        help_dialog.setText(help_text)
+        help_dialog.setStandardButtons(QMessageBox.Ok)
+        help_dialog.setMinimumWidth(600)
+        help_dialog.exec_()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
