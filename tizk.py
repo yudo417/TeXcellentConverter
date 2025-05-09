@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import sys
+import math  # 数学関数を使用するためにインポート
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                             QHBoxLayout, QLabel, QLineEdit, QPushButton,
                             QFileDialog, QComboBox, QMessageBox, QTextEdit,
@@ -45,6 +46,39 @@ class TikZPlotConverter(QMainWindow):
         # 初期データセットを追加（UIの初期化後に呼び出す）
         QTimer.singleShot(0, lambda: self.add_dataset("データセット1"))
         
+    # QColorオブジェクトをTikZ互換のRGB形式に変換するヘルパー関数
+    def color_to_tikz_rgb(self, color):
+        """QColorオブジェクトをTikZ互換のRGB形式に変換する"""
+        # red, green, blueの一般的な色名はそのまま使用
+        if color == QColor('red'):
+            return 'red'
+        elif color == QColor('green'):
+            return 'green'
+        elif color == QColor('blue'):
+            return 'blue'
+        elif color == QColor('black'):
+            return 'black'
+        elif color == QColor('yellow'):
+            return 'yellow'
+        elif color == QColor('cyan'):
+            return 'cyan'
+        elif color == QColor('magenta'):
+            return 'magenta'
+        elif color == QColor('orange'):
+            return 'orange'
+        elif color == QColor('purple'):
+            return 'purple'
+        elif color == QColor('brown'):
+            return 'brown'
+        elif color == QColor('gray'):
+            return 'gray'
+        # それ以外の色はRGB値として変換（0-255から0-1へ）
+        else:
+            r = color.red() / 255.0
+            g = color.green() / 255.0
+            b = color.blue() / 255.0
+            return f"color = {{rgb,255:red,{color.red()};green,{color.green()};blue,{color.blue()}}}"
+            
     def initUI(self):
         self.setWindowTitle('TikZPlot Converter')
         self.setGeometry(100, 100, 1000, 700)
@@ -79,7 +113,7 @@ class TikZPlotConverter(QMainWindow):
         copyPackageButton.setFixedWidth(60)
         def copy_package():
             clipboard = QApplication.clipboard()
-            clipboard.setText("\\usepackage{pgfplots}\n\\usepackage{float}\n\\pgfplotsset{compat=1.18}")
+            clipboard.setText("\\usepackage{pgfplots}\n\\usepackage{float}\n\\pgfplotsset{compat=1.18}\n\\usepgfplotslibrary{fillbetween}\n\\usetikzlibrary{calc}")
             self.statusBar.showMessage("パッケージ名をコピーしました", 3000)
         copyPackageButton.clicked.connect(copy_package)
         
@@ -147,15 +181,18 @@ class TikZPlotConverter(QMainWindow):
         
         # 説明ラベル
         measuredLabel = QLabel("実験などで取得した実測データを使用してグラフを生成します")
-        measuredLabel.setStyleSheet("color: gray; font-style: italic; padding-left: 20px;")
+        measuredLabel.setStyleSheet("color: gray; font-style: italic; padding-left: 20px; min-height: 20px;")
         formulaLabel = QLabel("入力した数式に基づいて理論曲線を生成します")
-        formulaLabel.setStyleSheet("color: gray; font-style: italic; padding-left: 20px;")
+        formulaLabel.setStyleSheet("color: gray; font-style: italic; padding-left: 20px; min-height: 20px;")
         
         # レイアウトに追加
         dataSourceTypeLayout.addWidget(self.measuredRadio)
         dataSourceTypeLayout.addWidget(measuredLabel)
         dataSourceTypeLayout.addWidget(self.formulaRadio)
         dataSourceTypeLayout.addWidget(formulaLabel)
+        
+        # 高さを固定化
+        dataSourceTypeGroup.setFixedHeight(150)
         
         # イベントハンドラーの接続
         self.measuredRadio.toggled.connect(self.on_data_source_type_changed)
@@ -255,16 +292,32 @@ class TikZPlotConverter(QMainWindow):
         columnHelpLabel.setStyleSheet('color: gray; font-style: italic;')
         columnLayout.addWidget(columnHelpLabel, 2, 0, 1, 2)
         
-        loadDataButton = QPushButton('データ読み込み')
-        loadDataButton.clicked.connect(self.load_data)
-        loadDataButton.setStyleSheet('background-color: #4CAF50; color: white;')
-        columnLayout.addWidget(loadDataButton, 3, 0, 1, 2)
-        
+        # 列選択グループのレイアウトを設定
         columnGroup.setLayout(columnLayout)
+        
+        # データ確定ボタン（すべての入力方法で共通）- 別の場所に配置
+        dataActionGroup = QGroupBox("データ確定")
+        dataActionLayout = QVBoxLayout()
+        
+        # 注意書きラベルを追加
+        actionNoteLabel = QLabel("※ CSVファイル、Excelファイル、手入力のいずれの方法でも、データを保存するには下のボタンを押してください")
+        actionNoteLabel.setStyleSheet("color: #cc0000; font-weight: bold;")
+        actionNoteLabel.setWordWrap(True)
+        dataActionLayout.addWidget(actionNoteLabel)
+        
+        # ボタンのテキストはどの入力方法でも統一
+        self.loadDataButton = QPushButton('データを確定・保存')
+        self.loadDataButton.setToolTip('入力したデータを現在のデータセットに保存します')
+        self.loadDataButton.clicked.connect(self.load_data)
+        self.loadDataButton.setStyleSheet('background-color: #2196F3; color: white; font-size: 14px; padding: 8px;')
+        dataActionLayout.addWidget(self.loadDataButton)
+        
+        dataActionGroup.setLayout(dataActionLayout)
         
         # 実測値コンテナに追加
         measuredLayout.addWidget(dataSourceGroup)
         measuredLayout.addWidget(columnGroup)
+        measuredLayout.addWidget(dataActionGroup)  # 新しいグループを追加
         
         # データソースコンテナ（数式）
         self.formulaContainer = QWidget()
@@ -313,109 +366,87 @@ class TikZPlotConverter(QMainWindow):
         formulaInfoLabel.setStyleSheet('color: gray;')
         formulaFormLayout.addWidget(formulaInfoLabel)
         
-        # 数式適用ボタン
-        applyFormulaButton = QPushButton('数式を適用')
-        applyFormulaButton.clicked.connect(self.apply_formula)
-        applyFormulaButton.setStyleSheet('background-color: #4CAF50; color: white;')
-        formulaFormLayout.addWidget(applyFormulaButton)
-        
         formulaFormGroup.setLayout(formulaFormLayout)
         formulaLayout.addWidget(formulaFormGroup)
         
-        # パラメーターグループ（数式モードでも表示）
-        parameterSweepGroup = QGroupBox("パラメータスイープ設定（オプション）")
-        parameterSweepLayout = QVBoxLayout()
+        # 新規追加: 数式オプションセクション
+        formulaOptionsGroup = QGroupBox("数式オプション設定")
+        formulaOptionsLayout = QGridLayout()
         
-        # パラメータスイープ
-        self.paramSweepCheck = QCheckBox('パラメータスイープを有効にする')
-        parameterSweepLayout.addWidget(self.paramSweepCheck)
+        # 微分・積分機能を削除してシンプルにする
+        # 接線表示オプションのみ残す
+        self.showTangentCheck = QCheckBox('特定点における接線を表示')
+        self.showTangentCheck.setChecked(False)
+        formulaOptionsLayout.addWidget(self.showTangentCheck, 0, 0, 1, 2)
         
-        # パラメータ名
-        paramNameLayout = QHBoxLayout()
-        paramNameLabel = QLabel('パラメータ名:')
-        self.paramNameEntry = QLineEdit('a')
-        self.paramNameEntry.setEnabled(False)
-        paramNameLayout.addWidget(paramNameLabel)
-        paramNameLayout.addWidget(self.paramNameEntry)
-        parameterSweepLayout.addLayout(paramNameLayout)
+        # 接線のx座標
+        tangentXLabel = QLabel('接線のx座標:')
+        self.tangentXSpin = QDoubleSpinBox()
+        self.tangentXSpin.setRange(-1000, 1000)
+        self.tangentXSpin.setValue(5)  # デフォルト値
+        formulaOptionsLayout.addWidget(tangentXLabel, 1, 0)
+        formulaOptionsLayout.addWidget(self.tangentXSpin, 1, 1)
         
-        # パラメータ範囲
-        paramRangeLayout = QHBoxLayout()
-        paramRangeLabel = QLabel('パラメータ範囲:')
-        self.paramMinSpin = QDoubleSpinBox()
-        self.paramMinSpin.setRange(-1000, 1000)
-        self.paramMinSpin.setValue(0.01)
-        self.paramMinSpin.setEnabled(False)
-        self.paramMaxSpin = QDoubleSpinBox()
-        self.paramMaxSpin.setRange(-1000, 1000)
-        self.paramMaxSpin.setValue(0.1)
-        self.paramMaxSpin.setEnabled(False)
-        self.paramStepSpin = QDoubleSpinBox()
-        self.paramStepSpin.setRange(0.001, 100)
-        self.paramStepSpin.setValue(0.01)
-        self.paramStepSpin.setEnabled(False)
-        paramRangeLayout.addWidget(paramRangeLabel)
-        paramRangeLayout.addWidget(self.paramMinSpin)
-        paramRangeLayout.addWidget(QLabel('〜'))
-        paramRangeLayout.addWidget(self.paramMaxSpin)
-        paramRangeLayout.addWidget(QLabel('ステップ:'))
-        paramRangeLayout.addWidget(self.paramStepSpin)
-        parameterSweepLayout.addLayout(paramRangeLayout)
+        # 接線の長さ
+        tangentLengthLabel = QLabel('接線の長さ:')
+        self.tangentLengthSpin = QDoubleSpinBox()
+        self.tangentLengthSpin.setRange(0.1, 20.0)
+        self.tangentLengthSpin.setValue(2.0)  # デフォルト値
+        formulaOptionsLayout.addWidget(tangentLengthLabel, 2, 0)
+        formulaOptionsLayout.addWidget(self.tangentLengthSpin, 2, 1)
         
-        # パラメータスイープのための曲線リスト
-        self.sweepCurvesList = QListWidget()
-        self.sweepCurvesList.setEnabled(False)
-        self.sweepCurvesList.setMinimumHeight(100)
-        parameterSweepLayout.addWidget(QLabel("パラメータ値のリスト:"))
-        parameterSweepLayout.addWidget(self.sweepCurvesList)
+        # 接線の色
+        tangentColorLabel = QLabel('接線の色:')
+        self.tangentColorButton = QPushButton()
+        self.tangentColorButton.setStyleSheet('background-color: purple;')
+        self.tangentColor = QColor('purple')
+        self.tangentColorButton.clicked.connect(self.select_tangent_color)
+        formulaOptionsLayout.addWidget(tangentColorLabel, 3, 0)
+        formulaOptionsLayout.addWidget(self.tangentColorButton, 3, 1)
         
-        # 追加ボタン
-        addSweepButtonLayout = QHBoxLayout()
-        addSweepButton = QPushButton('パラメータ値を追加')
-        addSweepButton.setEnabled(False)
-        addSweepButton.clicked.connect(self.add_param_value)
-        removeSweepButton = QPushButton('選択した値を削除')
-        removeSweepButton.setEnabled(False)
-        removeSweepButton.clicked.connect(self.remove_param_value)
-        addSweepButtonLayout.addWidget(addSweepButton)
-        addSweepButtonLayout.addWidget(removeSweepButton)
-        parameterSweepLayout.addLayout(addSweepButtonLayout)
+        # 接線の線スタイル
+        tangentStyleLabel = QLabel('接線のスタイル:')
+        self.tangentStyleCombo = QComboBox()
+        self.tangentStyleCombo.addItems(['実線', '点線', '破線', '一点鎖線'])
+        formulaOptionsLayout.addWidget(tangentStyleLabel, 4, 0)
+        formulaOptionsLayout.addWidget(self.tangentStyleCombo, 4, 1)
         
-        # イベント接続
-        self.paramSweepCheck.toggled.connect(lambda checked: [
-            self.paramNameEntry.setEnabled(checked),
-            self.paramMinSpin.setEnabled(checked),
-            self.paramMaxSpin.setEnabled(checked),
-            self.paramStepSpin.setEnabled(checked),
-            self.sweepCurvesList.setEnabled(checked),
-            addSweepButton.setEnabled(checked),
-            removeSweepButton.setEnabled(checked)
-        ])
+        # 接線の式表示設定
+        self.showTangentEquationCheck = QCheckBox('接線の方程式を表示')
+        self.showTangentEquationCheck.setChecked(False)
+        self.showTangentEquationCheck.setToolTip('グラフ上に接線の方程式（y = ax + b）を表示します')
+        formulaOptionsLayout.addWidget(self.showTangentEquationCheck, 5, 0, 1, 2)
         
-        parameterSweepGroup.setLayout(parameterSweepLayout)
-        formulaLayout.addWidget(parameterSweepGroup)
+        formulaOptionsGroup.setLayout(formulaOptionsLayout)
+        formulaLayout.addWidget(formulaOptionsGroup)
         
-        # 数式用凡例設定
-        formulaLegendGroup = QGroupBox("理論曲線の凡例設定")
-        formulaLegendLayout = QFormLayout()
+        # 新規追加: グラフプレビューボタン
+        previewButtonLayout = QHBoxLayout()
+        self.previewButton = QPushButton('数式グラフをプレビュー')
+        self.previewButton.setStyleSheet('background-color: #2196F3; color: white; font-size: 14px; padding: 8px;')
+        self.previewButton.clicked.connect(self.preview_formula_graph)
+        previewButtonLayout.addWidget(self.previewButton)
+        formulaLayout.addLayout(previewButtonLayout)
         
-        self.theoryLegendEntry = QLineEdit('理論曲線')
-        self.theoryColorButton = QPushButton()
-        self.theoryColorButton.setStyleSheet('background-color: green;')
-        self.theoryCurrentColor = QColor('green')
-        self.theoryColorButton.clicked.connect(self.select_theory_color)
+        # データ確定ボタン（数式入力モード用）
+        formulaDataActionGroup = QGroupBox("データ確定")
+        formulaDataActionLayout = QVBoxLayout()
         
-        self.theoryLineWidthSpin = QDoubleSpinBox()
-        self.theoryLineWidthSpin.setRange(0.1, 5.0)
-        self.theoryLineWidthSpin.setSingleStep(0.1)
-        self.theoryLineWidthSpin.setValue(1.0)
+        # 注意書きラベル
+        formulaActionNoteLabel = QLabel("※ 数式に基づくグラフを生成するには、下のボタンを押して数式データを保存してください")
+        formulaActionNoteLabel.setStyleSheet("color: #cc0000; font-weight: bold;")
+        formulaActionNoteLabel.setWordWrap(True)
+        formulaDataActionLayout.addWidget(formulaActionNoteLabel)
         
-        formulaLegendLayout.addRow('凡例ラベル:', self.theoryLegendEntry)
-        formulaLegendLayout.addRow('線の色:', self.theoryColorButton)
-        formulaLegendLayout.addRow('線の太さ:', self.theoryLineWidthSpin)
+        # 数式データ確定ボタン
+        self.formulaDataButton = QPushButton('数式データを確定・保存')
+        self.formulaDataButton.setToolTip('入力した数式に基づいてデータを生成し、現在のデータセットに保存します')
+        self.formulaDataButton.clicked.connect(self.apply_formula)
+        self.formulaDataButton.setStyleSheet('background-color: #2196F3; color: white; font-size: 14px; padding: 8px;')
+        formulaDataActionLayout.addWidget(self.formulaDataButton)
         
-        formulaLegendGroup.setLayout(formulaLegendLayout)
-        formulaLayout.addWidget(formulaLegendGroup)
+        formulaDataActionGroup.setLayout(formulaDataActionLayout)
+        formulaLayout.addWidget(formulaDataActionGroup)
         
         # 初期状態ではコンテナの表示/非表示を設定
         dataTabLayout.addWidget(self.measuredContainer)
@@ -450,14 +481,21 @@ class TikZPlotConverter(QMainWindow):
         styleGroup = QGroupBox("データセット個別設定 - スタイル")
         styleLayout = QGridLayout()
         
+        # データソースタイプ説明ラベル
+        dataSourceTypeLabel = QLabel("選択中のデータセットタイプ:")
+        self.dataSourceTypeDisplayLabel = QLabel("実測データ")
+        self.dataSourceTypeDisplayLabel.setStyleSheet("font-weight: bold;")
+        styleLayout.addWidget(dataSourceTypeLabel, 0, 0)
+        styleLayout.addWidget(self.dataSourceTypeDisplayLabel, 0, 1)
+        
         # 色選択
-        colorLabel = QLabel('線の色:')
+        colorLabel = QLabel('線/点の色:')
         self.colorButton = QPushButton()
         self.colorButton.setStyleSheet('background-color: blue;')
         self.currentColor = QColor('blue')
         self.colorButton.clicked.connect(self.select_color)
-        styleLayout.addWidget(colorLabel, 0, 0)
-        styleLayout.addWidget(self.colorButton, 0, 1)
+        styleLayout.addWidget(colorLabel, 1, 0)
+        styleLayout.addWidget(self.colorButton, 1, 1)
         
         # 線の太さ
         lineWidthLabel = QLabel('線の太さ:')
@@ -465,15 +503,15 @@ class TikZPlotConverter(QMainWindow):
         self.lineWidthSpin.setRange(0.1, 5.0)
         self.lineWidthSpin.setSingleStep(0.1)
         self.lineWidthSpin.setValue(1.0)
-        styleLayout.addWidget(lineWidthLabel, 1, 0)
-        styleLayout.addWidget(self.lineWidthSpin, 1, 1)
+        styleLayout.addWidget(lineWidthLabel, 2, 0)
+        styleLayout.addWidget(self.lineWidthSpin, 2, 1)
         
         # マーカースタイル
         markerLabel = QLabel('マーカースタイル:')
         self.markerCombo = QComboBox()
         self.markerCombo.addItems(['*', 'o', 'square', 'triangle', 'diamond', '+', 'x'])
-        styleLayout.addWidget(markerLabel, 2, 0)
-        styleLayout.addWidget(self.markerCombo, 2, 1)
+        styleLayout.addWidget(markerLabel, 3, 0)
+        styleLayout.addWidget(self.markerCombo, 3, 1)
         
         # マーカーサイズ
         markerSizeLabel = QLabel('マーカーサイズ:')
@@ -481,13 +519,13 @@ class TikZPlotConverter(QMainWindow):
         self.markerSizeSpin.setRange(0.5, 10.0)
         self.markerSizeSpin.setSingleStep(0.5)
         self.markerSizeSpin.setValue(3.0)
-        styleLayout.addWidget(markerSizeLabel, 3, 0)
-        styleLayout.addWidget(self.markerSizeSpin, 3, 1)
+        styleLayout.addWidget(markerSizeLabel, 4, 0)
+        styleLayout.addWidget(self.markerSizeSpin, 4, 1)
         
         # データ点をマークで表示するオプション
         self.showDataPointsCheck = QCheckBox('データ点をマークで表示（線グラフでも点を表示）')
         self.showDataPointsCheck.setChecked(False)
-        styleLayout.addWidget(self.showDataPointsCheck, 4, 0, 1, 2)
+        styleLayout.addWidget(self.showDataPointsCheck, 5, 0, 1, 2)
         
         styleGroup.setLayout(styleLayout)
         
@@ -799,60 +837,22 @@ class TikZPlotConverter(QMainWindow):
             self.excelEntry.setEnabled(False)
             self.sheetCombobox.setEnabled(False)
             self.dataTable.setEnabled(False)
+            # CSVファイル用のツールチップ
+            self.loadDataButton.setToolTip("CSVファイルからデータを読み込み、現在のデータセットに保存します")
         elif self.excelRadio.isChecked():
             self.fileEntry.setEnabled(False)
             self.excelEntry.setEnabled(True)
             self.sheetCombobox.setEnabled(True)
             self.dataTable.setEnabled(False)
+            # Excelファイル用のツールチップ
+            self.loadDataButton.setToolTip("Excelファイルからデータを読み込み、現在のデータセットに保存します")
         elif self.manualRadio.isChecked():
             self.fileEntry.setEnabled(False)
             self.excelEntry.setEnabled(False)
             self.sheetCombobox.setEnabled(False)
             self.dataTable.setEnabled(True)
-    
-    # CSVファイルの列名を更新
-    def update_column_names(self, file_path):
-        try:
-            df = pd.read_csv(file_path)
-            self.xColCombo.clear()
-            self.yColCombo.clear()
-            self.xColCombo.addItems(df.columns)
-            self.yColCombo.addItems(df.columns)
-            self.statusBar.showMessage(f"CSV列名を読み込みました: {len(df.columns)}列")
-        except Exception as e:
-            QMessageBox.critical(self, "エラー", f"CSVファイルの読み込みに失敗しました: {str(e)}")
-            self.statusBar.showMessage("ファイル読み込みエラー")
-    
-    # データテーブルに行を追加
-    def add_table_row(self):
-        row_position = self.dataTable.rowCount()
-        self.dataTable.insertRow(row_position)
-    
-    # データテーブルから選択行を削除
-    def remove_table_row(self):
-        selected_rows = set(index.row() for index in self.dataTable.selectedIndexes())
-        for row in sorted(selected_rows, reverse=True):
-            self.dataTable.removeRow(row)
-    
-    # データテーブルに列を追加
-    def add_table_column(self):
-        col_position = self.dataTable.columnCount()
-        self.dataTable.insertColumn(col_position)
-        self.dataTable.setHorizontalHeaderItem(col_position, QTableWidgetItem(f"列{col_position+1}"))
-    
-    # 色選択ダイアログ
-    def select_color(self):
-        color = QColorDialog.getColor(self.currentColor, self, "線の色を選択")
-        if color.isValid():
-            self.currentColor = color
-            self.colorButton.setStyleSheet(f'background-color: {color.name()};')
-    
-    # 理論曲線の色選択ダイアログ
-    def select_theory_color(self):
-        color = QColorDialog.getColor(self.theoryCurrentColor, self, "理論曲線の色を選択")
-        if color.isValid():
-            self.theoryCurrentColor = color
-            self.theoryColorButton.setStyleSheet(f'background-color: {color.name()};')
+            # 手入力データ用のツールチップ
+            self.loadDataButton.setToolTip("テーブルに入力したデータを現在のデータセットに保存します")
     
     # データを読み込む
     def load_data(self):
@@ -1057,9 +1057,9 @@ class TikZPlotConverter(QMainWindow):
             self.resultText.setPlainText(latex_code)
             self.statusBar.showMessage("TikZコードが生成されました")
             
-            # コードが生成されたらコピーするように促す
-            QMessageBox.information(self, "TikZコード生成完了", 
-                                   "TikZコードが生成されました。クリップボードにコピーボタンを押して利用できます。")
+            # ポップアップを削除
+            # QMessageBox.information(self, "TikZコード生成完了", 
+            #                      "TikZコードが生成されました。クリップボードにコピーボタンを押して利用できます。")
             
         except Exception as e:
             import traceback
@@ -1120,14 +1120,8 @@ class TikZPlotConverter(QMainWindow):
                 'file_type': 'csv',  # 'csv' or 'excel' or 'manual'
                 'sheet_name': '',
                 'x_column': '',
-                'y_column': '',
-                # 理論曲線関連の設定
-                'theory_color': QColor('green'),  # QColorオブジェクトを新規作成
-                'theory_line_width': 1.0,
-                'theory_legend': '理論曲線',
-                'param_sweep': False,
-                'param_name': 'a',
-                'param_values': []
+                'y_column': ''
+                # パラメータスイープ関連の設定を削除
             }
             
             self.datasets.append(dataset)
@@ -1342,35 +1336,28 @@ class TikZPlotConverter(QMainWindow):
                     dataset['domain_max'] = self.domainMaxSpin.value()
                     dataset['samples'] = self.samplesSpin.value()
                     
-                    # パラメータスイープ設定
-                    dataset['param_sweep'] = self.paramSweepCheck.isChecked()
-                    dataset['param_name'] = self.paramNameEntry.text()
+                    # 微分・積分の設定を削除し、接線設定のみ残す
+                    dataset['show_tangent'] = self.showTangentCheck.isChecked()
+                    dataset['tangent_x'] = self.tangentXSpin.value()
+                    dataset['tangent_length'] = self.tangentLengthSpin.value()
+                    dataset['tangent_color'] = QColor(self.tangentColor)
+                    dataset['tangent_style'] = self.tangentStyleCombo.currentText()
+                    dataset['show_tangent_equation'] = self.showTangentEquationCheck.isChecked()
                     
-                    # パラメータ値を保存
-                    param_values = []
-                    for i in range(self.sweepCurvesList.count()):
-                        item_text = self.sweepCurvesList.item(i).text()
-                        try:
-                            param_val = float(item_text.split('=')[1].strip())
-                            param_values.append(param_val)
-                        except (ValueError, IndexError):
-                            pass
-                    dataset['param_values'] = param_values
-                    
-                    # 理論曲線のスタイル
-                    dataset['theory_color'] = QColor(self.theoryCurrentColor)  # QColorオブジェクトをコピー
-                    dataset['theory_line_width'] = self.theoryLineWidthSpin.value()
-                    dataset['theory_legend'] = self.theoryLegendEntry.text()
+                    # パラメータスイープ設定を削除
         
         except Exception as e:
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
-    
+            
     def update_ui_from_dataset(self, dataset):
         """現在のデータセットに基づいてUIを更新する"""
         try:
             # データソースタイプの設定
             data_source_type = dataset.get('data_source_type', 'measured')
+            
+            # データソースタイプ表示ラベルを更新
+            self.dataSourceTypeDisplayLabel.setText("実測データ" if data_source_type == 'measured' else "数式データ")
             
             # 色の設定（共通項目）
             color = dataset.get('color', QColor('blue'))
@@ -1466,27 +1453,23 @@ class TikZPlotConverter(QMainWindow):
                 self.domainMinSpin.setValue(dataset.get('domain_min', 0))
                 self.domainMaxSpin.setValue(dataset.get('domain_max', 10))
                 self.samplesSpin.setValue(dataset.get('samples', 200))
-                
-                # パラメータスイープ設定
-                self.paramSweepCheck.setChecked(dataset.get('param_sweep', False))
-                self.paramNameEntry.setText(dataset.get('param_name', 'a'))
-                
-                # パラメータ値リストを更新
-                self.sweepCurvesList.clear()
-                param_name = dataset.get('param_name', 'a')
-                param_values = dataset.get('param_values', [])
-                
-                for val in param_values:
-                    self.sweepCurvesList.addItem(f"{param_name} = {val:.4g}")
-                
-                # 理論曲線スタイル
-                theory_color = dataset.get('theory_color', QColor('green'))
-                self.theoryCurrentColor = QColor(theory_color)  # 確実にQColorオブジェクトにする
-                self.theoryColorButton.setStyleSheet(f'background-color: {self.theoryCurrentColor.name()};')
-                
-                self.theoryLineWidthSpin.setValue(dataset.get('theory_line_width', 1.0))
-                self.theoryLegendEntry.setText(dataset.get('theory_legend', '理論曲線'))
             
+                # 微分・積分設定を削除し、接線設定のみ残す
+                self.showTangentCheck.setChecked(dataset.get('show_tangent', False))
+                self.tangentXSpin.setValue(dataset.get('tangent_x', 5))
+                self.tangentLengthSpin.setValue(dataset.get('tangent_length', 2))
+                tangent_color = dataset.get('tangent_color', QColor('purple'))
+                self.tangentColor = QColor(tangent_color)
+                self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
+                
+                tangent_style = dataset.get('tangent_style', '実線')
+                index = self.tangentStyleCombo.findText(tangent_style)
+                if index >= 0:
+                    self.tangentStyleCombo.setCurrentIndex(index)
+                
+                # 接線の式表示設定も更新
+                self.showTangentEquationCheck.setChecked(dataset.get('show_tangent_equation', False))
+                
             # データソースに応じたUIの表示/非表示を更新
             self.update_ui_based_on_data_source_type()
                 
@@ -1639,60 +1622,6 @@ class TikZPlotConverter(QMainWindow):
                 latex.append(f"        % 注釈 (データセット{i+1}: {dataset.get('name', '')})")
                 latex.append(f"        \\node at (axis cs:{x},{y}) [anchor={pos}, font=\\small] {{{text}}};")
         
-        # パラメータスイープによる理論曲線
-        if self.paramSweepCheck.isChecked() and self.theoryLegendEntry.text().strip():
-            # パラメータスイープのリストから値を取得
-            param_values = []
-            param_name = self.paramNameEntry.text() or "param"
-            
-            for i in range(self.sweepCurvesList.count()):
-                item_text = self.sweepCurvesList.item(i).text()
-                try:
-                    param_val = float(item_text.split('=')[1].strip())
-                    param_values.append((param_name, param_val))
-                except (ValueError, IndexError):
-                    continue
-            
-            if param_values:
-                # 理論曲線のプロパティ
-                equation = self.equationEntry.text()
-                domain_min = self.domainMinSpin.value()
-                domain_max = self.domainMaxSpin.value()
-                samples = self.samplesSpin.value()
-                base_color = self.theoryCurrentColor.name()
-                line_width = self.theoryLineWidthSpin.value()
-                legend_text = self.theoryLegendEntry.text()
-                
-                # 色のリスト
-                colors = ["red", "green", "blue", "orange", "purple", "cyan", "magenta", "brown", "gray", "darkgray"]
-                
-                # 各パラメータ値に対して曲線を追加
-                for i, (param_name, param_val) in enumerate(param_values):
-                    # 色の設定（最初はベース色、それ以降は色リストから）
-                    curve_color = base_color if i == 0 else colors[i % len(colors)]
-                    
-                    # パラメータを数式に適用
-                    eq_with_param = equation.replace(param_name, str(param_val))
-                    
-                    # 理論曲線のスタイル
-                    theory_options = []
-                    theory_options.append(f"domain={domain_min}:{domain_max}")
-                    theory_options.append(f"samples={samples}")
-                    theory_options.append("smooth")
-                    theory_options.append("thick")
-                    theory_options.append(curve_color)
-                    theory_options.append(f"line width={line_width}pt")
-                    
-                    # 曲線の追加
-                    latex.append(f"        % パラメータスイープ曲線 ({param_name}={param_val})")
-                    latex.append(f"        \\addplot[{', '.join(theory_options)}] {{")
-                    latex.append(f"            {eq_with_param}")
-                    latex.append("        };")
-                    
-                    # 凡例エントリ
-                    if self.legendCheck.isChecked():
-                        latex.append(f"        \\addlegendentry{{{legend_text} ($\\{param_name}={param_val}$)}}")
-        
         # axis環境の終了
         latex.append("        \\end{axis}")
         
@@ -1720,14 +1649,21 @@ class TikZPlotConverter(QMainWindow):
             domain_max = dataset.get('domain_max', 10)
             samples = dataset.get('samples', 200)
             
+            # 数式がない場合はスキップ
+            if not equation.strip():
+                return
+            
+            # QColorオブジェクトをTikZ互換形式に変換
+            tikz_color = self.color_to_tikz_rgb(dataset.get('color', QColor('blue')))
+            
             # 理論曲線のオプション
             theory_options = []
             theory_options.append(f"domain={domain_min}:{domain_max}")
             theory_options.append(f"samples={samples}")
             theory_options.append("smooth")
             theory_options.append("thick")
-            theory_options.append(color)
-            theory_options.append(f"line width={line_width}pt")
+            theory_options.append(tikz_color)  # TikZ互換のRGB値
+            theory_options.append(f"line width={dataset.get('line_width', 1.0)}pt")
             
             latex.append(f"        % データセット{index+1}: {dataset.get('name', '')} （数式: {equation}）")
             latex.append(f"        \\addplot[{', '.join(theory_options)}] {{")
@@ -1737,6 +1673,195 @@ class TikZPlotConverter(QMainWindow):
             # 凡例エントリを追加
             if show_legend:
                 latex.append(f"        \\addlegendentry{{{legend_label}}}")
+            
+            # 微分曲線の追加（オプションが有効な場合）
+            if dataset.get('show_derivative', False):
+                # 微分曲線の色をTikZ互換形式に変換
+                deriv_color = self.color_to_tikz_rgb(dataset.get('derivative_color', QColor('red')))
+                
+                # 線のスタイル設定
+                line_style = ""
+                deriv_style = dataset.get('derivative_style', '実線')
+                if deriv_style == '点線':
+                    line_style = "dotted"
+                elif deriv_style == '破線':
+                    line_style = "dashed"
+                elif deriv_style == '一点鎖線':
+                    line_style = "dashdotted"
+                
+                # 微分曲線のオプション
+                deriv_options = []
+                deriv_options.append(f"domain={domain_min}:{domain_max}")
+                deriv_options.append(f"samples={samples}")
+                deriv_options.append("smooth")
+                if line_style:
+                    deriv_options.append(line_style)
+                deriv_options.append(deriv_color)  # TikZ互換のRGB値
+                deriv_options.append(f"line width={dataset.get('line_width', 1.0)}pt")
+                
+                latex.append(f"        % 微分曲線 （データセット{index+1}: {dataset.get('name', '')}）")
+                latex.append(f"        \\addplot[{', '.join(deriv_options)}] {{")
+                # 微分を計算するための数式変換（簡易的な実装）
+                latex.append(f"            derivative({equation}, x)")
+                latex.append("        };")
+                
+                # 凡例エントリを追加
+                if show_legend:
+                    latex.append(f"        \\addlegendentry{{{legend_label}の微分}}")
+            
+            # 積分曲線の追加（オプションが有効な場合）
+            if dataset.get('show_integral', False):
+                # 積分曲線の色をTikZ互換形式に変換
+                integral_color = self.color_to_tikz_rgb(dataset.get('integral_color', QColor('green')))
+                
+                # 線のスタイル設定
+                line_style = ""
+                integral_style = dataset.get('integral_style', '点線')
+                if integral_style == '点線':
+                    line_style = "dotted"
+                elif integral_style == '破線':
+                    line_style = "dashed"
+                elif integral_style == '一点鎖線':
+                    line_style = "dashdotted"
+                
+                # 積分定数
+                integral_const = dataset.get('integral_const', 0)
+                
+                # 積分曲線のオプション
+                integral_options = []
+                integral_options.append(f"domain={domain_min}:{domain_max}")
+                integral_options.append(f"samples={samples}")
+                integral_options.append("smooth")
+                if line_style:
+                    integral_options.append(line_style)
+                integral_options.append(integral_color)  # TikZ互換のRGB値
+                integral_options.append(f"line width={dataset.get('line_width', 1.0)}pt")
+                
+                latex.append(f"        % 積分曲線 （データセット{index+1}: {dataset.get('name', '')}）")
+                latex.append(f"        \\addplot[{', '.join(integral_options)}] {{")
+                # 積分を計算するための数式変換（簡易的な実装）
+                latex.append(f"            integral({equation}, x) + {integral_const}")
+                latex.append("        };")
+                
+                # 凡例エントリを追加
+                if show_legend:
+                    latex.append(f"        \\addlegendentry{{{legend_label}の積分}}")
+            
+            # 接線表示部分を完全に書き直し
+            # TikZ コードを完全に書き換え - 接線の明示的な計算
+            if dataset.get('show_tangent', False):
+                # 接線のx座標と長さ
+                tangent_x = dataset.get('tangent_x', 5)
+                tangent_length = dataset.get('tangent_length', 2)
+                
+                # 接線の色をTikZ互換形式に変換
+                tangent_color = self.color_to_tikz_rgb(dataset.get('tangent_color', QColor('purple')))
+                
+                # 線のスタイル設定
+                line_style = ""
+                tangent_style = dataset.get('tangent_style', '実線')
+                if tangent_style == '点線':
+                    line_style = "dotted"
+                elif tangent_style == '破線':
+                    line_style = "dashed"
+                elif tangent_style == '一点鎖線':
+                    line_style = "dashdotted"
+                
+                # 接線のオプション
+                tangent_options = []
+                if line_style:
+                    tangent_options.append(line_style)
+                tangent_options.append("thick")
+                tangent_options.append(tangent_color)  # TikZ互換のRGB値
+                tangent_options.append(f"line width={dataset.get('line_width', 1.5)}pt")
+
+                # コメント行
+                latex.append(f"        % 接線 （データセット{index+1}: {dataset.get('name', '')}）")
+                
+                # まず点をプロット - この部分もPython側で計算して値を直接指定
+                try:
+                    # 数式の文字列置換 'x' を tangent_x に置き換えて評価
+                    x_val = tangent_x
+                    formula = dataset.get('equation', 'x^2')  # データセットから式を取得
+                    
+                    # TikZ式をPython式に変換（^ を ** に置換）
+                    python_formula = formula.replace('^', '**')
+                    
+                    # 式を評価 - 数学関数を使用できるようにmath名前空間も提供
+                    y_val = eval(python_formula.replace('x', str(x_val)), {"__builtins__": {}}, {"math": math})
+                    
+                    point_code = f"""        % 接線の点をマーク
+        \\addplot[only marks, mark=*, {tangent_color}, mark size=3] coordinates {{({x_val}, {y_val})}};\n"""
+                    latex.append(point_code)
+                    
+                    # 数値微分で接線の傾きを計算
+                    dx = 0.0001  # 十分小さい値
+                    # 安全な評価のためmathを提供
+                    globals_dict = {"__builtins__": {}}
+                    locals_dict = {"math": math}
+                    y1 = eval(python_formula.replace('x', str(x_val - dx)), globals_dict, locals_dict)
+                    y2 = eval(python_formula.replace('x', str(x_val + dx)), globals_dict, locals_dict)
+                    slope = (y2 - y1) / (2 * dx)
+                    
+                    # 接線の方程式: y = y0 + slope*(x - x0)
+                    # もっとシンプルに y = mx + b の形に変換
+                    slope_rounded = round(slope, 3)
+                    intercept = round(y_val - slope * x_val, 3)
+                    equation_text = f"y = {slope_rounded}x + {intercept}" if intercept >= 0 else f"y = {slope_rounded}x - {abs(intercept)}"
+                    
+                    # 関数形式での接線の方程式
+                    tangent_equation = f"{round(y_val, 6)} + {round(slope, 6)}*(x - {round(x_val, 6)})"
+                    
+                    # 接線を関数形式でプロット
+                    tangent_code = f"""        % 接線を関数形式でプロット
+        \\addplot[{', '.join(tangent_options)}, domain={x_val-tangent_length/2}:{x_val+tangent_length/2}] {{
+            {tangent_equation}
+        }};\n"""
+                    latex.append(tangent_code)
+                    
+                    # 接線の式を表示（オプションがオンの場合）
+                    if dataset.get('show_tangent_equation', False):
+                        # 式の表示位置を調整（接線の少し上に配置）
+                        equation_pos_x = x_val
+                        equation_pos_y = y_val + 0.5  # 接線の上に配置
+                        
+                        # 式の表示コード
+                        equation_display = f"""        % 接線の方程式を表示
+        \\node[anchor=south, font=\\small, {tangent_color}] at (axis cs:{equation_pos_x}, {equation_pos_y}) {{{equation_text}}};\n"""
+                        latex.append(equation_display)
+                    
+                    # 凡例用のエントリ
+                    latex.append(f"        \\addlegendimage{{{', '.join(tangent_options)}}};")
+                    
+                    # 凡例エントリを追加
+                    if show_legend:
+                        latex.append(f"        \\addlegendentry{{{legend_label}の接線 (x={tangent_x})}}")
+                except Exception as e:
+                    # 詳細なエラー情報を提供
+                    error_msg = f"接線の計算でエラーが発生しました。式: {formula}, エラー: {str(e)}"
+                    print(error_msg)  # コンソールにも出力
+                    
+                    # エラーが発生した場合は警告コメントを追加
+                    latex.append(f"        % {error_msg}")
+                    
+                    # 点の表示を試みる - 式の評価ができなければ原点を使用
+                    try:
+                        # TikZ式をPython式に変換し、安全に評価
+                        python_formula = formula.replace('^', '**')
+                        point_y = eval(python_formula.replace('x', str(x_val)), {"__builtins__": {}}, {"math": math})
+                        latex.append(f"        \\addplot[only marks, mark=*, {tangent_color}, mark size=3] coordinates {{({tangent_x}, {point_y})}}; % 接線計算エラーだが点は表示")
+                    except:
+                        # それでも失敗したら原点にプロット
+                        latex.append(f"        \\addplot[only marks, mark=*, {tangent_color}, mark size=3] coordinates {{({tangent_x}, 0)}}; % エラーのため原点にプロット")
+                    
+                    # 接線の代わりに水平線を表示（目印として）
+                    latex.append(f"        \\addplot[{', '.join(tangent_options)}, dashed] coordinates {{({tangent_x-0.5}, 0) ({tangent_x+0.5}, 0)}}; % エラーのため水平線を表示")
+                    
+                    # 凡例用のエントリ（エラーが発生していることを示す）
+                    latex.append(f"        \\addlegendimage{{{', '.join(tangent_options)}, dashed}};")
+                    if show_legend:
+                        latex.append(f"        \\addlegendentry{{{legend_label}の接線 (計算エラー)}}")
+            
             return
             
         # 実測値の場合（以下は既存のコード）
@@ -1748,11 +1873,14 @@ class TikZPlotConverter(QMainWindow):
         if not coordinates:
             return
         
+        # QColorオブジェクトをTikZ互換形式に変換
+        tikz_color = self.color_to_tikz_rgb(QColor(color))
+        
         # 線グラフまたは線と点の組み合わせの場合の線プロット
         if plot_type == "line" or plot_type == "line_scatter":
             # 線プロット
             plot_options = []
-            plot_options.append(color)
+            plot_options.append(tikz_color)  # TikZ互換のRGB値
             plot_options.append(f"line width={line_width}pt")
             plot_options.append("thick")
             
@@ -1776,7 +1904,7 @@ class TikZPlotConverter(QMainWindow):
             scatter_options = []
             scatter_options.append("only marks")
             scatter_options.append(f"mark={marker_style}")
-            scatter_options.append(color)
+            scatter_options.append(tikz_color)  # TikZ互換のRGB値
             scatter_options.append(f"mark size={marker_size}")
             
             latex.append(f"        % データセット{index+1}: {dataset.get('name', '')} （点）")
@@ -1798,8 +1926,8 @@ class TikZPlotConverter(QMainWindow):
             # 棒グラフ
             bar_options = []
             bar_options.append(f"ybar")
-            bar_options.append(color)
-            bar_options.append(f"fill={color}")
+            bar_options.append(tikz_color)  # TikZ互換のRGB値
+            bar_options.append(f"fill={tikz_color}")  # TikZ互換のRGB値
             
             latex.append(f"        % データセット{index+1}: {dataset.get('name', '')} （棒グラフ）")
             latex.append(f"        \\addplot[{', '.join(bar_options)}] coordinates {{")
@@ -1931,6 +2059,9 @@ class TikZPlotConverter(QMainWindow):
             dataset = self.datasets[self.current_dataset_index]
             dataset['data_source_type'] = 'measured' if is_measured else 'formula'
             
+            # データソースタイプ表示ラベルを更新
+            self.dataSourceTypeDisplayLabel.setText("実測データ" if is_measured else "数式データ")
+            
         # UIの要素の有効/無効を更新
         self.update_ui_based_on_data_source_type()
 
@@ -1959,6 +2090,14 @@ class TikZPlotConverter(QMainWindow):
             dataset['domain_max'] = domain_max
             dataset['samples'] = samples
             
+            # 接線設定も更新
+            dataset['show_tangent'] = self.showTangentCheck.isChecked()
+            dataset['tangent_x'] = self.tangentXSpin.value()
+            dataset['tangent_length'] = self.tangentLengthSpin.value()
+            dataset['tangent_color'] = QColor(self.tangentColor)
+            dataset['tangent_style'] = self.tangentStyleCombo.currentText()
+            dataset['show_tangent_equation'] = self.showTangentEquationCheck.isChecked()
+            
             # X値（ドメイン）の生成
             x_values = np.linspace(domain_min, domain_max, samples).tolist()
             dataset['data_x'] = x_values
@@ -1973,6 +2112,219 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"数式適用中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
             self.statusBar.showMessage("数式適用エラー")
+
+    # CSVファイルの列名を更新
+    def update_column_names(self, file_path):
+        try:
+            df = pd.read_csv(file_path)
+            self.xColCombo.clear()
+            self.yColCombo.clear()
+            self.xColCombo.addItems(df.columns)
+            self.yColCombo.addItems(df.columns)
+            self.statusBar.showMessage(f"CSV列名を読み込みました: {len(df.columns)}列")
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"CSVファイルの読み込みに失敗しました: {str(e)}")
+            self.statusBar.showMessage("ファイル読み込みエラー")
+    
+    # データテーブルに行を追加
+    def add_table_row(self):
+        row_position = self.dataTable.rowCount()
+        self.dataTable.insertRow(row_position)
+    
+    # データテーブルから選択行を削除
+    def remove_table_row(self):
+        selected_rows = set(index.row() for index in self.dataTable.selectedIndexes())
+        for row in sorted(selected_rows, reverse=True):
+            self.dataTable.removeRow(row)
+    
+    # データテーブルに列を追加
+    def add_table_column(self):
+        col_position = self.dataTable.columnCount()
+        self.dataTable.insertColumn(col_position)
+        self.dataTable.setHorizontalHeaderItem(col_position, QTableWidgetItem(f"列{col_position+1}"))
+    
+    # 色選択ダイアログ
+    def select_color(self):
+        color = QColorDialog.getColor(self.currentColor, self, "線の色を選択")
+        if color.isValid():
+            self.currentColor = color
+            self.colorButton.setStyleSheet(f'background-color: {color.name()};')
+    
+    # 理論曲線の色選択ダイアログは削除（パラメータスイープ機能の廃止に伴い）
+    
+    # データを読み込む
+    def load_data(self):
+        """選択されたデータソースからデータを読み込む"""
+        try:
+            if self.current_dataset_index < 0:
+                QMessageBox.warning(self, "警告", "データを読み込むデータセットを選択してください")
+                return
+                
+            data_x = []
+            data_y = []
+            
+            if self.csvRadio.isChecked():
+                file_path = self.fileEntry.text()
+                if not file_path or not os.path.exists(file_path):
+                    QMessageBox.warning(self, "警告", "有効なCSVファイルを選択してください")
+                    return
+                
+                df = pd.read_csv(file_path)
+                x_col = self.xColCombo.currentText()
+                y_col = self.yColCombo.currentText()
+                
+                if x_col in df.columns and y_col in df.columns:
+                    data_x = df[x_col].values.tolist()
+                    data_y = df[y_col].values.tolist()
+                else:
+                    QMessageBox.warning(self, "警告", "選択した列名が不正です")
+                    return
+                
+            elif self.excelRadio.isChecked():
+                file_path = self.excelEntry.text()
+                if not file_path or not os.path.exists(file_path):
+                    QMessageBox.warning(self, "警告", "有効なExcelファイルを選択してください")
+                    return
+                
+                sheet_name = self.sheetCombobox.currentText()
+                if not sheet_name:
+                    QMessageBox.warning(self, "警告", "シート名を選択してください")
+                    return
+                
+                df = pd.read_excel(file_path, sheet_name=sheet_name)
+                x_col = self.xColCombo.currentText()
+                y_col = self.yColCombo.currentText()
+                
+                if x_col in df.columns and y_col in df.columns:
+                    data_x = df[x_col].values.tolist()
+                    data_y = df[y_col].values.tolist()
+                else:
+                    QMessageBox.warning(self, "警告", "選択した列名が不正です")
+                    return
+                
+            elif self.manualRadio.isChecked():
+                data_x = []
+                data_y = []
+                
+                for row in range(self.dataTable.rowCount()):
+                    x_item = self.dataTable.item(row, 0)
+                    y_item = self.dataTable.item(row, 1)
+                    
+                    if x_item and y_item and x_item.text() and y_item.text():
+                        try:
+                            x_val = float(x_item.text())
+                            y_val = float(y_item.text())
+                            data_x.append(x_val)
+                            data_y.append(y_val)
+                        except ValueError:
+                            pass  # 数値に変換できない場合はスキップ
+                
+                if not data_x:
+                    QMessageBox.warning(self, "警告", "有効なデータポイントがありません")
+                    return
+                
+            # 現在のデータセットにデータを設定
+            self.datasets[self.current_dataset_index]['data_x'] = data_x
+            self.datasets[self.current_dataset_index]['data_y'] = data_y
+            
+            # データテーブルを更新（手動入力モードの場合）
+            if self.manualRadio.isChecked():
+                self.update_data_table_from_dataset(self.datasets[self.current_dataset_index])
+            
+            dataset_name = self.datasets[self.current_dataset_index]['name']
+            QMessageBox.information(self, "成功", f"データセット '{dataset_name}' に{len(data_x)}個のデータポイントを読み込みました")
+            self.statusBar.showMessage(f"データセット '{dataset_name}' にデータを読み込みました: {len(data_x)}ポイント")
+            
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"データ読み込み中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+            self.statusBar.showMessage("データ読み込みエラー")
+    
+    # 特殊点を追加
+    def add_special_point(self):
+        row_position = self.specialPointsTable.rowCount()
+        self.specialPointsTable.insertRow(row_position)
+        
+        # デフォルト値の設定
+        x_item = QTableWidgetItem("0.0")
+        y_item = QTableWidgetItem("0.0")
+        color_item = QTableWidgetItem("red")
+        
+        self.specialPointsTable.setItem(row_position, 0, x_item)
+        self.specialPointsTable.setItem(row_position, 1, y_item)
+        self.specialPointsTable.setItem(row_position, 2, color_item)
+    
+    # 特殊点を削除
+    def remove_special_point(self):
+        selected_rows = set(index.row() for index in self.specialPointsTable.selectedIndexes())
+        for row in sorted(selected_rows, reverse=True):
+            self.specialPointsTable.removeRow(row)
+    
+    # 注釈を追加
+    def add_annotation(self):
+        row_position = self.annotationsTable.rowCount()
+        self.annotationsTable.insertRow(row_position)
+        
+        # デフォルト値の設定
+        x_item = QTableWidgetItem("0.0")
+        y_item = QTableWidgetItem("0.0")
+        text_item = QTableWidgetItem("注釈テキスト")
+        pos_item = QTableWidgetItem("north east")
+        
+        self.annotationsTable.setItem(row_position, 0, x_item)
+        self.annotationsTable.setItem(row_position, 1, y_item)
+        self.annotationsTable.setItem(row_position, 2, text_item)
+        self.annotationsTable.setItem(row_position, 3, pos_item)
+    
+    # 注釈を削除
+    def remove_annotation(self):
+        selected_rows = set(index.row() for index in self.annotationsTable.selectedIndexes())
+        for row in sorted(selected_rows, reverse=True):
+            self.annotationsTable.removeRow(row)
+    
+    # パラメータスイープ関連のメソッドを削除（パラメータスイープ機能の廃止に伴い）
+    
+    # LaTeXコードをクリップボードにコピー
+    def copy_to_clipboard(self):
+        latex_code = self.resultText.toPlainText()
+        if latex_code:
+            clipboard = QApplication.clipboard()
+            clipboard.setText(latex_code)
+            self.statusBar.showMessage("LaTeXコードをクリップボードにコピーしました", 3000)  # 3秒間表示
+
+    # 微分曲線の色選択ダイアログは削除
+    
+    # 積分曲線の色選択ダイアログは削除
+            
+    # 接線の色選択ダイアログ
+    def select_tangent_color(self):
+        color = QColorDialog.getColor(self.tangentColor, self, "接線の色を選択")
+        if color.isValid():
+            self.tangentColor = color
+            self.tangentColorButton.setStyleSheet(f'background-color: {color.name()};')
+
+    # 数式グラフをプレビュー
+    def preview_formula_graph(self):
+        try:
+            equation = self.equationEntry.text().strip()
+            if not equation:
+                QMessageBox.warning(self, "警告", "有効な数式を入力してください")
+                return
+
+            # Matplotlibを使用してグラフをプレビュー表示
+            # 注：この機能を実装するにはMatplotlibをインポートする必要があります
+            QMessageBox.information(self, "プレビュー機能", 
+                "グラフのプレビュー機能が準備されています。\n\n"
+                f"数式：{equation}\n"
+                f"範囲：{self.domainMinSpin.value()} 〜 {self.domainMaxSpin.value()}\n"
+                f"サンプル数：{self.samplesSpin.value()}\n\n"
+                "接線表示：" + ("はい" if self.showTangentCheck.isChecked() else "いいえ") + 
+                (f" (x={self.tangentXSpin.value()})" if self.showTangentCheck.isChecked() else "") + "\n\n"
+                "完全なプレビュー機能を有効にするには、Matplotlibをインポートして実装してください。")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"数式プレビュー中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+            self.statusBar.showMessage("プレビューエラー")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
