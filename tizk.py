@@ -114,7 +114,7 @@ class TikZPlotConverter(QMainWindow):
         copyPackageButton.setFixedWidth(60)
         def copy_package():
             clipboard = QApplication.clipboard()
-            clipboard.setText("\\usepackage{pgfplots}\n\\usepackage{float}\n\\pgfplotsset{compat=1.18}\n\\usepgfplotslibrary{fillbetween}\n\\usetikzlibrary{calc}")
+            clipboard.setText("\\usepackage{pgfplots}\n\\usepackage{float}\n\\pgfplotsset{compat=1.18}")
             self.statusBar.showMessage("パッケージ名をコピーしました", 3000)
         copyPackageButton.clicked.connect(copy_package)
         
@@ -398,12 +398,19 @@ class TikZPlotConverter(QMainWindow):
         
         # 接線の色
         tangentColorLabel = QLabel('接線の色:')
-        self.tangentColorButton = QPushButton()
-        self.tangentColorButton.setStyleSheet('background-color: purple;')
-        self.tangentColor = QColor('purple')
+        self.tangentColorCombo = QComboBox()
+        common_colors = ['赤', '青', '緑', '紫', '橙', '黒', '水色', 'マゼンタ', '茶色', '灰色']
+        self.tangentColorCombo.addItems(common_colors)
+        self.tangentColorCombo.setCurrentText('紫')
+        self.tangentColorButton = QPushButton('カスタム色...')
         self.tangentColorButton.clicked.connect(self.select_tangent_color)
+        tangentColorLayout = QHBoxLayout()
+        tangentColorLayout.addWidget(self.tangentColorCombo)
+        tangentColorLayout.addWidget(self.tangentColorButton)
         formulaOptionsLayout.addWidget(tangentColorLabel, 3, 0)
-        formulaOptionsLayout.addWidget(self.tangentColorButton, 3, 1)
+        formulaOptionsLayout.addLayout(tangentColorLayout, 3, 1)
+        self.tangentColor = QColor('purple')  # デフォルト値
+        self.tangentColorCombo.currentTextChanged.connect(self.on_tangent_color_changed)
         
         # 接線の線スタイル
         tangentStyleLabel = QLabel('接線のスタイル:')
@@ -745,8 +752,8 @@ class TikZPlotConverter(QMainWindow):
         specialPointsLayout.addWidget(self.specialPointsCheck)
         
         # 特殊点テーブル
-        self.specialPointsTable = QTableWidget(0, 3)  # 行数, 列数
-        self.specialPointsTable.setHorizontalHeaderLabels(['X', 'Y', '色'])
+        self.specialPointsTable = QTableWidget(0, 4)  # 行数, 列数 (X, Y, 色, 座標表示)
+        self.specialPointsTable.setHorizontalHeaderLabels(['X', 'Y', '色', '座標表示'])
         self.specialPointsTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.specialPointsTable.setEnabled(False)
         specialPointsLayout.addWidget(self.specialPointsTable)
@@ -782,8 +789,8 @@ class TikZPlotConverter(QMainWindow):
         annotationsLayout.addWidget(self.annotationsCheck)
         
         # 注釈テーブル
-        self.annotationsTable = QTableWidget(0, 4)  # 行数, 列数
-        self.annotationsTable.setHorizontalHeaderLabels(['X', 'Y', 'テキスト', '位置'])
+        self.annotationsTable = QTableWidget(0, 5)  # 行数, 列数 (X, Y, テキスト, 色, 位置)
+        self.annotationsTable.setHorizontalHeaderLabels(['X', 'Y', 'テキスト', '色', '位置'])
         self.annotationsTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.annotationsTable.setEnabled(False)
         annotationsLayout.addWidget(self.annotationsTable)
@@ -819,7 +826,7 @@ class TikZPlotConverter(QMainWindow):
         # タブ追加
         tabWidget.addTab(dataTab, "データ入力")
         tabWidget.addTab(plotTab, "グラフ設定")
-        tabWidget.addTab(annotationTab, "詳細設定")
+        tabWidget.addTab(annotationTab, "特殊点・注釈設定")
         
         # 設定部分のレイアウトに追加
         settingsLayout.addLayout(infoLayout)
@@ -1025,11 +1032,29 @@ class TikZPlotConverter(QMainWindow):
         # デフォルト値の設定
         x_item = QTableWidgetItem("0.0")
         y_item = QTableWidgetItem("0.0")
-        color_item = QTableWidgetItem("red")
+        
+        # 色選択コンボボックス
+        color_combo = QComboBox()
+        color_combo.addItems(['red', 'blue', 'green', 'black', 'purple', 'orange', 'brown', 'gray'])
+        color_combo.setCurrentText("red")
+        
+        # 座標表示コンボボックス（チェックボックスから変更）
+        coord_display_combo = QComboBox()
+        coord_display_combo.addItems([
+            'なし', 
+            'X座標のみ（線のみ）', 
+            'X座標のみ（値も表示）', 
+            'Y座標のみ（線のみ）', 
+            'Y座標のみ（値も表示）', 
+            'X,Y座標（線のみ）', 
+            'X,Y座標（値も表示）'
+        ])
+        coord_display_combo.setCurrentText("なし")
         
         self.specialPointsTable.setItem(row_position, 0, x_item)
         self.specialPointsTable.setItem(row_position, 1, y_item)
-        self.specialPointsTable.setItem(row_position, 2, color_item)
+        self.specialPointsTable.setCellWidget(row_position, 2, color_combo)
+        self.specialPointsTable.setCellWidget(row_position, 3, coord_display_combo)
     
     # 特殊点を削除
     def remove_special_point(self):
@@ -1046,12 +1071,22 @@ class TikZPlotConverter(QMainWindow):
         x_item = QTableWidgetItem("0.0")
         y_item = QTableWidgetItem("0.0")
         text_item = QTableWidgetItem("注釈テキスト")
-        pos_item = QTableWidgetItem("north east")
+        
+        # 色選択コンボボックス
+        color_combo = QComboBox()
+        color_combo.addItems(['black', 'red', 'blue', 'green', 'purple', 'orange', 'brown', 'gray'])
+        color_combo.setCurrentText("black")
+        
+        # 位置選択コンボボックス - より直感的な表現に変更
+        pos_combo = QComboBox()
+        pos_combo.addItems(['上', '右上', '右', '右下', '下', '左下', '左', '左上'])
+        pos_combo.setCurrentText("右上")
         
         self.annotationsTable.setItem(row_position, 0, x_item)
         self.annotationsTable.setItem(row_position, 1, y_item)
         self.annotationsTable.setItem(row_position, 2, text_item)
-        self.annotationsTable.setItem(row_position, 3, pos_item)
+        self.annotationsTable.setCellWidget(row_position, 3, color_combo)
+        self.annotationsTable.setCellWidget(row_position, 4, pos_combo)
     
     # 注釈を削除
     def remove_annotation(self):
@@ -1188,8 +1223,8 @@ class TikZPlotConverter(QMainWindow):
                 'domain_min': 0,
                 'domain_max': 10,
                 'samples': 200,
-                'special_points': [],
-                'annotations': [],
+                'special_points': [],  # [(x, y, color, show_coords), ...]
+                'annotations': [],     # [(x, y, text, color, pos), ...]
                 # ファイル読み込み関連の設定
                 'file_path': '',
                 'file_type': 'csv',  # 'csv' or 'excel' or 'manual'
@@ -1415,9 +1450,36 @@ class TikZPlotConverter(QMainWindow):
                     dataset['show_tangent'] = self.showTangentCheck.isChecked()
                     dataset['tangent_x'] = self.tangentXSpin.value()
                     dataset['tangent_length'] = self.tangentLengthSpin.value()
-                    dataset['tangent_color'] = QColor(self.tangentColor)
-                    dataset['tangent_style'] = self.tangentStyleCombo.currentText()
-                    dataset['show_tangent_equation'] = self.showTangentEquationCheck.isChecked()
+                    
+                    # 色設定の更新
+                    tangent_color = dataset.get('tangent_color', QColor('purple'))
+                    self.tangentColor = QColor(tangent_color)
+                    
+                    # 色名の更新（保存されていれば）
+                    tangent_color_name = dataset.get('tangent_color_name', '紫')
+                    index = self.tangentColorCombo.findText(tangent_color_name)
+                    if index >= 0:
+                        self.tangentColorCombo.setCurrentIndex(index)
+                    else:
+                        # 保存された色名がリストにない場合（カスタム色の可能性）
+                        if 'tangent_color' in dataset:
+                            # カスタム項目を追加/選択
+                            custom_index = self.tangentColorCombo.findText('カスタム')
+                            if custom_index == -1:
+                                self.tangentColorCombo.addItem('カスタム')
+                                custom_index = self.tangentColorCombo.findText('カスタム')
+                            self.tangentColorCombo.setCurrentIndex(custom_index)
+                    
+                    # ボタンの背景色を更新
+                    self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
+                    
+                    tangent_style = dataset.get('tangent_style', '実線')
+                    index = self.tangentStyleCombo.findText(tangent_style)
+                    if index >= 0:
+                        self.tangentStyleCombo.setCurrentIndex(index)
+                    
+                    # 接線の式表示設定も更新
+                    self.showTangentEquationCheck.setChecked(dataset.get('show_tangent_equation', False))
                     
                     # パラメータスイープ設定を削除
         
@@ -1533,8 +1595,27 @@ class TikZPlotConverter(QMainWindow):
                 self.showTangentCheck.setChecked(dataset.get('show_tangent', False))
                 self.tangentXSpin.setValue(dataset.get('tangent_x', 5))
                 self.tangentLengthSpin.setValue(dataset.get('tangent_length', 2))
+                
+                # 色設定の更新
                 tangent_color = dataset.get('tangent_color', QColor('purple'))
                 self.tangentColor = QColor(tangent_color)
+                
+                # 色名の更新（保存されていれば）
+                tangent_color_name = dataset.get('tangent_color_name', '紫')
+                index = self.tangentColorCombo.findText(tangent_color_name)
+                if index >= 0:
+                    self.tangentColorCombo.setCurrentIndex(index)
+                else:
+                    # 保存された色名がリストにない場合（カスタム色の可能性）
+                    if 'tangent_color' in dataset:
+                        # カスタム項目を追加/選択
+                        custom_index = self.tangentColorCombo.findText('カスタム')
+                        if custom_index == -1:
+                            self.tangentColorCombo.addItem('カスタム')
+                            custom_index = self.tangentColorCombo.findText('カスタム')
+                        self.tangentColorCombo.setCurrentIndex(custom_index)
+                
+                # ボタンの背景色を更新
                 self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
                 
                 tangent_style = dataset.get('tangent_style', '実線')
@@ -1651,6 +1732,13 @@ class TikZPlotConverter(QMainWindow):
         if y_min != y_max:
             axis_options.append(f"ymin={y_min}, ymax={y_max}")
         
+        # 目盛りを見やすくする設定を追加
+        axis_options.append("tick align=outside")
+        axis_options.append("minor tick num=1")
+        axis_options.append("tick label style={font=\\small}")
+        axis_options.append("every node near coord/.style={font=\\footnotesize}")
+        axis_options.append("clip=false")  # これを追加
+        
         if self.global_settings['grid']:
             axis_options.append("grid=both")
         
@@ -1685,17 +1773,46 @@ class TikZPlotConverter(QMainWindow):
             
             # 特殊点の追加
             special_points = dataset.get('special_points', [])
-            for x, y, point_color in special_points:
+            for point in special_points:
+                x, y, point_color, coord_display = point  # 座標表示の種類を取得
                 latex.append(f"        % 特殊点 (データセット{i+1}: {dataset.get('name', '')})")
                 latex.append(f"        \\addplot[only marks, mark=*, {point_color}] coordinates {{")
                 latex.append(f"            ({x}, {y})")
                 latex.append("        };")
-            
-            # 注釈の追加
+                
+                # 座標表示設定に基づいて処理
+                if coord_display != 'なし':
+                    # X座標の線と値のパターン処理
+                    if 'X座標のみ' in coord_display or 'X,Y座標' in coord_display:
+                        # X座標の点線を描画
+                        latex.append(f"        % 特殊点からX軸への垂線")
+                        latex.append(f"        \\draw[dotted, {point_color}] (axis cs:{x},{y}) -- (axis cs:{x},{y_min});")
+                        
+                        # 値表示ありの場合、X座標の値も表示 - yshiftのみ
+                        if '値も表示' in coord_display:
+                            formatted_x = f"{x:.2f}"  # 2桁に整形
+                            latex.append(f"        % X座標値を表示")
+                            latex.append(f"        \\node[{point_color}, below, yshift=-2pt] at (axis cs:{x},{y_min}) {{{formatted_x}}};")
+                    
+                    # Y座標の線と値のパターン処理
+                    if 'Y座標のみ' in coord_display or 'X,Y座標' in coord_display:
+                        # Y座標の点線を描画
+                        latex.append(f"        % 特殊点からY軸への垂線")
+                        latex.append(f"        \\draw[dotted, {point_color}] (axis cs:{x},{y}) -- (axis cs:{x_min},{y});")
+                        
+                        # 値表示ありの場合、Y座標の値も表示 - xshiftのみ
+                        if '値も表示' in coord_display:
+                            formatted_y = f"{y:.2f}"  # 2桁に整形
+                            latex.append(f"        % Y座標値を表示")
+                            latex.append(f"        \\node[{point_color}, left, xshift=-2pt] at (axis cs:{x_min},{y}) {{{formatted_y}}};")
+        
+        # 注釈の追加
+        for i, dataset in enumerate(self.datasets):
             annotations = dataset.get('annotations', [])
-            for x, y, text, pos in annotations:
+            for ann in annotations:
+                x, y, text, color, pos = ann
                 latex.append(f"        % 注釈 (データセット{i+1}: {dataset.get('name', '')})")
-                latex.append(f"        \\node at (axis cs:{x},{y}) [anchor={pos}, font=\\small] {{{text}}};")
+                latex.append(f"        \\node at (axis cs:{x},{y}) [anchor={pos}, font=\\small, text={color}] {{{text}}};")
         
         # axis環境の終了
         latex.append("        \\end{axis}")
@@ -1863,8 +1980,8 @@ class TikZPlotConverter(QMainWindow):
                     
                     # TikZ式をPython式に変換（^ を ** に置換）
                     python_formula = formula.replace('^', '**')
-                    # 数字の後に変数が来る場合に * を挿入
-                    python_formula = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', python_formula)
+                    # 数式形式を整える（乗算記号の追加など）- 改良したヘルパー関数を使用
+                    python_formula = self.format_equation_for_tikz(python_formula)
                     
                     # グラフの表示範囲を取得
                     y_min = self.global_settings['y_min']
@@ -1876,6 +1993,7 @@ class TikZPlotConverter(QMainWindow):
                     # y値が異常に大きくないかチェック - 表示範囲外なら警告
                     if y_val < y_min or y_val > y_max:
                         latex.append(f"        % 警告: 計算されたy値 ({y_val}) がグラフ範囲外です。範囲: [{y_min}, {y_max}]")
+                        self.statusBar.showMessage(f"警告: 点 (x={x_val}) の計算値 (y={y_val}) がグラフ範囲外です", 5000)
                         # 範囲外の場合でも計算は続行するが、後で表示位置を調整する
                     
                     # 点の表示 - 実際の計算値を使用
@@ -1884,14 +2002,35 @@ class TikZPlotConverter(QMainWindow):
                     latex.append(point_code)
                     
                     # 数値微分で接線の傾きを計算 - 精度改善
-                    dx = 0.0001  # 十分小さい値
+                    dx = 0.0001
                     # 安全な評価のためmathを提供
                     globals_dict = {"__builtins__": {}}
                     locals_dict = {"math": math}
-                    y1 = eval(python_formula.replace('x', str(x_val - dx)), globals_dict, locals_dict)
-                    y2 = eval(python_formula.replace('x', str(x_val + dx)), globals_dict, locals_dict)
-                    slope = (y2 - y1) / (2 * dx)
                     
+                    # 左右の点を計算
+                    left_x = x_val - dx
+                    right_x = x_val + dx
+                    
+                    # 左右の点のy値を計算（数式にxを代入）
+                    try:
+                        y1 = eval(python_formula.replace('x', str(left_x)), globals_dict, locals_dict)
+                        y2 = eval(python_formula.replace('x', str(right_x)), globals_dict, locals_dict)
+                        # 傾きを計算（中心差分法）
+                        slope = (y2 - y1) / (2 * dx)
+                    except Exception as inner_e:
+                        # 微分計算中のエラーを詳細に記録（デバッグ用）
+                        latex.append(f"        % 接線の微分計算でエラー: {str(inner_e)}. 中央差分法を使用できないため、前方差分法を試みます。")
+                        # 前方差分法を試みる
+                        try:
+                            forward_x = x_val + dx
+                            y_current = y_val  # すでに計算済み
+                            y_forward = eval(python_formula.replace('x', str(forward_x)), globals_dict, locals_dict)
+                            slope = (y_forward - y_current) / dx
+                        except Exception as e2:
+                            # それでも失敗した場合はデフォルト値を使用
+                            latex.append(f"        % 前方差分も失敗。デフォルトの傾き 1 を使用します。エラー: {str(e2)}")
+                            slope = 1.0
+                            
                     # 接線の方程式: y = y0 + slope*(x - x0)
                     # もっとシンプルに y = mx + b の形に変換
                     slope_rounded = round(slope, 3)
@@ -1943,6 +2082,7 @@ class TikZPlotConverter(QMainWindow):
                     # 詳細なエラー情報を提供
                     error_msg = f"接線の計算でエラーが発生しました。式: {formula}, エラー: {str(e)}"
                     print(error_msg)  # コンソールにも出力
+                    self.statusBar.showMessage(f"警告: {error_msg}", 5000)
                     
                     # エラーが発生した場合は警告コメントを追加
                     latex.append(f"        % {error_msg}")
@@ -1951,11 +2091,12 @@ class TikZPlotConverter(QMainWindow):
                     try:
                         # TikZ式をPython式に変換し、安全に評価
                         python_formula = formula.replace('^', '**')
-                        python_formula = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', python_formula)
+                        python_formula = self.format_equation_for_tikz(python_formula)
                         point_y = eval(python_formula.replace('x', str(x_val)), {"__builtins__": {}}, {"math": math})
                         latex.append(f"        \\addplot[only marks, mark=*, {tangent_color}, mark size=3] coordinates {{({tangent_x}, {point_y})}}; % 接線計算エラーだが点は表示")
-                    except:
+                    except Exception as point_error:
                         # それでも失敗したら原点にプロット
+                        latex.append(f"        % 点の計算も失敗: {str(point_error)}")
                         latex.append(f"        \\addplot[only marks, mark=*, {tangent_color}, mark size=3] coordinates {{({tangent_x}, 0)}}; % エラーのため原点にプロット")
                     
                     # 接線の代わりに水平線を表示（目印として）
@@ -2097,14 +2238,16 @@ class TikZPlotConverter(QMainWindow):
         for row in range(self.specialPointsTable.rowCount()):
             x_item = self.specialPointsTable.item(row, 0)
             y_item = self.specialPointsTable.item(row, 1)
-            color_item = self.specialPointsTable.item(row, 2)
+            color_combo = self.specialPointsTable.cellWidget(row, 2)
+            coord_display_combo = self.specialPointsTable.cellWidget(row, 3)
             
-            if x_item and y_item and color_item:
+            if x_item and y_item and color_combo and coord_display_combo:
                 try:
                     x_val = float(x_item.text())
                     y_val = float(y_item.text())
-                    color_val = color_item.text()
-                    special_points.append((x_val, y_val, color_val))
+                    color_val = color_combo.currentText()
+                    coord_display = coord_display_combo.currentText()
+                    special_points.append((x_val, y_val, color_val, coord_display))
                 except ValueError:
                     pass
         
@@ -2125,15 +2268,21 @@ class TikZPlotConverter(QMainWindow):
             x_item = self.annotationsTable.item(row, 0)
             y_item = self.annotationsTable.item(row, 1)
             text_item = self.annotationsTable.item(row, 2)
-            pos_item = self.annotationsTable.item(row, 3)
+            color_combo = self.annotationsTable.cellWidget(row, 3)
+            pos_combo = self.annotationsTable.cellWidget(row, 4)
             
-            if x_item and y_item and text_item and pos_item:
+            if x_item and y_item and text_item and color_combo and pos_combo:
                 try:
                     x_val = float(x_item.text())
                     y_val = float(y_item.text())
                     text_val = text_item.text()
-                    pos_val = pos_item.text()
-                    annotations.append((x_val, y_val, text_val, pos_val))
+                    color_val = color_combo.currentText()
+                    pos_val = pos_combo.currentText()
+                    
+                    # 日本語位置表記をTikZ形式に変換
+                    tikz_pos = self.convert_position_to_tikz(pos_val)
+                    
+                    annotations.append((x_val, y_val, text_val, color_val, tikz_pos))
                 except ValueError:
                     pass
         
@@ -2142,6 +2291,25 @@ class TikZPlotConverter(QMainWindow):
         
         QMessageBox.information(self, "成功", 
                               f"データセット '{dataset['name']}' に {len(annotations)} 個の注釈を割り当てました")
+    
+    # 日本語位置表記をTikZ形式に変換するヘルパーメソッドを追加
+    def convert_position_to_tikz(self, jp_position):
+        """日本語の位置表記をTikZの位置表記に変換する
+        注意: TikZのアンカー指定は直感と逆になる
+        例: 「右上」に表示したい場合は「左下(south west)」をアンカーに指定する
+        """
+        # 直感的な位置とTikZアンカーの対応関係（逆転させる）
+        position_map = {
+            '上': 'south',      # 下アンカー → 上に表示
+            '右上': 'south west', # 左下アンカー → 右上に表示
+            '右': 'west',       # 左アンカー → 右に表示
+            '右下': 'north west', # 左上アンカー → 右下に表示
+            '下': 'north',      # 上アンカー → 下に表示
+            '左下': 'north east', # 右上アンカー → 左下に表示
+            '左': 'east',       # 右アンカー → 左に表示
+            '左上': 'south east'  # 右下アンカー → 左上に表示
+        }
+        return position_map.get(jp_position, 'south east')  # デフォルトは左上に表示
 
     def on_data_source_type_changed(self, checked):
         """データソースタイプが変更されたときに呼ばれる"""
@@ -2206,16 +2374,46 @@ class TikZPlotConverter(QMainWindow):
             x_values = np.linspace(domain_min, domain_max, samples).tolist()
             dataset['data_x'] = x_values
             
-            # 数式に基づいてデータを生成（実際のプロット時に計算されるため、ここではデータ生成なし）
-            dataset['data_y'] = []  # 実際の値はTikZコード生成時に計算
+            # 実際の値はTikZコード生成時に計算されるため、空のリストを設定
+            dataset['data_y'] = []
             
-            QMessageBox.information(self, "成功", f"データセット '{dataset['name']}' に数式 '{equation}' を適用しました")
-            self.statusBar.showMessage(f"数式を適用しました: {equation}", 3000)
+            # 数式をPythonで評価して試験的にY値を計算（範囲外チェック用）
+            python_formula = equation.replace('^', '**')
+            python_formula = self.format_equation_for_tikz(python_formula)
+            
+            # グラフ表示範囲を取得
+            y_min = self.global_settings['y_min']
+            y_max = self.global_settings['y_max']
+            
+            # テスト点でチェック（最初、中央、最後）
+            test_points = [domain_min, (domain_min + domain_max) / 2, domain_max]
+            out_of_range_points = []
+            
+            for test_x in test_points:
+                try:
+                    test_y = eval(python_formula.replace('x', str(test_x)), {"__builtins__": {}}, {"math": math})
+                    if test_y < y_min or test_y > y_max:
+                        out_of_range_points.append((test_x, test_y))
+                except Exception as e:
+                    # 評価エラーは無視（実際のプロット時に処理される）
+                    pass
+            
+            # 範囲外の点があれば警告
+            if out_of_range_points:
+                point_info = ", ".join([f"(x={x:.2f}, y={y:.2f})" for x, y in out_of_range_points])
+                QMessageBox.warning(self, "表示範囲外の値", 
+                    f"計算された一部の点がグラフ表示範囲外です: {point_info}\n\n"
+                    f"グラフ表示範囲: Y軸 [{y_min}, {y_max}]\n\n"
+                    "グラフの一部が表示されない可能性があります。Y軸の範囲を調整することを検討してください。")
+            
+            # データセットの変更後にUI更新
+            self.update_ui_from_dataset(dataset)
+            self.statusBar.showMessage("数式データを適用しました", 3000)
             
         except Exception as e:
             import traceback
-            QMessageBox.critical(self, "エラー", f"数式適用中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
-            self.statusBar.showMessage("数式適用エラー")
+            QMessageBox.critical(self, "エラー", f"数式の適用中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+            self.statusBar.showMessage("数式適用エラー", 3000)
 
     # CSVファイルの列名を更新
     def update_column_names(self, file_path):
@@ -2352,11 +2550,29 @@ class TikZPlotConverter(QMainWindow):
         # デフォルト値の設定
         x_item = QTableWidgetItem("0.0")
         y_item = QTableWidgetItem("0.0")
-        color_item = QTableWidgetItem("red")
+        
+        # 色選択コンボボックス
+        color_combo = QComboBox()
+        color_combo.addItems(['red', 'blue', 'green', 'black', 'purple', 'orange', 'brown', 'gray'])
+        color_combo.setCurrentText("red")
+        
+        # 座標表示コンボボックス（チェックボックスから変更）
+        coord_display_combo = QComboBox()
+        coord_display_combo.addItems([
+            'なし', 
+            'X座標のみ（線のみ）', 
+            'X座標のみ（値も表示）', 
+            'Y座標のみ（線のみ）', 
+            'Y座標のみ（値も表示）', 
+            'X,Y座標（線のみ）', 
+            'X,Y座標（値も表示）'
+        ])
+        coord_display_combo.setCurrentText("なし")
         
         self.specialPointsTable.setItem(row_position, 0, x_item)
         self.specialPointsTable.setItem(row_position, 1, y_item)
-        self.specialPointsTable.setItem(row_position, 2, color_item)
+        self.specialPointsTable.setCellWidget(row_position, 2, color_combo)
+        self.specialPointsTable.setCellWidget(row_position, 3, coord_display_combo)
     
     # 特殊点を削除
     def remove_special_point(self):
@@ -2373,12 +2589,22 @@ class TikZPlotConverter(QMainWindow):
         x_item = QTableWidgetItem("0.0")
         y_item = QTableWidgetItem("0.0")
         text_item = QTableWidgetItem("注釈テキスト")
-        pos_item = QTableWidgetItem("north east")
+        
+        # 色選択コンボボックス
+        color_combo = QComboBox()
+        color_combo.addItems(['black', 'red', 'blue', 'green', 'purple', 'orange', 'brown', 'gray'])
+        color_combo.setCurrentText("black")
+        
+        # 位置選択コンボボックス - より直感的な表現に変更
+        pos_combo = QComboBox()
+        pos_combo.addItems(['上', '右上', '右', '右下', '下', '左下', '左', '左上'])
+        pos_combo.setCurrentText("右上")
         
         self.annotationsTable.setItem(row_position, 0, x_item)
         self.annotationsTable.setItem(row_position, 1, y_item)
         self.annotationsTable.setItem(row_position, 2, text_item)
-        self.annotationsTable.setItem(row_position, 3, pos_item)
+        self.annotationsTable.setCellWidget(row_position, 3, color_combo)
+        self.annotationsTable.setCellWidget(row_position, 4, pos_combo)
     
     # 注釈を削除
     def remove_annotation(self):
@@ -2402,10 +2628,19 @@ class TikZPlotConverter(QMainWindow):
             
     # 接線の色選択ダイアログ
     def select_tangent_color(self):
+        """接線の色を選択するダイアログを表示"""
         color = QColorDialog.getColor(self.tangentColor, self, "接線の色を選択")
         if color.isValid():
             self.tangentColor = color
+            # ボタンの背景色を更新
             self.tangentColorButton.setStyleSheet(f'background-color: {color.name()};')
+            # カスタム色選択時はコンボボックスのカスタムオプションを選択
+            index = self.tangentColorCombo.findText('カスタム')
+            if index == -1:  # 'カスタム'項目がなければ追加
+                self.tangentColorCombo.addItem('カスタム')
+                index = self.tangentColorCombo.findText('カスタム')
+            self.tangentColorCombo.setCurrentIndex(index)
+            self.statusBar.showMessage("接線の色を設定しました", 2000)
 
     # 数式グラフをプレビュー
     def preview_formula_graph(self):
@@ -2438,6 +2673,10 @@ class TikZPlotConverter(QMainWindow):
         import re
         # 数字の後に変数が来る場合に * を挿入
         formatted = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', equation)
+        # 括弧の後に数字や変数がある場合も * を挿入 （例: (x+1)y → (x+1)*y）
+        formatted = re.sub(r'(\))([a-zA-Z\d])', r'\1*\2', formatted)
+        # 変数の直後に括弧がある場合も * を挿入 （例: x(y+1) → x*(y+1)）
+        formatted = re.sub(r'([a-zA-Z])(\()', r'\1*\2', formatted)
         return formatted
 
     def insert_formula_preset(self, formula):
@@ -2574,6 +2813,27 @@ class TikZPlotConverter(QMainWindow):
         help_dialog.setStandardButtons(QMessageBox.Ok)
         help_dialog.setMinimumWidth(600)
         help_dialog.exec_()
+
+    def on_tangent_color_changed(self, color_text):
+        """日本語カラー名から英語カラー名に変換して設定"""
+        color_map = {
+            '赤': 'red',
+            '青': 'blue',
+            '緑': 'green',
+            '紫': 'purple',
+            '橙': 'orange',
+            '黒': 'black',
+            '水色': 'cyan',
+            'マゼンタ': 'magenta',
+            '茶色': 'brown',
+            '灰色': 'gray'
+        }
+        
+        # マッピングから英語名を取得（なければそのまま使用）
+        color_name = color_map.get(color_text, color_text)
+        self.tangentColor = QColor(color_name)
+        self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
+        self.statusBar.showMessage(f"接線の色を {color_text} に設定しました", 2000)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
