@@ -621,12 +621,30 @@ class TikZPlotConverter(QMainWindow):
         axisLayout.addWidget(xLabelLabel, 0, 0)
         axisLayout.addWidget(self.xLabelEntry, 0, 1)
         
+        # X軸目盛り間隔
+        xTickStepLabel = QLabel('X軸目盛り間隔:')
+        self.xTickStepSpin = QDoubleSpinBox()
+        self.xTickStepSpin.setRange(0.01, 1000)
+        self.xTickStepSpin.setSingleStep(0.1)
+        self.xTickStepSpin.setValue(1.0)
+        axisLayout.addWidget(xTickStepLabel, 0, 2)
+        axisLayout.addWidget(self.xTickStepSpin, 0, 3)
+        
         # Y軸ラベル
         yLabelLabel = QLabel('Y軸ラベル:')
         self.yLabelEntry = QLineEdit(self.global_settings['y_label'])
         axisLayout.addWidget(yLabelLabel, 1, 0)
         axisLayout.addWidget(self.yLabelEntry, 1, 1)
         
+        # Y軸目盛り間隔
+        yTickStepLabel = QLabel('Y軸目盛り間隔:')
+        self.yTickStepSpin = QDoubleSpinBox()
+        self.yTickStepSpin.setRange(0.01, 1000)
+        self.yTickStepSpin.setSingleStep(0.1)
+        self.yTickStepSpin.setValue(1.0)
+        axisLayout.addWidget(yTickStepLabel, 1, 2)
+        axisLayout.addWidget(self.yTickStepSpin, 1, 3)
+
         # X軸範囲
         xRangeLabel = QLabel('X軸範囲:')
         xRangeLayout = QHBoxLayout()
@@ -656,7 +674,11 @@ class TikZPlotConverter(QMainWindow):
         yRangeLayout.addWidget(self.yMaxSpin)
         axisLayout.addWidget(yRangeLabel, 3, 0)
         axisLayout.addLayout(yRangeLayout, 3, 1)
-        
+
+        # 目盛り間隔の値を保持する変数を初期化
+        self.x_tick_step = 1.0
+        self.y_tick_step = 1.0
+
         # グリッド表示
         self.gridCheck = QCheckBox('グリッド表示')
         self.gridCheck.setChecked(self.global_settings['grid'])
@@ -1146,6 +1168,10 @@ class TikZPlotConverter(QMainWindow):
             self.global_settings['position'] = self.positionCombo.currentText()
             self.global_settings['width'] = self.widthSpin.value()
             self.global_settings['height'] = self.heightSpin.value()
+            
+            # 目盛り間隔も反映
+            self.x_tick_step = self.xTickStepSpin.value()
+            self.y_tick_step = self.yTickStepSpin.value()
             
         except Exception as e:
             import traceback
@@ -1727,10 +1753,20 @@ class TikZPlotConverter(QMainWindow):
         y_min = self.global_settings['y_min']
         y_max = self.global_settings['y_max']
         
+        # 目盛り間隔
+        x_tick_step = getattr(self, 'x_tick_step', 1.0)
+        y_tick_step = getattr(self, 'y_tick_step', 1.0)
+        
         if x_min != x_max:
             axis_options.append(f"xmin={x_min}, xmax={x_max}")
         if y_min != y_max:
             axis_options.append(f"ymin={y_min}, ymax={y_max}")
+        
+        # xtick, ytickを自動生成
+        xticks = ','.join(str(round(x_min + i * x_tick_step, 8)) for i in range(int((x_max - x_min) / x_tick_step) + 1))
+        yticks = ','.join(str(round(y_min + i * y_tick_step, 8)) for i in range(int((y_max - y_min) / y_tick_step) + 1))
+        axis_options.append(f"xtick={{{xticks}}}")
+        axis_options.append(f"ytick={{{yticks}}}")
         
         # 目盛りを見やすくする設定を追加
         axis_options.append("tick align=outside")
@@ -1781,39 +1817,32 @@ class TikZPlotConverter(QMainWindow):
                 latex.append("        };")
                 
                 # 目盛りと重複する値には座標値を表示しないようにする関数を追加
-                def is_tick_value(val, tick_min, tick_max, tick_step=1.0, tol=1e-6):
+                def is_tick_value(val, tick_min, tick_max, tick_step, tol=1e-6):
                     if tick_step is None or tick_step <= 0:
                         return False
                     n = round((val - tick_min) / tick_step)
                     tick_val = tick_min + n * tick_step
                     return abs(val - tick_val) < tol and tick_min <= val <= tick_max
 
-                x_tick_step = 1.0
-                y_tick_step = 1.0
+                # X軸への垂線
+                if coord_display.startswith('X座標') or coord_display.startswith('X,Y座標'):
+                    latex.append(f"        % X軸への垂線")
+                    latex.append(f"        \\draw[{point_color}, dashed] (axis cs:{x},{y}) -- (axis cs:{x},{y_min});")
+                    # X座標値の表示（値も表示が選択されている場合）
+                    if '値も表示' in coord_display and not is_tick_value(x, x_min, x_max, x_tick_step):
+                        formatted_x = f"{x:.2f}"
+                        latex.append(f"        % X座標値を表示")
+                        latex.append(f"        \\node[{point_color}, below, yshift=-2pt, font=\\small] at (axis cs:{x},{y_min}) {{{formatted_x}}};")
 
-                # 座標表示設定に基づいて処理
-                if coord_display != 'なし':
-                    # X座標の線と値のパターン処理
-                    if 'X座標のみ' in coord_display or 'X,Y座標' in coord_display:
-                        # X座標の点線を描画
-                        latex.append(f"        % 特殊点からX軸への垂線")
-                        latex.append(f"        \\draw[dotted, {point_color}] (axis cs:{x},{y}) -- (axis cs:{x},{y_min});")
-                        # 値表示ありの場合、X座標の値も表示 - yshiftのみ、x==x_minや目盛り値は表示しない
-                        if '値も表示' in coord_display and abs(x - x_min) > 1e-8 and not is_tick_value(x, x_min, x_max, x_tick_step):
-                            formatted_x = f"{x:.2f}"  # 2桁に整形
-                            latex.append(f"        % X座標値を表示")
-                            latex.append(f"        \\node[{point_color}, below, yshift=-2pt, font=\\small] at (axis cs:{x},{y_min}) {{{formatted_x}}};")
-                    
-                    # Y座標の線と値のパターン処理
-                    if 'Y座標のみ' in coord_display or 'X,Y座標' in coord_display:
-                        # Y座標の点線を描画
-                        latex.append(f"        % 特殊点からY軸への垂線")
-                        latex.append(f"        \\draw[dotted, {point_color}] (axis cs:{x},{y}) -- (axis cs:{x_min},{y});")
-                        # 値表示ありの場合、Y座標の値も表示 - xshiftのみ、y==y_minや目盛り値は表示しない
-                        if '値も表示' in coord_display and abs(y - y_min) > 1e-8 and not is_tick_value(y, y_min, y_max, y_tick_step):
-                            formatted_y = f"{y:.2f}"  # 2桁に整形
-                            latex.append(f"        % Y座標値を表示")
-                            latex.append(f"        \\node[{point_color}, left, xshift=-2pt, font=\\small] at (axis cs:{x_min},{y}) {{{formatted_y}}};")
+                # Y軸への垂線
+                if coord_display.startswith('Y座標') or coord_display.startswith('X,Y座標'):
+                    latex.append(f"        % Y軸への垂線")
+                    latex.append(f"        \\draw[{point_color}, dashed] (axis cs:{x},{y}) -- (axis cs:{x_min},{y});")
+                    # Y座標値の表示（値も表示が選択されている場合）
+                    if '値も表示' in coord_display and not is_tick_value(y, y_min, y_max, y_tick_step):
+                        formatted_y = f"{y:.2f}"
+                        latex.append(f"        % Y座標値を表示")
+                        latex.append(f"        \\node[{point_color}, left, xshift=-2pt, font=\\small] at (axis cs:{x_min},{y}) {{{formatted_y}}};")
         
         # 注釈の追加
         for i, dataset in enumerate(self.datasets):
