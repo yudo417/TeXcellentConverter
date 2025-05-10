@@ -1830,7 +1830,7 @@ class TikZPlotConverter(QMainWindow):
                     latex.append(f"        \\draw[{point_color}, dashed] (axis cs:{x},{y}) -- (axis cs:{x},{y_min});")
                     # X座標値の表示（値も表示が選択されている場合）
                     if '値も表示' in coord_display and not is_tick_value(x, x_min, x_max, x_tick_step):
-                        formatted_x = f"{x:.2f}"
+                        formatted_x = '{:g}'.format(x)
                         latex.append(f"        % X座標値を表示")
                         latex.append(f"        \\node[{point_color}, below, yshift=-2pt, font=\\small] at (axis cs:{x},{y_min}) {{{formatted_x}}};")
 
@@ -1840,7 +1840,7 @@ class TikZPlotConverter(QMainWindow):
                     latex.append(f"        \\draw[{point_color}, dashed] (axis cs:{x},{y}) -- (axis cs:{x_min},{y});")
                     # Y座標値の表示（値も表示が選択されている場合）
                     if '値も表示' in coord_display and not is_tick_value(y, y_min, y_max, y_tick_step):
-                        formatted_y = f"{y:.2f}"
+                        formatted_y = '{:g}'.format(y)
                         latex.append(f"        % Y座標値を表示")
                         latex.append(f"        \\node[{point_color}, left, xshift=-2pt, font=\\small] at (axis cs:{x_min},{y}) {{{formatted_y}}};")
         
