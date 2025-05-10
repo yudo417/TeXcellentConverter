@@ -1780,6 +1780,17 @@ class TikZPlotConverter(QMainWindow):
                 latex.append(f"            ({x}, {y})")
                 latex.append("        };")
                 
+                # 目盛りと重複する値には座標値を表示しないようにする関数を追加
+                def is_tick_value(val, tick_min, tick_max, tick_step=1.0, tol=1e-6):
+                    if tick_step is None or tick_step <= 0:
+                        return False
+                    n = round((val - tick_min) / tick_step)
+                    tick_val = tick_min + n * tick_step
+                    return abs(val - tick_val) < tol and tick_min <= val <= tick_max
+
+                x_tick_step = 1.0
+                y_tick_step = 1.0
+
                 # 座標表示設定に基づいて処理
                 if coord_display != 'なし':
                     # X座標の線と値のパターン処理
@@ -1787,24 +1798,22 @@ class TikZPlotConverter(QMainWindow):
                         # X座標の点線を描画
                         latex.append(f"        % 特殊点からX軸への垂線")
                         latex.append(f"        \\draw[dotted, {point_color}] (axis cs:{x},{y}) -- (axis cs:{x},{y_min});")
-                        
-                        # 値表示ありの場合、X座標の値も表示 - yshiftのみ
-                        if '値も表示' in coord_display:
+                        # 値表示ありの場合、X座標の値も表示 - yshiftのみ、x==x_minや目盛り値は表示しない
+                        if '値も表示' in coord_display and abs(x - x_min) > 1e-8 and not is_tick_value(x, x_min, x_max, x_tick_step):
                             formatted_x = f"{x:.2f}"  # 2桁に整形
                             latex.append(f"        % X座標値を表示")
-                            latex.append(f"        \\node[{point_color}, below, yshift=-2pt] at (axis cs:{x},{y_min}) {{{formatted_x}}};")
+                            latex.append(f"        \\node[{point_color}, below, yshift=-2pt, font=\\small] at (axis cs:{x},{y_min}) {{{formatted_x}}};")
                     
                     # Y座標の線と値のパターン処理
                     if 'Y座標のみ' in coord_display or 'X,Y座標' in coord_display:
                         # Y座標の点線を描画
                         latex.append(f"        % 特殊点からY軸への垂線")
                         latex.append(f"        \\draw[dotted, {point_color}] (axis cs:{x},{y}) -- (axis cs:{x_min},{y});")
-                        
-                        # 値表示ありの場合、Y座標の値も表示 - xshiftのみ
-                        if '値も表示' in coord_display:
+                        # 値表示ありの場合、Y座標の値も表示 - xshiftのみ、y==y_minや目盛り値は表示しない
+                        if '値も表示' in coord_display and abs(y - y_min) > 1e-8 and not is_tick_value(y, y_min, y_max, y_tick_step):
                             formatted_y = f"{y:.2f}"  # 2桁に整形
                             latex.append(f"        % Y座標値を表示")
-                            latex.append(f"        \\node[{point_color}, left, xshift=-2pt] at (axis cs:{x_min},{y}) {{{formatted_y}}};")
+                            latex.append(f"        \\node[{point_color}, left, xshift=-2pt, font=\\small] at (axis cs:{x_min},{y}) {{{formatted_y}}};")
         
         # 注釈の追加
         for i, dataset in enumerate(self.datasets):
