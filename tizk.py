@@ -2237,7 +2237,7 @@ class TikZPlotConverter(QMainWindow):
             bar_options = []
             bar_options.append(f"ybar")
             bar_options.append(tikz_color)  # TikZ互換のRGB値
-            bar_options.append(f"fill={tikz_color}")  # TikZ互換のRGB値
+            bar_options.append(f"fill={tikz_color.replace('color = ','')}")  # fill=color = ... ではなく fill=...
             
             latex.append(f"        % データセット{index+1}: {dataset.get('name', '')} （棒グラフ）")
             latex.append(f"        \\addplot[{', '.join(bar_options)}] coordinates {{")
