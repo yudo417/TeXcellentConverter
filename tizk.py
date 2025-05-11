@@ -363,8 +363,14 @@ class TikZPlotConverter(QMainWindow):
         formulaFormLayout.addLayout(samplesLayout)
         
         # 数式説明
-        formulaInfoLabel = QLabel('※ <b>掛け算は必ず <span style="color:red;">*</span> を明示してください（例: 2*x, (x+1)*y）</b><br>数式内では以下の関数と演算が使用可能です：<br>sin, cos, tan, exp, ln, log, sqrt, ^（累乗）, +, -, *, /')
-        formulaInfoLabel.setStyleSheet('color: #cc0000; font-weight: bold;')
+        formulaInfoLabel = QLabel(
+            '※ <span style="color:black;">掛け算は必ず <b><span style="color:red;">*</span></b> を明示してください（例: 2*x, (x+1)*y）</span><br>'
+            '数式内では以下の関数と演算が使用可能です：<br>'
+            'sin, cos, tan, exp, ln, log, sqrt, ^（累乗）, +, -, *, /'
+        )
+        formulaInfoLabel.setStyleSheet(
+            'background-color: #fffbe6; color: black; border: 1px solid #ffe082; border-radius: 4px; padding: 8px;'
+        )
         formulaFormLayout.addWidget(formulaInfoLabel)
         
         formulaFormGroup.setLayout(formulaFormLayout)
@@ -1397,6 +1403,10 @@ class TikZPlotConverter(QMainWindow):
                 return
                 
             dataset = self.datasets[self.current_dataset_index]
+            # 色（QColor型でなければQColorに変換）
+            if not isinstance(self.currentColor, QColor):
+                self.currentColor = QColor(self.currentColor)
+            dataset['color'] = QColor(self.currentColor)
             
             # 共通設定を保存（プロットタイプ、色、線の太さなど）
             # 色
@@ -1524,7 +1534,9 @@ class TikZPlotConverter(QMainWindow):
             
             # 色の設定（共通項目）
             color = dataset.get('color', QColor('blue'))
-            self.currentColor = QColor(color)  # 確実にQColorオブジェクトにする
+            if not isinstance(color, QColor):
+                color = QColor(color)
+            self.currentColor = color
             self.colorButton.setStyleSheet(f'background-color: {self.currentColor.name()};')
             
             # 線の太さ
