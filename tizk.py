@@ -263,8 +263,11 @@ class TikZPlotConverter(QMainWindow):
         addRowButton.clicked.connect(self.add_table_row)
         removeRowButton = QPushButton('選択行を削除')
         removeRowButton.clicked.connect(self.remove_table_row)
+        saveManualButton = QPushButton('手入力データを保存')
+        saveManualButton.clicked.connect(self.save_manual_data)
         tableButtonLayout.addWidget(addRowButton)
         tableButtonLayout.addWidget(removeRowButton)
+        tableButtonLayout.addWidget(saveManualButton)
         
         # データソースレイアウトに追加
         dataSourceLayout.addLayout(csvLayout)
@@ -1384,60 +1387,41 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"データセット名の変更中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     def on_dataset_selected(self, row):
-        """データセットが選択されたときに呼ばれる"""
         try:
             # 以前のデータセットの状態を保存（存在する場合）
             old_index = self.current_dataset_index
             if old_index >= 0 and old_index < len(self.datasets):
                 self.update_current_dataset()
-                
             if row < 0 or row >= len(self.datasets):
-                # 選択が無効になった場合（例：最後のアイテム削除直後など）
-                # current_dataset_index を無効な値に設定し、UIを適切に処理
-                if not self.datasets: # リストが空の場合
+                if not self.datasets:
                     self.current_dataset_index = -1
                     self.update_ui_for_no_datasets()
                 return
-            
             # 現在のインデックスを更新
             self.current_dataset_index = row
-            
             # UIを更新（この中でデータテーブルも更新される）
             dataset = self.datasets[row]
+            # --- ここでUIのみを更新し、保存処理は呼ばない ---
             self.update_ui_from_dataset(dataset)
-            
             self.statusBar.showMessage(f"データセット '{dataset['name']}' を選択しました", 3000)
         except Exception as e:
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット選択処理中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
-            
+    
     def update_current_dataset(self):
-        """UIの値を現在のデータセットに反映する"""
         try:
             if self.current_dataset_index < 0 or not self.datasets or self.current_dataset_index >= len(self.datasets):
                 return
-                
             dataset = self.datasets[self.current_dataset_index]
-            # 色（QColor型でなければQColorに変換）
             if not isinstance(self.currentColor, QColor):
                 self.currentColor = QColor(self.currentColor)
             dataset['color'] = QColor(self.currentColor)
-            
-            # 共通設定を保存（プロットタイプ、色、線の太さなど）
-            # 色
-            dataset['color'] = QColor(self.currentColor)  # QColorオブジェクトをコピー
-            # 線の太さ
+            dataset['color'] = QColor(self.currentColor)
             dataset['line_width'] = self.lineWidthSpin.value()
-            # マーカースタイル
             dataset['marker_style'] = self.markerCombo.currentText()
-            # マーカーサイズ
             dataset['marker_size'] = self.markerSizeSpin.value()
-            # 凡例表示
             dataset['show_legend'] = self.legendCheck.isChecked()
-            # 凡例ラベル
             dataset['legend_label'] = self.legendLabel.text()
-            
-            # プロットタイプ
             if self.lineRadio.isChecked():
                 dataset['plot_type'] = "line"
             elif self.scatterRadio.isChecked():
@@ -1446,16 +1430,9 @@ class TikZPlotConverter(QMainWindow):
                 dataset['plot_type'] = "line_scatter"
             else:
                 dataset['plot_type'] = "bar"
-            
-            # データソースタイプによって異なる設定を保存
             if hasattr(self, 'measuredRadio') and hasattr(self, 'formulaRadio'):
-                # データソースタイプ
                 dataset['data_source_type'] = 'measured' if self.measuredRadio.isChecked() else 'formula'
-                
                 if self.measuredRadio.isChecked():
-                    # 実測値モードの設定
-                    
-                    # ファイル種類
                     if self.csvRadio.isChecked():
                         dataset['file_type'] = 'csv'
                         dataset['file_path'] = self.fileEntry.text()
@@ -1465,79 +1442,57 @@ class TikZPlotConverter(QMainWindow):
                         dataset['sheet_name'] = self.sheetCombobox.currentText()
                     else:
                         dataset['file_type'] = 'manual'
-                    
-                    # 列名
                     dataset['x_column'] = self.xColCombo.currentText()
                     dataset['y_column'] = self.yColCombo.currentText()
-                    
-                    # 手動入力データ
-                    if self.manualRadio.isChecked():
-                        data_x = []
-                        data_y = []
-                        
+                    # 手入力データの保存は「データ入力タブがアクティブ」かつ「手入力モード」のときだけ
+                    if (
+                        hasattr(self, 'tabWidget')
+                        and self.tabWidget.currentIndex() == 0  # データ入力タブ
+                        and self.manualRadio.isChecked()
+                    ):
+                        data_x, data_y = [], []
                         for row in range(self.dataTable.rowCount()):
                             x_item = self.dataTable.item(row, 0)
                             y_item = self.dataTable.item(row, 1)
-                            
                             if x_item and y_item and x_item.text() and y_item.text():
                                 try:
-                                    x_val = float(x_item.text())
-                                    y_val = float(y_item.text())
-                                    data_x.append(x_val)
-                                    data_y.append(y_val)
+                                    data_x.append(float(x_item.text()))
+                                    data_y.append(float(y_item.text()))
                                 except ValueError:
                                     pass
-                        
                         dataset['data_x'] = data_x
                         dataset['data_y'] = data_y
                 else:
-                    # 数式モードの設定
                     dataset['equation'] = self.equationEntry.text()
                     dataset['domain_min'] = self.domainMinSpin.value()
                     dataset['domain_max'] = self.domainMaxSpin.value()
                     dataset['samples'] = self.samplesSpin.value()
-                    
-                    # 微分・積分の設定を削除し、接線設定のみ残す
                     dataset['show_tangent'] = self.showTangentCheck.isChecked()
                     dataset['tangent_x'] = self.tangentXSpin.value()
                     dataset['tangent_length'] = self.tangentLengthSpin.value()
-                    
-                    # 色設定の更新
                     tangent_color = dataset.get('tangent_color', QColor('purple'))
                     self.tangentColor = QColor(tangent_color)
-                    
-                    # 色名の更新（保存されていれば）
                     tangent_color_name = dataset.get('tangent_color_name', '紫')
                     index = self.tangentColorCombo.findText(tangent_color_name)
                     if index >= 0:
                         self.tangentColorCombo.setCurrentIndex(index)
                     else:
-                        # 保存された色名がリストにない場合（カスタム色の可能性）
                         if 'tangent_color' in dataset:
-                            # カスタム項目を追加/選択
                             custom_index = self.tangentColorCombo.findText('カスタム')
                             if custom_index == -1:
                                 self.tangentColorCombo.addItem('カスタム')
                                 custom_index = self.tangentColorCombo.findText('カスタム')
                             self.tangentColorCombo.setCurrentIndex(custom_index)
-                    
-                    # ボタンの背景色を更新
                     self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
-                    
                     tangent_style = dataset.get('tangent_style', '実線')
                     index = self.tangentStyleCombo.findText(tangent_style)
                     if index >= 0:
                         self.tangentStyleCombo.setCurrentIndex(index)
-                    
-                    # 接線の式表示設定も更新
                     self.showTangentEquationCheck.setChecked(dataset.get('show_tangent_equation', False))
-                    
-                    # パラメータスイープ設定を削除
-        
         except Exception as e:
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
-            
+    
     def update_ui_from_dataset(self, dataset):
         """現在のデータセットに基づいてUIを更新する"""
         try:
@@ -2892,6 +2847,26 @@ class TikZPlotConverter(QMainWindow):
         self.tangentColor = QColor(color_name)
         self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
         self.statusBar.showMessage(f"接線の色を {color_text} に設定しました", 2000)
+
+    def save_manual_data(self):
+        if self.current_dataset_index < 0 or not self.datasets:
+            return
+        if not self.manualRadio.isChecked():
+            return
+        dataset = self.datasets[self.current_dataset_index]
+        data_x, data_y = [], []
+        for row in range(self.dataTable.rowCount()):
+            x_item = self.dataTable.item(row, 0)
+            y_item = self.dataTable.item(row, 1)
+            if x_item and y_item and x_item.text() and y_item.text():
+                try:
+                    data_x.append(float(x_item.text()))
+                    data_y.append(float(y_item.text()))
+                except ValueError:
+                    pass
+        dataset['data_x'] = data_x
+        dataset['data_y'] = data_y
+        self.statusBar.showMessage(f"データセット '{dataset['name']}' の手入力データを保存しました", 3000)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
