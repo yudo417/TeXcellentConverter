@@ -363,8 +363,8 @@ class TikZPlotConverter(QMainWindow):
         formulaFormLayout.addLayout(samplesLayout)
         
         # 数式説明
-        formulaInfoLabel = QLabel('※ 数式内では以下の関数と演算が使用可能です：\nsin, cos, tan, exp, ln, log, sqrt, ^（累乗）, +, -, *, /')
-        formulaInfoLabel.setStyleSheet('color: gray;')
+        formulaInfoLabel = QLabel('※ <b>掛け算は必ず <span style="color:red;">*</span> を明示してください（例: 2*x, (x+1)*y）</b><br>数式内では以下の関数と演算が使用可能です：<br>sin, cos, tan, exp, ln, log, sqrt, ^（累乗）, +, -, *, /')
+        formulaInfoLabel.setStyleSheet('color: #cc0000; font-weight: bold;')
         formulaFormLayout.addWidget(formulaInfoLabel)
         
         formulaFormGroup.setLayout(formulaFormLayout)
@@ -2705,17 +2705,8 @@ class TikZPlotConverter(QMainWindow):
 
     # まず、クラスのトップレベルに数式を変換するヘルパーメソッドを追加
     def format_equation_for_tikz(self, equation):
-        """数式をTikZ互換形式に変換する
-        例: 'x^2+3x-2' → 'x^2+3*x-2'
-        """
-        import re
-        # 数字の後に変数が来る場合に * を挿入
-        formatted = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', equation)
-        # 括弧の後に数字や変数がある場合も * を挿入 （例: (x+1)y → (x+1)*y）
-        formatted = re.sub(r'(\))([a-zA-Z\d])', r'\1*\2', formatted)
-        # 変数の直後に括弧がある場合も * を挿入 （例: x(y+1) → x*(y+1)）
-        formatted = re.sub(r'([a-zA-Z])(\()', r'\1*\2', formatted)
-        return formatted
+        # 自動補間をやめて、入力そのまま返す
+        return equation
 
     def insert_formula_preset(self, formula):
         """数式プリセットをクリックしたときに呼ばれる関数"""
