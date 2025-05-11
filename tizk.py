@@ -856,6 +856,19 @@ class TikZPlotConverter(QMainWindow):
         tabWidget.addTab(plotTab, "グラフ設定")
         tabWidget.addTab(annotationTab, "特殊点・注釈設定")
         
+        # --- グラフ設定タブの値が変わったら即保存 ---
+        self.lineWidthSpin.valueChanged.connect(self.update_current_dataset)
+        self.markerCombo.currentIndexChanged.connect(self.update_current_dataset)
+        self.markerSizeSpin.valueChanged.connect(self.update_current_dataset)
+        self.colorButton.clicked.connect(self.update_current_dataset)
+        self.lineRadio.toggled.connect(self.update_current_dataset)
+        self.scatterRadio.toggled.connect(self.update_current_dataset)
+        self.lineScatterRadio.toggled.connect(self.update_current_dataset)
+        self.barRadio.toggled.connect(self.update_current_dataset)
+
+        # タブ切り替え時にも保存
+        tabWidget.currentChanged.connect(lambda _: self.update_current_dataset())
+        
         # 設定部分のレイアウトに追加
         settingsLayout.addLayout(infoLayout)
         settingsLayout.addWidget(datasetGroup)
@@ -967,6 +980,8 @@ class TikZPlotConverter(QMainWindow):
     # データを読み込む
     def load_data(self):
         """選択されたデータソースからデータを読み込む"""
+        # 入力値を保存
+        self.update_current_dataset()
         try:
             if self.current_dataset_index < 0:
                 QMessageBox.warning(self, "警告", "データを読み込むデータセットを選択してください")
@@ -1247,7 +1262,7 @@ class TikZPlotConverter(QMainWindow):
                 'color': QColor('blue'),  # QColorオブジェクトを新規作成
                 'line_width': 1.0,
                 'marker_style': '*',
-                'marker_size': 3.0,
+                'marker_size': 2.0,
                 'plot_type': "line",
                 'legend_label': final_name, # Always a string, initialized with name
                 'show_legend': True,
@@ -2389,6 +2404,8 @@ class TikZPlotConverter(QMainWindow):
 
     def apply_formula(self):
         """数式を適用してデータを生成する"""
+        # 入力値を保存
+        self.update_current_dataset()
         if self.current_dataset_index < 0:
             QMessageBox.warning(self, "警告", "数式を適用するデータセットを選択してください")
             return
