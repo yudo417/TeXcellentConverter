@@ -10,7 +10,8 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                             QStatusBar, QFrame, QTabWidget, QTableWidget,
                             QTableWidgetItem, QColorDialog, QSpinBox, 
                             QDoubleSpinBox, QHeaderView, QListWidget,
-                            QFormLayout, QRadioButton, QButtonGroup, QInputDialog)
+                            QFormLayout, QRadioButton, QButtonGroup, QInputDialog,
+                            QSizePolicy)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor
 import re
@@ -82,7 +83,11 @@ class TikZPlotConverter(QMainWindow):
             
     def initUI(self):
         self.setWindowTitle('TikZPlot Converter')
-        self.setGeometry(100, 100, 1000, 700)
+        self.resize(1200, 1400)  # 縦幅をさらに大きく
+        self.setMinimumSize(800, 1000)  # 最小縦幅は維持
+        # ウィンドウを左上に配置
+        screen = QApplication.primaryScreen().geometry()
+        self.move(50, 50)  # 左上から50pxの位置に配置
         
         # メインウィジェットとレイアウト
         mainWidget = QWidget()
@@ -134,8 +139,8 @@ class TikZPlotConverter(QMainWindow):
         # データセットリスト
         self.datasetList = QListWidget()
         self.datasetList.currentRowChanged.connect(self.on_dataset_selected)
-        self.datasetList.setMinimumHeight(100)  # 高さを増やす
-        self.datasetList.setSelectionMode(QListWidget.SingleSelection)  # 単一選択モード
+        self.datasetList.setMinimumHeight(200)  # 高さをさらに増やす
+        self.datasetList.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # 縦方向も拡大可能に
         datasetLayout.addWidget(QLabel("データセット:"))
         datasetLayout.addWidget(self.datasetList)
         
@@ -255,7 +260,7 @@ class TikZPlotConverter(QMainWindow):
         self.dataTable.setHorizontalHeaderLabels(['X', 'Y'])
         self.dataTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.dataTable.setEnabled(False)  # 初期状態では無効
-        self.dataTable.setMinimumHeight(200)  # 高さを設定
+        self.dataTable.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         
         # データテーブル操作ボタン
         tableButtonLayout = QHBoxLayout()
@@ -877,13 +882,14 @@ class TikZPlotConverter(QMainWindow):
         settingsLayout.addWidget(datasetGroup)
         settingsLayout.addWidget(tabWidget)
 
-        # データテーブルの高さを増やす
-        self.dataTable.setMinimumHeight(200)
+        # データテーブルの高さを減らす
+        self.dataTable.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         
-        # 変換ボタン
-        convertButton = QPushButton('LaTeXコードに変換')
+        # LaTeXコードに変換ボタン
+        convertButton = QPushButton("LaTeXコードに変換")
         convertButton.clicked.connect(self.convert_to_tikz)
         convertButton.setStyleSheet('background-color: #4CAF50; color: white; font-size: 14px; padding: 10px;')
+        convertButton.setFixedHeight(32)
         settingsLayout.addWidget(convertButton)
         
         # --- 下部：結果表示部分 ---
@@ -893,7 +899,8 @@ class TikZPlotConverter(QMainWindow):
         resultLabel = QLabel("LaTeX コード:")
         self.resultText = QTextEdit()
         self.resultText.setReadOnly(True)
-        self.resultText.setMinimumHeight(200)
+        self.resultText.setMinimumHeight(100)  # 最小高さを設定
+        self.resultText.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # 縦方向も拡大可能に
         
         copyButton = QPushButton("クリップボードにコピー")
         copyButton.clicked.connect(self.copy_to_clipboard)
@@ -905,7 +912,7 @@ class TikZPlotConverter(QMainWindow):
         # スプリッターに追加
         splitter.addWidget(settingsWidget)
         splitter.addWidget(resultWidget)
-        splitter.setSizes([500, 200])  # 初期サイズ比率
+        splitter.setSizes([600, 200])  # 初期サイズ比率を調整
         
         # メインレイアウトに追加
         mainLayout.addWidget(splitter)
@@ -924,6 +931,32 @@ class TikZPlotConverter(QMainWindow):
         self.special_points = []
         self.annotations = []
         self.param_values = []
+        
+        # --- UI部品の小型化 ---
+        small_style = "font-size: 11px; padding: 2px 4px;"
+        # ボタン類（LaTeXコードに変換ボタン以外）
+        for btn in [addRowButton, removeRowButton, saveManualButton, copyButton]:
+            btn.setStyleSheet(small_style)
+            btn.setFixedHeight(22)
+        # 入力欄・コンボボックス
+        for widget in [self.xLabelEntry, self.yLabelEntry, self.legendLabel, self.fileEntry, self.excelEntry, self.sheetCombobox, self.xColCombo, self.yColCombo, self.markerCombo, self.positionCombo, self.legendPosCombo]:
+            widget.setStyleSheet("font-size: 11px;")
+            if hasattr(widget, 'setFixedHeight'):
+                widget.setFixedHeight(22)
+        # テーブル・テキスト欄
+        self.dataTable.setStyleSheet("font-size: 11px;")
+        self.resultText.setStyleSheet("font-size: 11px;")
+        # レイアウトの余白・間隔を減らす
+        mainLayout.setContentsMargins(2,2,2,2)
+        mainLayout.setSpacing(2)
+        settingsLayout.setContentsMargins(2,2,2,2)
+        settingsLayout.setSpacing(2)
+        dataTabLayout.setContentsMargins(2,2,2,2)
+        dataTabLayout.setSpacing(2)
+        plotTabLayout.setContentsMargins(2,2,2,2)
+        plotTabLayout.setSpacing(2)
+        annotationTabLayout.setContentsMargins(2,2,2,2)
+        annotationTabLayout.setSpacing(2)
         
     # CSVファイル選択ダイアログ
     def browse_csv_file(self):
