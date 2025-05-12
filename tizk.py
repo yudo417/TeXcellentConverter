@@ -83,7 +83,7 @@ class TikZPlotConverter(QMainWindow):
             
     def initUI(self):
         self.setWindowTitle('TikZPlot Converter')
-        self.resize(1200, 1400)  # 縦幅をさらに大きく
+        self.resize(1200, 1300)  # 縦幅を1300pxに調整
         self.setMinimumSize(800, 1000)  # 最小縦幅は維持
         # ウィンドウを左上に配置
         screen = QApplication.primaryScreen().geometry()
@@ -139,8 +139,8 @@ class TikZPlotConverter(QMainWindow):
         # データセットリスト
         self.datasetList = QListWidget()
         self.datasetList.currentRowChanged.connect(self.on_dataset_selected)
-        self.datasetList.setMinimumHeight(200)  # 高さをさらに増やす
-        self.datasetList.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # 縦方向も拡大可能に
+        self.datasetList.setMinimumHeight(100)  # 高さを150pxに縮小
+        self.datasetList.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         datasetLayout.addWidget(QLabel("データセット:"))
         datasetLayout.addWidget(self.datasetList)
         
