@@ -273,11 +273,8 @@ class TikZPlotConverter(QMainWindow):
         addRowButton.clicked.connect(self.add_table_row)
         removeRowButton = QPushButton('選択行を削除')
         removeRowButton.clicked.connect(self.remove_table_row)
-        saveManualButton = QPushButton('手入力データを保存')
-        saveManualButton.clicked.connect(self.save_manual_data)
         tableButtonLayout.addWidget(addRowButton)
         tableButtonLayout.addWidget(removeRowButton)
-        tableButtonLayout.addWidget(saveManualButton)
         
         # データソースレイアウトに追加
         dataSourceLayout.addLayout(csvLayout)
