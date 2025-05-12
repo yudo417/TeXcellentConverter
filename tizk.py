@@ -375,7 +375,7 @@ class TikZPlotConverter(QMainWindow):
         # 数式説明
         formulaInfoLabel = QLabel(
             '※ <span style="color:black;">掛け算は必ず <b><span style="color:red;">*</span></b> を明示してください（例: 2*x, (x+1)*y）</span><br>'
-            '数式内では以下の関数と演算が使用可能です：<br>'
+            '数式内では以下などの関数と演算が使用可能です(詳しくは下記の関数リストを参照)：<br>'
             'sin, cos, tan, exp, ln, log, sqrt, ^（累乗）, +, -, *, /'
         )
         formulaInfoLabel.setStyleSheet(
