@@ -936,43 +936,17 @@ class TikZPlotConverter(QMainWindow):
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.setCentralWidget(scroll)
         
-        # スクロールヒントラベルをmainLayoutの一番下に追加
-        scrollHint = QLabel('※ 画面に収まらない場合はスクロールバーで全体を表示できます')
-        scrollHint.setStyleSheet('color: #cc0000; font-size: 11px;')
+        # スクロールヒントラベルの上に大きな下向き矢印を表示
+        # arrowLabel = QLabel('⬇️')
+        # arrowLabel.setAlignment(Qt.AlignHCenter)
+        # arrowLabel.setStyleSheet('font-size: 32px; color: #d32f2f; margin-bottom: 0px;')
+        # arrowLabel.setFixedHeight(40)
+        # mainLayout.addWidget(arrowLabel)
+
+        scrollHint = QLabel('画面に収まらない場合はスクロールバーで全体を表示できます')
+        scrollHint.setStyleSheet('background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fffbe6, stop:1 #ffe082); color: #d32f2f; font-size: 13px; font-weight: bold; border: 1px solid #ffe082; border-radius: 4px; padding: 6px;')
+        scrollHint.setAlignment(Qt.AlignHCenter)
         mainLayout.addWidget(scrollHint)
-        
-        # データと状態の初期化
-        self.data_x = []
-        self.data_y = []
-        self.special_points = []
-        self.annotations = []
-        self.param_values = []
-        
-        # --- UI部品の小型化 ---
-        small_style = "font-size: 11px; padding: 2px 4px;"
-        # ボタン類（LaTeXコードに変換ボタン以外）
-        for btn in [addRowButton, removeRowButton, saveManualButton, copyButton]:
-            btn.setStyleSheet(small_style)
-            btn.setFixedHeight(22)
-        # 入力欄・コンボボックス
-        for widget in [self.xLabelEntry, self.yLabelEntry, self.legendLabel, self.fileEntry, self.excelEntry, self.sheetCombobox, self.xColCombo, self.yColCombo, self.markerCombo, self.positionCombo, self.legendPosCombo]:
-            widget.setStyleSheet("font-size: 11px;")
-            if hasattr(widget, 'setFixedHeight'):
-                widget.setFixedHeight(22)
-        # テーブル・テキスト欄
-        self.dataTable.setStyleSheet("font-size: 11px;")
-        self.resultText.setStyleSheet("font-size: 11px;")
-        # レイアウトの余白・間隔を減らす
-        mainLayout.setContentsMargins(2,2,2,2)
-        mainLayout.setSpacing(2)
-        settingsLayout.setContentsMargins(2,2,2,2)
-        settingsLayout.setSpacing(2)
-        dataTabLayout.setContentsMargins(2,2,2,2)
-        dataTabLayout.setSpacing(2)
-        plotTabLayout.setContentsMargins(2,2,2,2)
-        plotTabLayout.setSpacing(2)
-        annotationTabLayout.setContentsMargins(2,2,2,2)
-        annotationTabLayout.setSpacing(2)
         
     # CSVファイル選択ダイアログ
     def browse_csv_file(self):
