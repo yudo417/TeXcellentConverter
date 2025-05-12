@@ -946,7 +946,7 @@ class TikZPlotConverter(QMainWindow):
         scrollHint = QLabel('画面に収まらない場合はスクロールバーで全体を表示できます')
         scrollHint.setStyleSheet('background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fffbe6, stop:1 #ffe082); color: #d32f2f; font-size: 13px; font-weight: bold; border: 1px solid #ffe082; border-radius: 4px; padding: 6px;')
         scrollHint.setAlignment(Qt.AlignHCenter)
-        mainLayout.addWidget(scrollHint)
+        mainLayout.insertWidget(0, scrollHint)
         
     # CSVファイル選択ダイアログ
     def browse_csv_file(self):
