@@ -932,7 +932,14 @@ class TikZPlotConverter(QMainWindow):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(mainWidget)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.setCentralWidget(scroll)
+        
+        # スクロールヒントラベルをmainLayoutの一番下に追加
+        scrollHint = QLabel('※ 画面に収まらない場合はスクロールバーで全体を表示できます')
+        scrollHint.setStyleSheet('color: #cc0000; font-size: 11px;')
+        mainLayout.addWidget(scrollHint)
         
         # データと状態の初期化
         self.data_x = []
