@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                             QTableWidgetItem, QColorDialog, QSpinBox, 
                             QDoubleSpinBox, QHeaderView, QListWidget,
                             QFormLayout, QRadioButton, QButtonGroup, QInputDialog,
-                            QSizePolicy)
+                            QSizePolicy, QScrollArea)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor
 import re
@@ -83,11 +83,16 @@ class TikZPlotConverter(QMainWindow):
             
     def initUI(self):
         self.setWindowTitle('TikZPlot Converter')
-        self.resize(1200, 1300)  # 縦幅を1300pxに調整
-        self.setMinimumSize(800, 1000)  # 最小縦幅は維持
-        # ウィンドウを左上に配置
+        
+        # 画面サイズを取得
         screen = QApplication.primaryScreen().geometry()
-        self.move(50, 50)  # 左上から50pxの位置に配置
+        max_width = int(screen.width() * 0.95)
+        max_height = int(screen.height() * 0.95)
+        initial_height = int(screen.height() * 0.9)
+        initial_width = int(screen.width() * 0.4)
+        self.resize(min(initial_width, max_width), min(initial_height, max_height))
+        self.setMinimumSize(600, 600)
+        self.move(50, 50)
         
         # メインウィジェットとレイアウト
         mainWidget = QWidget()
@@ -923,7 +928,11 @@ class TikZPlotConverter(QMainWindow):
         
         # メインウィジェット設定
         mainWidget.setLayout(mainLayout)
-        self.setCentralWidget(mainWidget)
+        # QScrollAreaでラップ
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(mainWidget)
+        self.setCentralWidget(scroll)
         
         # データと状態の初期化
         self.data_x = []
