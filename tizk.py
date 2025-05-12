@@ -414,19 +414,12 @@ class TikZPlotConverter(QMainWindow):
         
         # 接線の色
         tangentColorLabel = QLabel('接線の色:')
-        self.tangentColorCombo = QComboBox()
-        common_colors = ['赤', '青', '緑', '紫', '橙', '黒', '水色', 'マゼンタ', '茶色', '灰色']
-        self.tangentColorCombo.addItems(common_colors)
-        self.tangentColorCombo.setCurrentText('紫')
-        self.tangentColorButton = QPushButton('カスタム色...')
+        self.tangentColorButton = QPushButton()
+        self.tangentColorButton.setStyleSheet('background-color: purple;')
+        self.tangentColor = QColor('purple')
         self.tangentColorButton.clicked.connect(self.select_tangent_color)
-        tangentColorLayout = QHBoxLayout()
-        tangentColorLayout.addWidget(self.tangentColorCombo)
-        tangentColorLayout.addWidget(self.tangentColorButton)
         formulaOptionsLayout.addWidget(tangentColorLabel, 3, 0)
-        formulaOptionsLayout.addLayout(tangentColorLayout, 3, 1)
-        self.tangentColor = QColor('purple')  # デフォルト値
-        self.tangentColorCombo.currentTextChanged.connect(self.on_tangent_color_changed)
+        formulaOptionsLayout.addWidget(self.tangentColorButton, 3, 1)
         
         # 接線の線スタイル
         tangentStyleLabel = QLabel('接線のスタイル:')
@@ -1490,20 +1483,11 @@ class TikZPlotConverter(QMainWindow):
                     dataset['show_tangent'] = self.showTangentCheck.isChecked()
                     dataset['tangent_x'] = self.tangentXSpin.value()
                     dataset['tangent_length'] = self.tangentLengthSpin.value()
-                    tangent_color = dataset.get('tangent_color', QColor('purple'))
-                    self.tangentColor = QColor(tangent_color)
-                    tangent_color_name = dataset.get('tangent_color_name', '紫')
-                    index = self.tangentColorCombo.findText(tangent_color_name)
-                    if index >= 0:
-                        self.tangentColorCombo.setCurrentIndex(index)
-                    else:
-                        if 'tangent_color' in dataset:
-                            custom_index = self.tangentColorCombo.findText('カスタム')
-                            if custom_index == -1:
-                                self.tangentColorCombo.addItem('カスタム')
-                                custom_index = self.tangentColorCombo.findText('カスタム')
-                            self.tangentColorCombo.setCurrentIndex(custom_index)
+                    # 色情報を直接保存
+                    dataset['tangent_color'] = self.tangentColor
+                    # ボタンのスタイルを更新
                     self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
+                    # 線スタイル
                     tangent_style = dataset.get('tangent_style', '実線')
                     index = self.tangentStyleCombo.findText(tangent_style)
                     if index >= 0:
@@ -1627,21 +1611,6 @@ class TikZPlotConverter(QMainWindow):
                 # 色設定の更新
                 tangent_color = dataset.get('tangent_color', QColor('purple'))
                 self.tangentColor = QColor(tangent_color)
-                
-                # 色名の更新（保存されていれば）
-                tangent_color_name = dataset.get('tangent_color_name', '紫')
-                index = self.tangentColorCombo.findText(tangent_color_name)
-                if index >= 0:
-                    self.tangentColorCombo.setCurrentIndex(index)
-                else:
-                    # 保存された色名がリストにない場合（カスタム色の可能性）
-                    if 'tangent_color' in dataset:
-                        # カスタム項目を追加/選択
-                        custom_index = self.tangentColorCombo.findText('カスタム')
-                        if custom_index == -1:
-                            self.tangentColorCombo.addItem('カスタム')
-                            custom_index = self.tangentColorCombo.findText('カスタム')
-                        self.tangentColorCombo.setCurrentIndex(custom_index)
                 
                 # ボタンの背景色を更新
                 self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
@@ -2676,12 +2645,6 @@ class TikZPlotConverter(QMainWindow):
             self.tangentColor = color
             # ボタンの背景色を更新
             self.tangentColorButton.setStyleSheet(f'background-color: {color.name()};')
-            # カスタム色選択時はコンボボックスのカスタムオプションを選択
-            index = self.tangentColorCombo.findText('カスタム')
-            if index == -1:  # 'カスタム'項目がなければ追加
-                self.tangentColorCombo.addItem('カスタム')
-                index = self.tangentColorCombo.findText('カスタム')
-            self.tangentColorCombo.setCurrentIndex(index)
             self.statusBar.showMessage("接線の色を設定しました", 2000)
 
     # 数式グラフをプレビュー
@@ -2846,27 +2809,6 @@ class TikZPlotConverter(QMainWindow):
         help_dialog.setStandardButtons(QMessageBox.Ok)
         help_dialog.setMinimumWidth(600)
         help_dialog.exec_()
-
-    def on_tangent_color_changed(self, color_text):
-        """日本語カラー名から英語カラー名に変換して設定"""
-        color_map = {
-            '赤': 'red',
-            '青': 'blue',
-            '緑': 'green',
-            '紫': 'purple',
-            '橙': 'orange',
-            '黒': 'black',
-            '水色': 'cyan',
-            'マゼンタ': 'magenta',
-            '茶色': 'brown',
-            '灰色': 'gray'
-        }
-        
-        # マッピングから英語名を取得（なければそのまま使用）
-        color_name = color_map.get(color_text, color_text)
-        self.tangentColor = QColor(color_name)
-        self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
-        self.statusBar.showMessage(f"接線の色を {color_text} に設定しました", 2000)
 
     def save_manual_data(self):
         if self.current_dataset_index < 0 or not self.datasets:
