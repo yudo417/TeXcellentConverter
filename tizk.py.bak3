@@ -286,40 +286,22 @@ class TikZPlotConverter(QMainWindow):
         dataSourceGroup.setLayout(dataSourceLayout)
         
         # 列選択グループ
-        columnGroup = QGroupBox("データ選択")
+        columnGroup = QGroupBox("CSV/Excel列の選択")
         columnLayout = QGridLayout()
         
-        # 使用ガイドラベル（新規追加）
-        usageGuideLabel = QLabel("【データ選択ガイド】\n"
-                              "■ CSVファイル/Excelファイル: セル範囲で直接指定します\n"
-                              "■ セル範囲の例: X軸「A2:A10」Y軸「B2:B10」または X軸「A2:E2」Y軸「A3:E3」\n"
-                              "■ A1形式のセル指定で、列と行の範囲を指定してください")
-        usageGuideLabel.setStyleSheet("background-color: #f0f8ff; padding: 8px; border: 1px solid #add8e6; border-radius: 5px;")
-        usageGuideLabel.setWordWrap(True)
-        columnLayout.addWidget(usageGuideLabel, 0, 0, 1, 3)
+        xColLabel = QLabel('X軸データ列:')
+        self.xColCombo = QComboBox()
+        columnLayout.addWidget(xColLabel, 0, 0)
+        columnLayout.addWidget(self.xColCombo, 0, 1)
         
-        # セル範囲入力部分
-        cellRangeSectionLabel = QLabel("セル範囲指定:")
-        cellRangeSectionLabel.setStyleSheet("font-weight: bold;")
-        columnLayout.addWidget(cellRangeSectionLabel, 1, 0, 1, 3)
+        yColLabel = QLabel('Y軸データ列:')
+        self.yColCombo = QComboBox()
+        columnLayout.addWidget(yColLabel, 1, 0)
+        columnLayout.addWidget(self.yColCombo, 1, 1)
         
-        xRangeLabel = QLabel('X軸セル範囲:')
-        self.xRangeEntry = QLineEdit()
-        self.xRangeEntry.setPlaceholderText("例: A2:A10")
-        columnLayout.addWidget(xRangeLabel, 2, 0)
-        columnLayout.addWidget(self.xRangeEntry, 2, 1, 1, 2)
-        
-        yRangeLabel = QLabel('Y軸セル範囲:')
-        self.yRangeEntry = QLineEdit()
-        self.yRangeEntry.setPlaceholderText("例: B2:B10")
-        columnLayout.addWidget(yRangeLabel, 3, 0)
-        columnLayout.addWidget(self.yRangeEntry, 3, 1, 1, 2)
-        
-        columnHelpLabel = QLabel('※ セル範囲はA1形式で指定してください\n'
-                               '※ 例: 同じ行なら「A2:E2」と「A3:E3」、同じ列なら「A2:A10」と「B2:B10」')
+        columnHelpLabel = QLabel('※ CSVまたはExcelファイルからデータを読み込む際の列を選択します')
         columnHelpLabel.setStyleSheet('color: gray; font-style: italic;')
-        columnHelpLabel.setWordWrap(True)
-        columnLayout.addWidget(columnHelpLabel, 4, 0, 1, 3)
+        columnLayout.addWidget(columnHelpLabel, 2, 0, 1, 2)
         
         # 列選択グループのレイアウトを設定
         columnGroup.setLayout(columnLayout)
@@ -964,6 +946,7 @@ class TikZPlotConverter(QMainWindow):
             self.fileEntry.setText(file_path)
             self.csvRadio.setChecked(True)
             self.toggle_source_fields()
+            self.update_column_names(file_path)
     
     # Excelファイル選択ダイアログ
     def browse_excel_file(self):
@@ -1013,6 +996,8 @@ class TikZPlotConverter(QMainWindow):
     # データを読み込む
     def load_data(self):
         """選択されたデータソースからデータを読み込む"""
+        # 入力値を保存
+        self.update_current_dataset()
         try:
             if self.current_dataset_index < 0:
                 QMessageBox.warning(self, "警告", "データを読み込むデータセットを選択してください")
@@ -1021,29 +1006,21 @@ class TikZPlotConverter(QMainWindow):
             data_x = []
             data_y = []
             
-            # セル範囲の取得
-            x_range = self.xRangeEntry.text().strip()
-            y_range = self.yRangeEntry.text().strip()
-            
-            # セル範囲のチェック
-            if not x_range or not y_range:
-                QMessageBox.warning(self, "警告", "X軸とY軸のセル範囲を指定してください")
-                return
-            
             if self.csvRadio.isChecked():
                 file_path = self.fileEntry.text()
                 if not file_path or not os.path.exists(file_path):
                     QMessageBox.warning(self, "警告", "有効なCSVファイルを選択してください")
                     return
                 
-                # CSVファイルの読み込み
                 df = pd.read_csv(file_path)
+                x_col = self.xColCombo.currentText()
+                y_col = self.yColCombo.currentText()
                 
-                try:
-                    # A1:A10形式のセル範囲を解析してデータを取得
-                    data_x, data_y = self.extract_data_from_range(df, x_range, y_range)
-                except Exception as e:
-                    QMessageBox.warning(self, "警告", f"セル範囲からのデータ抽出中にエラーが発生しました: {str(e)}")
+                if x_col in df.columns and y_col in df.columns:
+                    data_x = df[x_col].values.tolist()
+                    data_y = df[y_col].values.tolist()
+                else:
+                    QMessageBox.warning(self, "警告", "選択した列名が不正です")
                     return
                 
             elif self.excelRadio.isChecked():
@@ -1057,11 +1034,15 @@ class TikZPlotConverter(QMainWindow):
                     QMessageBox.warning(self, "警告", "シート名を選択してください")
                     return
                 
-                try:
-                    # A1:A10形式のセル範囲を直接Excelから読み込む
-                    data_x, data_y = self.extract_data_from_excel_range(file_path, sheet_name, x_range, y_range)
-                except Exception as e:
-                    QMessageBox.warning(self, "警告", f"Excelセル範囲からのデータ抽出中にエラーが発生しました: {str(e)}")
+                df = pd.read_excel(file_path, sheet_name=sheet_name)
+                x_col = self.xColCombo.currentText()
+                y_col = self.yColCombo.currentText()
+                
+                if x_col in df.columns and y_col in df.columns:
+                    data_x = df[x_col].values.tolist()
+                    data_y = df[y_col].values.tolist()
+                else:
+                    QMessageBox.warning(self, "警告", "選択した列名が不正です")
                     return
                 
             elif self.manualRadio.isChecked():
@@ -1084,23 +1065,10 @@ class TikZPlotConverter(QMainWindow):
                 if not data_x:
                     QMessageBox.warning(self, "警告", "有効なデータポイントがありません")
                     return
-            
-            # データの長さチェック
-            if len(data_x) != len(data_y):
-                QMessageBox.warning(self, "警告", f"X軸とY軸のデータ長が一致しません (X: {len(data_x)}, Y: {len(data_y)})")
-                return
-                
-            if not data_x:
-                QMessageBox.warning(self, "警告", "有効なデータがありません")
-                return
                 
             # 現在のデータセットにデータを設定
             self.datasets[self.current_dataset_index]['data_x'] = data_x
             self.datasets[self.current_dataset_index]['data_y'] = data_y
-            
-            # セル範囲の保存
-            self.datasets[self.current_dataset_index]['x_range'] = x_range
-            self.datasets[self.current_dataset_index]['y_range'] = y_range
             
             # データテーブルを更新（手動入力モードの場合）
             if self.manualRadio.isChecked():
@@ -1114,150 +1082,6 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"データ読み込み中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
             self.statusBar.showMessage("データ読み込みエラー")
-    
-    def extract_data_from_range(self, df, x_range, y_range):
-        """DataFrameからセル範囲のデータを抽出する"""
-        # セル範囲を解析する関数
-        def parse_range(range_str):
-            # A1:A10 のような形式を解析
-            if ":" not in range_str:
-                raise ValueError(f"無効なセル範囲: {range_str}。例: 'A1:A10'")
-                
-            start, end = range_str.split(":")
-            
-            # 列と行を分離
-            start_col = ''.join(c for c in start if c.isalpha()).upper()
-            start_row = int(''.join(c for c in start if c.isdigit()))
-            
-            end_col = ''.join(c for c in end if c.isalpha()).upper()
-            end_row = int(''.join(c for c in end if c.isdigit()))
-            
-            # Excel列名を0ベースのインデックスに変換
-            def col_to_index(col_str):
-                index = 0
-                for c in col_str:
-                    index = index * 26 + (ord(c) - ord('A') + 1)
-                return index - 1
-                
-            start_col_idx = col_to_index(start_col)
-            end_col_idx = col_to_index(end_col)
-            
-            return start_col_idx, start_row - 1, end_col_idx, end_row - 1  # DataFrameは0ベース
-        
-        # セル範囲を解析
-        x_start_col, x_start_row, x_end_col, x_end_row = parse_range(x_range)
-        y_start_col, y_start_row, y_end_col, y_end_row = parse_range(y_range)
-        
-        data_x = []
-        data_y = []
-        
-        # ケース1: 同じ行の異なる列（横方向の範囲）
-        if x_start_row == x_end_row and y_start_row == y_end_row and x_start_row == y_start_row:
-            row_idx = x_start_row
-            if row_idx < len(df):
-                # X軸データ（同じ行の複数列）
-                for col_idx in range(x_start_col, x_end_col + 1):
-                    if col_idx < len(df.columns):
-                        try:
-                            value = df.iloc[row_idx, col_idx]
-                            data_x.append(float(value))
-                        except (ValueError, TypeError):
-                            data_x.append(float('nan'))
-                
-                # Y軸データ（同じ行の複数列）
-                for col_idx in range(y_start_col, y_end_col + 1):
-                    if col_idx < len(df.columns):
-                        try:
-                            value = df.iloc[row_idx, col_idx]
-                            data_y.append(float(value))
-                        except (ValueError, TypeError):
-                            data_y.append(float('nan'))
-        
-        # ケース2: 同じ列の異なる行（縦方向の範囲）
-        elif x_start_col == x_end_col and y_start_col == y_end_col:
-            x_col_idx = x_start_col
-            y_col_idx = y_start_col
-            
-            # X軸データ（同じ列の複数行）
-            for row_idx in range(x_start_row, x_end_row + 1):
-                if row_idx < len(df):
-                    try:
-                        value = df.iloc[row_idx, x_col_idx]
-                        data_x.append(float(value))
-                    except (ValueError, TypeError):
-                        data_x.append(float('nan'))
-            
-            # Y軸データ（同じ列の複数行）
-            for row_idx in range(y_start_row, y_end_row + 1):
-                if row_idx < len(df):
-                    try:
-                        value = df.iloc[row_idx, y_col_idx]
-                        data_y.append(float(value))
-                    except (ValueError, TypeError):
-                        data_y.append(float('nan'))
-        
-        else:
-            raise ValueError("X軸とY軸のセル範囲は、同じ行の異なる列か、同じ列の異なる行のいずれかである必要があります")
-        
-        # データの長さを同じにする
-        min_len = min(len(data_x), len(data_y))
-        data_x = data_x[:min_len]
-        data_y = data_y[:min_len]
-        
-        # 無効なデータを除去
-        valid_indices = [i for i, (x, y) in enumerate(zip(data_x, data_y)) 
-                        if not (math.isnan(x) or math.isnan(y))]
-        
-        data_x = [data_x[i] for i in valid_indices]
-        data_y = [data_y[i] for i in valid_indices]
-        
-        return data_x, data_y
-    
-    def extract_data_from_excel_range(self, file_path, sheet_name, x_range, y_range):
-        """Excelファイルから直接セル範囲のデータを抽出する"""
-        import openpyxl
-        
-        # ワークブックとシートを読み込む
-        wb = openpyxl.load_workbook(file_path, data_only=True)
-        sheet = wb[sheet_name]
-        
-        # セル範囲からデータを取得
-        x_cells = list(sheet[x_range])
-        y_cells = list(sheet[y_range])
-        
-        data_x = []
-        data_y = []
-        
-        # データのタイプに応じた処理
-        if len(x_cells) == 1 and len(y_cells) == 1:
-            # 横方向の範囲（1行の複数セル）
-            data_x = [cell.value for cell in x_cells[0]]
-            data_y = [cell.value for cell in y_cells[0]]
-        elif len(x_cells[0]) == 1 and len(y_cells[0]) == 1:
-            # 縦方向の範囲（1列の複数セル）
-            data_x = [row[0].value for row in x_cells]
-            data_y = [row[0].value for row in y_cells]
-        else:
-            # 複数行・複数列の場合はエラー
-            raise ValueError("X軸とY軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
-        
-        # NoneとNaNを処理
-        data_x = [float(x) if x is not None else float('nan') for x in data_x]
-        data_y = [float(y) if y is not None else float('nan') for y in data_y]
-        
-        # データの長さを同じにする
-        min_len = min(len(data_x), len(data_y))
-        data_x = data_x[:min_len]
-        data_y = data_y[:min_len]
-        
-        # 無効なデータを除去
-        valid_indices = [i for i, (x, y) in enumerate(zip(data_x, data_y)) 
-                        if not (math.isnan(x) or math.isnan(y))]
-        
-        data_x = [data_x[i] for i in valid_indices]
-        data_y = [data_y[i] for i in valid_indices]
-        
-        return data_x, data_y
     
     # 特殊点を追加
     def add_special_point(self):
@@ -1631,11 +1455,8 @@ class TikZPlotConverter(QMainWindow):
                         dataset['sheet_name'] = self.sheetCombobox.currentText()
                     else:
                         dataset['file_type'] = 'manual'
-                    
-                    # セル範囲の保存
-                    dataset['x_range'] = self.xRangeEntry.text().strip()
-                    dataset['y_range'] = self.yRangeEntry.text().strip()
-                    
+                    dataset['x_column'] = self.xColCombo.currentText()
+                    dataset['y_column'] = self.yColCombo.currentText()
                     # 手入力データの保存は「データ入力タブがアクティブ」かつ「手入力モード」のときだけ
                     if (
                         hasattr(self, 'tabWidget')
@@ -1738,10 +1559,6 @@ class TikZPlotConverter(QMainWindow):
                 file_path = dataset.get('file_path', '')
                 file_type = dataset.get('file_type', 'csv')
                 
-                # セル範囲の設定
-                self.xRangeEntry.setText(dataset.get('x_range', ''))
-                self.yRangeEntry.setText(dataset.get('y_range', ''))
-                
                 if file_type == 'csv':
                     self.csvRadio.setChecked(True)
                     self.fileEntry.setText(file_path)
@@ -1761,17 +1578,17 @@ class TikZPlotConverter(QMainWindow):
                     self.manualRadio.setChecked(True)
                     self.toggle_source_fields()
                 
-                # 削除：列名が設定されている場合は選択
-                # x_column = dataset.get('x_column', '')
-                # y_column = dataset.get('y_column', '')
-                # if x_column:
-                #     index = self.xColCombo.findText(x_column)
-                #     if index >= 0:
-                #         self.xColCombo.setCurrentIndex(index)
-                # if y_column:
-                #     index = self.yColCombo.findText(y_column)
-                #     if index >= 0:
-                #         self.yColCombo.setCurrentIndex(index)
+                # 列名が設定されている場合は選択
+                x_column = dataset.get('x_column', '')
+                y_column = dataset.get('y_column', '')
+                if x_column:
+                    index = self.xColCombo.findText(x_column)
+                    if index >= 0:
+                        self.xColCombo.setCurrentIndex(index)
+                if y_column:
+                    index = self.yColCombo.findText(y_column)
+                    if index >= 0:
+                        self.yColCombo.setCurrentIndex(index)
                 
                 # データテーブルを必ずクリアして更新
                 self.dataTable.setRowCount(0)
@@ -1826,14 +1643,8 @@ class TikZPlotConverter(QMainWindow):
             self.fileEntry.setEnabled(self.csvRadio.isChecked())
             self.excelEntry.setEnabled(self.excelRadio.isChecked())
             self.sheetCombobox.setEnabled(self.excelRadio.isChecked())
-            
-            # CSVとExcelの場合でセル範囲の有効/無効を切り替え
-            is_csv_or_excel = self.csvRadio.isChecked() or self.excelRadio.isChecked()
-            
-            # セル範囲はCSVとExcel両方で有効
-            self.xRangeEntry.setEnabled(is_csv_or_excel)
-            self.yRangeEntry.setEnabled(is_csv_or_excel)
-            
+            self.xColCombo.setEnabled(True)
+            self.yColCombo.setEnabled(True)
             self.manualRadio.setEnabled(True)
             self.dataTable.setEnabled(self.manualRadio.isChecked())
             
@@ -1851,8 +1662,8 @@ class TikZPlotConverter(QMainWindow):
             self.fileEntry.setEnabled(False)
             self.excelEntry.setEnabled(False)
             self.sheetCombobox.setEnabled(False)
-            self.xRangeEntry.setEnabled(False)
-            self.yRangeEntry.setEnabled(False)
+            self.xColCombo.setEnabled(False)
+            self.yColCombo.setEnabled(False)
             self.manualRadio.setEnabled(False)
             self.dataTable.setEnabled(False)
             
@@ -2619,12 +2430,11 @@ class TikZPlotConverter(QMainWindow):
     def update_column_names(self, file_path):
         try:
             df = pd.read_csv(file_path)
-            # 列選択コンボボックスは削除されたため、このメソッドは不要になりました
-            # self.xColCombo.clear()
-            # self.yColCombo.clear()
-            # self.xColCombo.addItems(df.columns)
-            # self.yColCombo.addItems(df.columns)
-            self.statusBar.showMessage(f"CSVファイルを読み込みました: {len(df.columns)}列")
+            self.xColCombo.clear()
+            self.yColCombo.clear()
+            self.xColCombo.addItems(df.columns)
+            self.yColCombo.addItems(df.columns)
+            self.statusBar.showMessage(f"CSV列名を読み込みました: {len(df.columns)}列")
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"CSVファイルの読み込みに失敗しました: {str(e)}")
             self.statusBar.showMessage("ファイル読み込みエラー")
@@ -2655,6 +2465,93 @@ class TikZPlotConverter(QMainWindow):
     
     # 理論曲線の色選択ダイアログは削除（パラメータスイープ機能の廃止に伴い）
     
+    # データを読み込む
+    def load_data(self):
+        """選択されたデータソースからデータを読み込む"""
+        try:
+            if self.current_dataset_index < 0:
+                QMessageBox.warning(self, "警告", "データを読み込むデータセットを選択してください")
+                return
+                
+            data_x = []
+            data_y = []
+            
+            if self.csvRadio.isChecked():
+                file_path = self.fileEntry.text()
+                if not file_path or not os.path.exists(file_path):
+                    QMessageBox.warning(self, "警告", "有効なCSVファイルを選択してください")
+                    return
+                
+                df = pd.read_csv(file_path)
+                x_col = self.xColCombo.currentText()
+                y_col = self.yColCombo.currentText()
+                
+                if x_col in df.columns and y_col in df.columns:
+                    data_x = df[x_col].values.tolist()
+                    data_y = df[y_col].values.tolist()
+                else:
+                    QMessageBox.warning(self, "警告", "選択した列名が不正です")
+                    return
+                
+            elif self.excelRadio.isChecked():
+                file_path = self.excelEntry.text()
+                if not file_path or not os.path.exists(file_path):
+                    QMessageBox.warning(self, "警告", "有効なExcelファイルを選択してください")
+                    return
+                
+                sheet_name = self.sheetCombobox.currentText()
+                if not sheet_name:
+                    QMessageBox.warning(self, "警告", "シート名を選択してください")
+                    return
+                
+                df = pd.read_excel(file_path, sheet_name=sheet_name)
+                x_col = self.xColCombo.currentText()
+                y_col = self.yColCombo.currentText()
+                
+                if x_col in df.columns and y_col in df.columns:
+                    data_x = df[x_col].values.tolist()
+                    data_y = df[y_col].values.tolist()
+                else:
+                    QMessageBox.warning(self, "警告", "選択した列名が不正です")
+                    return
+                
+            elif self.manualRadio.isChecked():
+                data_x = []
+                data_y = []
+                
+                for row in range(self.dataTable.rowCount()):
+                    x_item = self.dataTable.item(row, 0)
+                    y_item = self.dataTable.item(row, 1)
+                    
+                    if x_item and y_item and x_item.text() and y_item.text():
+                        try:
+                            x_val = float(x_item.text())
+                            y_val = float(y_item.text())
+                            data_x.append(x_val)
+                            data_y.append(y_val)
+                        except ValueError:
+                            pass  # 数値に変換できない場合はスキップ
+                
+                if not data_x:
+                    QMessageBox.warning(self, "警告", "有効なデータポイントがありません")
+                    return
+                
+            # 現在のデータセットにデータを設定
+            self.datasets[self.current_dataset_index]['data_x'] = data_x
+            self.datasets[self.current_dataset_index]['data_y'] = data_y
+            
+            # データテーブルを更新（手動入力モードの場合）
+            if self.manualRadio.isChecked():
+                self.update_data_table_from_dataset(self.datasets[self.current_dataset_index])
+            
+            dataset_name = self.datasets[self.current_dataset_index]['name']
+            QMessageBox.information(self, "成功", f"データセット '{dataset_name}' に{len(data_x)}個のデータポイントを読み込みました")
+            self.statusBar.showMessage(f"データセット '{dataset_name}' にデータを読み込みました: {len(data_x)}ポイント")
+            
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"データ読み込み中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+            self.statusBar.showMessage("データ読み込みエラー")
     
     # 特殊点を追加
     def add_special_point(self):
