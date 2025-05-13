@@ -295,12 +295,13 @@ class TikZPlotConverter(QMainWindow):
                               "■ セル範囲の例: X軸「A2:A10」Y軸「B2:B10」または X軸「A2:E2」Y軸「A3:E3」\n"
                               "■ A1形式のセル指定で、列と行の範囲を指定してください")
         usageGuideLabel.setStyleSheet(
-            "background-color: #2a3d45; " +  # 暗めの青緑色（ダークモードに適した色）
-            "color: #e0f2f1; " +  # 明るい青緑色のテキスト（コントラスト確保）
+            "background-color: #546e7a; " +  # ブルーグレー（中間色調）
+            "color: #ffffff; " +             # 白テキスト（どちらのモードでも視認性良好）
             "padding: 10px; " + 
-            "border: 2px solid #80cbc4; " +  # 目立つ境界線
+            "border: 2px solid #90a4ae; " +  # 明るめのブルーグレー境界線
             "border-radius: 6px; " +
-            "font-weight: bold;"  # テキストを太字に
+            "font-weight: bold; " +          # テキストを太字に
+            "margin: 5px;"                   # 周囲に余白を追加
         )
         usageGuideLabel.setWordWrap(True)
         columnLayout.addWidget(usageGuideLabel, 0, 0, 1, 3)
@@ -1050,7 +1051,13 @@ class TikZPlotConverter(QMainWindow):
                     # A1:A10形式のセル範囲を解析してデータを取得
                     data_x, data_y = self.extract_data_from_range(df, x_range, y_range)
                 except Exception as e:
-                    QMessageBox.warning(self, "警告", f"セル範囲からのデータ抽出中にエラーが発生しました: {str(e)}")
+                    error_msg = str(e)
+                    if "セル範囲" in error_msg:
+                        # セル範囲関連のエラー
+                        QMessageBox.warning(self, "セル範囲エラー", f"{error_msg}\n\n正しいセル範囲の例:\n- X軸「A2:A10」Y軸「B2:B10」（同じ行数の異なる列）\n- X軸「A2:E2」Y軸「A3:E3」（同じ列数の異なる行）")
+                    else:
+                        # その他のエラー
+                        QMessageBox.warning(self, "警告", f"CSVセル範囲からのデータ抽出中にエラーが発生しました: {error_msg}")
                     return
                 
             elif self.excelRadio.isChecked():
@@ -1066,9 +1073,25 @@ class TikZPlotConverter(QMainWindow):
                 
                 try:
                     # A1:A10形式のセル範囲を直接Excelから読み込む
-                    data_x, data_y = self.extract_data_from_excel_range(file_path, sheet_name, x_range, y_range)
+                    result = self.extract_data_from_excel_range(file_path, sheet_name, x_range, y_range)
+                    
+                    # 戻り値が警告メッセージを含むかチェック
+                    if len(result) == 3:
+                        data_x, data_y, warnings = result
+                        if warnings:
+                            QMessageBox.warning(self, "データ読み込み警告", 
+                                              "データを読み込みましたが、以下の警告があります:\n- " + 
+                                              "\n- ".join(warnings))
+                    else:
+                        data_x, data_y = result
                 except Exception as e:
-                    QMessageBox.warning(self, "警告", f"Excelセル範囲からのデータ抽出中にエラーが発生しました: {str(e)}")
+                    error_msg = str(e)
+                    if "セル範囲" in error_msg or "有効なデータ" in error_msg:
+                        # セル範囲関連のエラー
+                        QMessageBox.warning(self, "Excelセル範囲エラー", f"{error_msg}\n\n正しいセル範囲の例:\n- X軸「A2:A10」Y軸「B2:B10」（同じ行数の異なる列）\n- X軸「A2:E2」Y軸「A3:E3」（同じ列数の異なる行）")
+                    else:
+                        # その他のエラー
+                        QMessageBox.warning(self, "警告", f"Excelセル範囲からのデータ抽出中にエラーが発生しました: {error_msg}")
                     return
                 
             elif self.manualRadio.isChecked():
@@ -1123,102 +1146,158 @@ class TikZPlotConverter(QMainWindow):
             self.statusBar.showMessage("データ読み込みエラー")
     
     def extract_data_from_range(self, df, x_range, y_range):
-        """DataFrameからセル範囲のデータを抽出する"""
-        # セル範囲を解析する関数
+        """データフレームからセル範囲のデータを抽出する"""
+        import pandas as pd
+        
         def parse_range(range_str):
             # A1:A10 のような形式を解析
-            if ":" not in range_str:
-                raise ValueError(f"無効なセル範囲: {range_str}。例: 'A1:A10'")
+            try:
+                # : で分割
+                parts = range_str.split(':')
+                if len(parts) != 2:
+                    raise ValueError(f"セル範囲の形式が正しくありません: {range_str} (例: A1:A10)")
                 
-            start, end = range_str.split(":")
-            
-            # 列と行を分離
-            start_col = ''.join(c for c in start if c.isalpha()).upper()
-            start_row = int(''.join(c for c in start if c.isdigit()))
-            
-            end_col = ''.join(c for c in end if c.isalpha()).upper()
-            end_row = int(''.join(c for c in end if c.isdigit()))
-            
-            # Excel列名を0ベースのインデックスに変換
-            def col_to_index(col_str):
-                index = 0
-                for c in col_str:
-                    index = index * 26 + (ord(c) - ord('A') + 1)
-                return index - 1
+                start_cell, end_cell = parts
                 
-            start_col_idx = col_to_index(start_col)
-            end_col_idx = col_to_index(end_col)
-            
-            return start_col_idx, start_row - 1, end_col_idx, end_row - 1  # DataFrameは0ベース
-        
-        # セル範囲を解析
-        x_start_col, x_start_row, x_end_col, x_end_row = parse_range(x_range)
-        y_start_col, y_start_row, y_end_col, y_end_row = parse_range(y_range)
-        
-        data_x = []
-        data_y = []
-        
-        # ケース1: 同じ行の異なる列（横方向の範囲）
-        if x_start_row == x_end_row and y_start_row == y_end_row and x_start_row == y_start_row:
-            row_idx = x_start_row
-            if row_idx < len(df):
-                # X軸データ（同じ行の複数列）
-                for col_idx in range(x_start_col, x_end_col + 1):
-                    if col_idx < len(df.columns):
-                        try:
-                            value = df.iloc[row_idx, col_idx]
-                            data_x.append(float(value))
-                        except (ValueError, TypeError):
-                            data_x.append(float('nan'))
+                # 列と行を分解（A1 -> 列='A', 行='1'）
+                start_col = ''.join(c for c in start_cell if c.isalpha())
+                start_row = int(''.join(c for c in start_cell if c.isdigit())) - 1  # 0-indexedに変換
                 
-                # Y軸データ（同じ行の複数列）
-                for col_idx in range(y_start_col, y_end_col + 1):
-                    if col_idx < len(df.columns):
-                        try:
-                            value = df.iloc[row_idx, col_idx]
-                            data_y.append(float(value))
-                        except (ValueError, TypeError):
-                            data_y.append(float('nan'))
+                end_col = ''.join(c for c in end_cell if c.isalpha())
+                end_row = int(''.join(c for c in end_cell if c.isdigit())) - 1  # 0-indexedに変換
+                
+                # 列をインデックスに変換
+                def col_to_index(col_str):
+                    index = 0
+                    for i, char in enumerate(reversed(col_str)):
+                        index += (ord(char.upper()) - ord('A') + 1) * (26 ** i)
+                    return index - 1  # 0-indexedに変換
+                
+                start_col_idx = col_to_index(start_col)
+                end_col_idx = col_to_index(end_col)
+                
+                return (start_row, start_col_idx, end_row, end_col_idx)
+            except Exception as e:
+                raise ValueError(f"セル範囲の解析中にエラーが発生しました ({range_str}): {str(e)}")
         
-        # ケース2: 同じ列の異なる行（縦方向の範囲）
-        elif x_start_col == x_end_col and y_start_col == y_end_col:
-            x_col_idx = x_start_col
-            y_col_idx = y_start_col
+        try:
+            # セル範囲解析
+            x_start_row, x_start_col, x_end_row, x_end_col = parse_range(x_range)
+            y_start_row, y_start_col, y_end_row, y_end_col = parse_range(y_range)
             
-            # X軸データ（同じ列の複数行）
-            for row_idx in range(x_start_row, x_end_row + 1):
-                if row_idx < len(df):
-                    try:
-                        value = df.iloc[row_idx, x_col_idx]
-                        data_x.append(float(value))
-                    except (ValueError, TypeError):
-                        data_x.append(float('nan'))
+            # データの取り出し
+            data_x = []
+            data_y = []
+            warnings = []
             
-            # Y軸データ（同じ列の複数行）
-            for row_idx in range(y_start_row, y_end_row + 1):
-                if row_idx < len(df):
-                    try:
-                        value = df.iloc[row_idx, y_col_idx]
-                        data_y.append(float(value))
-                    except (ValueError, TypeError):
-                        data_y.append(float('nan'))
-        
-        else:
-            raise ValueError("X軸とY軸のセル範囲は、同じ行の異なる列か、同じ列の異なる行のいずれかである必要があります")
-        
-        # データの長さを同じにする
-        min_len = min(len(data_x), len(data_y))
-        data_x = data_x[:min_len]
-        data_y = data_y[:min_len]
-        
-        # 無効なデータを除去
-        valid_indices = [i for i, (x, y) in enumerate(zip(data_x, data_y)) 
-                        if not (math.isnan(x) or math.isnan(y))]
-        
-        data_x = [data_x[i] for i in valid_indices]
-        data_y = [data_y[i] for i in valid_indices]
-        
-        return data_x, data_y
+            # X軸データの取得方法を判断
+            x_is_row = (x_start_row == x_end_row)  # 同じ行なら行方向（横）
+            x_is_column = (x_start_col == x_end_col)  # 同じ列なら列方向（縦）
+            
+            # Y軸データの取得方法を判断
+            y_is_row = (y_start_row == y_end_row)  # 同じ行なら行方向（横）
+            y_is_column = (y_start_col == y_end_col)  # 同じ列なら列方向（縦）
+            
+            # X軸データの取り出し
+            if not (x_is_row or x_is_column):
+                raise ValueError("X軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
+            
+            if x_is_row:
+                # 横方向の範囲（同じ行の複数セル）
+                for col in range(x_start_col, x_end_col + 1):
+                    if col < len(df.columns):
+                        val = df.iloc[x_start_row, col]
+                        data_x.append(val)
+                    else:
+                        warnings.append(f"指定されたX軸の列インデックス {col} はデータフレームの範囲外です")
+            else:
+                # 縦方向の範囲（同じ列の複数行）
+                for row in range(x_start_row, x_end_row + 1):
+                    if row < len(df):
+                        val = df.iloc[row, x_start_col]
+                        data_x.append(val)
+                    else:
+                        warnings.append(f"指定されたX軸の行インデックス {row} はデータフレームの範囲外です")
+            
+            # Y軸データの取り出し
+            if not (y_is_row or y_is_column):
+                raise ValueError("Y軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
+            
+            if y_is_row:
+                # 横方向の範囲（同じ行の複数セル）
+                for col in range(y_start_col, y_end_col + 1):
+                    if col < len(df.columns):
+                        val = df.iloc[y_start_row, col]
+                        data_y.append(val)
+                    else:
+                        warnings.append(f"指定されたY軸の列インデックス {col} はデータフレームの範囲外です")
+            else:
+                # 縦方向の範囲（同じ列の複数行）
+                for row in range(y_start_row, y_end_row + 1):
+                    if row < len(df):
+                        val = df.iloc[row, y_start_col]
+                        data_y.append(val)
+                    else:
+                        warnings.append(f"指定されたY軸の行インデックス {row} はデータフレームの範囲外です")
+            
+            # X軸とY軸の方向が異なる場合の処理
+            if (x_is_row and y_is_column) or (x_is_column and y_is_row):
+                # 方向が異なる場合は、データの長さが一致しない可能性が高い
+                warnings.append(f"X軸とY軸のセル範囲の方向が異なります（X軸: {'行方向' if x_is_row else '列方向'}, Y軸: {'行方向' if y_is_row else '列方向'}）")
+                
+                # デバッグ情報を追加
+                x_debug = f"X軸データ({len(data_x)}個): {str(data_x[:5])}{'...' if len(data_x) > 5 else ''}"
+                y_debug = f"Y軸データ({len(data_y)}個): {str(data_y[:5])}{'...' if len(data_y) > 5 else ''}"
+                warnings.append(x_debug)
+                warnings.append(y_debug)
+                
+                # データの数が合わない場合の特別なペアリングアルゴリズム
+                if len(data_x) != len(data_y):
+                    warnings.append(f"X軸({len(data_x)}個)とY軸({len(data_y)}個)のデータ数が一致しません")
+                    
+                    if len(data_x) < len(data_y):
+                        # X軸データが少ない場合、Y軸データを先頭から必要な分だけ使用
+                        data_y = data_y[:len(data_x)]
+                        warnings.append(f"Y軸データを先頭から{len(data_x)}個使用します")
+                    else:
+                        # Y軸データが少ない場合、X軸データを先頭から必要な分だけ使用
+                        data_x = data_x[:len(data_y)]
+                        warnings.append(f"X軸データを先頭から{len(data_y)}個使用します")
+            
+            # データの長さを同じにする
+            min_len = min(len(data_x), len(data_y))
+            if min_len == 0:
+                raise ValueError("有効なデータがありません。セル範囲を確認してください。")
+                
+            if len(data_x) > min_len:
+                warnings.append(f"X軸のデータ数({len(data_x)})がY軸({min_len})より多いため、最初の{min_len}個のみ使用します")
+                data_x = data_x[:min_len]
+            elif len(data_y) > min_len:
+                warnings.append(f"Y軸のデータ数({len(data_y)})がX軸({min_len})より多いため、最初の{min_len}個のみ使用します")
+                data_y = data_y[:min_len]
+            
+            # NaNを処理
+            data_x = pd.Series(data_x).apply(lambda x: float('nan') if pd.isna(x) else float(x)).tolist()
+            data_y = pd.Series(data_y).apply(lambda y: float('nan') if pd.isna(y) else float(y)).tolist()
+            
+            # 無効なデータを除去
+            valid_indices = [i for i, (x, y) in enumerate(zip(data_x, data_y)) 
+                            if not (math.isnan(x) or math.isnan(y))]
+            
+            if not valid_indices:
+                raise ValueError("有効なデータポイントがありません。セル範囲に数値データが含まれているか確認してください。")
+                
+            if len(valid_indices) < min_len:
+                warnings.append(f"数値に変換できないデータが{min_len - len(valid_indices)}個あったため無視されました")
+                
+            data_x = [data_x[i] for i in valid_indices]
+            data_y = [data_y[i] for i in valid_indices]
+            
+            # 警告がある場合はそれを返り値に含める
+            return (data_x, data_y, warnings) if warnings else (data_x, data_y)
+        except Exception as e:
+            # エラーを再スロー
+            raise e
     
     def extract_data_from_excel_range(self, file_path, sheet_name, x_range, y_range):
         """Excelファイルから直接セル範囲のデータを抽出する"""
@@ -1234,19 +1313,63 @@ class TikZPlotConverter(QMainWindow):
         
         data_x = []
         data_y = []
+        warnings = []
         
-        # データのタイプに応じた処理
-        if len(x_cells) == 1 and len(y_cells) == 1:
+        # X軸データの取得方法を判断
+        x_is_row = len(x_cells) == 1  # 1行の場合は行方向（横）
+        x_is_column = all(len(row) == 1 for row in x_cells)  # 全ての行が1列の場合は列方向（縦）
+        
+        # Y軸データの取得方法を判断
+        y_is_row = len(y_cells) == 1  # 1行の場合は行方向（横）
+        y_is_column = all(len(row) == 1 for row in y_cells)  # 全ての行が1列の場合は列方向（縦）
+        
+        # X軸データの抽出
+        if not (x_is_row or x_is_column):
+            raise ValueError("X軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
+        
+        if x_is_row:
             # 横方向の範囲（1行の複数セル）
             data_x = [cell.value for cell in x_cells[0]]
-            data_y = [cell.value for cell in y_cells[0]]
-        elif len(x_cells[0]) == 1 and len(y_cells[0]) == 1:
+        else:
             # 縦方向の範囲（1列の複数セル）
             data_x = [row[0].value for row in x_cells]
-            data_y = [row[0].value for row in y_cells]
+        
+        # Y軸データの抽出
+        if not (y_is_row or y_is_column):
+            raise ValueError("Y軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
+        
+        if y_is_row:
+            # 横方向の範囲（1行の複数セル）
+            data_y = [cell.value for cell in y_cells[0]]
         else:
-            # 複数行・複数列の場合はエラー
-            raise ValueError("X軸とY軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
+            # 縦方向の範囲（1列の複数セル）
+            data_y = [row[0].value for row in y_cells]
+        
+        # X軸とY軸の方向が異なる場合の処理
+        if (x_is_row and y_is_column) or (x_is_column and y_is_row):
+            # 方向が異なる場合は、データの長さが一致しない可能性が高い
+            # この場合は短い方に合わせる必要があるかもしれないが、
+            # ユーザーに警告を表示することでより適切な対応を促す
+            warnings.append(f"X軸とY軸のセル範囲の方向が異なります（X軸: {'行方向' if x_is_row else '列方向'}, Y軸: {'行方向' if y_is_row else '列方向'}）")
+            
+            # デバッグ情報を追加
+            x_debug = f"X軸データ({len(data_x)}個): {str(data_x[:5])}{'...' if len(data_x) > 5 else ''}"
+            y_debug = f"Y軸データ({len(data_y)}個): {str(data_y[:5])}{'...' if len(data_y) > 5 else ''}"
+            warnings.append(x_debug)
+            warnings.append(y_debug)
+            
+            # データの数が合わない場合の特別なペアリングアルゴリズム
+            if len(data_x) != len(data_y):
+                warnings.append(f"X軸({len(data_x)}個)とY軸({len(data_y)}個)のデータ数が一致しません")
+                
+                if len(data_x) < len(data_y):
+                    # X軸データが少ない場合、Y軸データを先頭から必要な分だけ使用
+                    data_y = data_y[:len(data_x)]
+                    warnings.append(f"Y軸データを先頭から{len(data_x)}個使用します")
+                else:
+                    # Y軸データが少ない場合、X軸データを先頭から必要な分だけ使用
+                    data_x = data_x[:len(data_y)]
+                    warnings.append(f"X軸データを先頭から{len(data_y)}個使用します")
         
         # NoneとNaNを処理
         data_x = [float(x) if x is not None else float('nan') for x in data_x]
@@ -1254,17 +1377,31 @@ class TikZPlotConverter(QMainWindow):
         
         # データの長さを同じにする
         min_len = min(len(data_x), len(data_y))
-        data_x = data_x[:min_len]
-        data_y = data_y[:min_len]
+        if min_len == 0:
+            raise ValueError("有効なデータがありません。セル範囲を確認してください。")
+            
+        if len(data_x) > min_len:
+            data_x = data_x[:min_len]
+            warnings.append(f"X軸のデータ数({len(data_x)})がY軸({min_len})より多いため、最初の{min_len}個のみ使用します")
+        elif len(data_y) > min_len:
+            data_y = data_y[:min_len]
+            warnings.append(f"Y軸のデータ数({len(data_y)})がX軸({min_len})より多いため、最初の{min_len}個のみ使用します")
         
         # 無効なデータを除去
         valid_indices = [i for i, (x, y) in enumerate(zip(data_x, data_y)) 
                         if not (math.isnan(x) or math.isnan(y))]
         
+        if not valid_indices:
+            raise ValueError("有効なデータポイントがありません。セル範囲に数値データが含まれているか確認してください。")
+            
+        if len(valid_indices) < min_len:
+            warnings.append(f"数値に変換できないデータが{min_len - len(valid_indices)}個あったため無視されました")
+            
         data_x = [data_x[i] for i in valid_indices]
         data_y = [data_y[i] for i in valid_indices]
         
-        return data_x, data_y
+        # 警告がある場合はそれを返り値に含める
+        return data_x, data_y, warnings if warnings else (data_x, data_y)
     
     # 特殊点を追加
     def add_special_point(self):
