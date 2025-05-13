@@ -294,7 +294,14 @@ class TikZPlotConverter(QMainWindow):
                               "■ CSVファイル/Excelファイル: セル範囲で直接指定します\n"
                               "■ セル範囲の例: X軸「A2:A10」Y軸「B2:B10」または X軸「A2:E2」Y軸「A3:E3」\n"
                               "■ A1形式のセル指定で、列と行の範囲を指定してください")
-        usageGuideLabel.setStyleSheet("background-color: #f0f8ff; padding: 8px; border: 1px solid #add8e6; border-radius: 5px;")
+        usageGuideLabel.setStyleSheet(
+            "background-color: #2a3d45; " +  # 暗めの青緑色（ダークモードに適した色）
+            "color: #e0f2f1; " +  # 明るい青緑色のテキスト（コントラスト確保）
+            "padding: 10px; " + 
+            "border: 2px solid #80cbc4; " +  # 目立つ境界線
+            "border-radius: 6px; " +
+            "font-weight: bold;"  # テキストを太字に
+        )
         usageGuideLabel.setWordWrap(True)
         columnLayout.addWidget(usageGuideLabel, 0, 0, 1, 3)
         
