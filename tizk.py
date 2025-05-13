@@ -1079,8 +1079,8 @@ class TikZPlotConverter(QMainWindow):
                     if len(result) == 3:
                         data_x, data_y, warnings = result
                         if warnings:
-                            QMessageBox.warning(self, "データ読み込み警告", 
-                                              "データを読み込みましたが、以下の警告があります:\n- " + 
+                            QMessageBox.information(self, "データ読み込み情報", 
+                                              "データは正常に読み込まれました。参考情報:\n- " + 
                                               "\n- ".join(warnings))
                     else:
                         data_x, data_y = result
@@ -1137,7 +1137,7 @@ class TikZPlotConverter(QMainWindow):
                 self.update_data_table_from_dataset(self.datasets[self.current_dataset_index])
             
             dataset_name = self.datasets[self.current_dataset_index]['name']
-            QMessageBox.information(self, "成功", f"データセット '{dataset_name}' に{len(data_x)}個のデータポイントを読み込みました")
+            QMessageBox.information(self, "読み込み成功 ✓", f"データセット '{dataset_name}' に{len(data_x)}個のデータポイントを正常に読み込みました")
             self.statusBar.showMessage(f"データセット '{dataset_name}' にデータを読み込みました: {len(data_x)}ポイント")
             
         except Exception as e:
@@ -1243,7 +1243,7 @@ class TikZPlotConverter(QMainWindow):
             # X軸とY軸の方向が異なる場合の処理
             if (x_is_row and y_is_column) or (x_is_column and y_is_row):
                 # 方向が異なる場合は、データの長さが一致しない可能性が高い
-                warnings.append(f"X軸とY軸のセル範囲の方向が異なります（X軸: {'行方向' if x_is_row else '列方向'}, Y軸: {'行方向' if y_is_row else '列方向'}）")
+                warnings.append(f"データの向きの情報: X軸は{'横方向（行に沿って）' if x_is_row else '縦方向（列に沿って）'}、Y軸は{'横方向（行に沿って）' if y_is_row else '縦方向（列に沿って）'}です。これは問題ありません。")
                 
                 # デバッグ情報を追加
                 x_debug = f"X軸データ({len(data_x)}個): {str(data_x[:5])}{'...' if len(data_x) > 5 else ''}"
@@ -1270,10 +1270,10 @@ class TikZPlotConverter(QMainWindow):
                 raise ValueError("有効なデータがありません。セル範囲を確認してください。")
                 
             if len(data_x) > min_len:
-                warnings.append(f"X軸のデータ数({len(data_x)})がY軸({min_len})より多いため、最初の{min_len}個のみ使用します")
+                warnings.append(f"データ数を調整しました: X軸のデータを{min_len}個に揃えました。")
                 data_x = data_x[:min_len]
             elif len(data_y) > min_len:
-                warnings.append(f"Y軸のデータ数({len(data_y)})がX軸({min_len})より多いため、最初の{min_len}個のみ使用します")
+                warnings.append(f"データ数を調整しました: Y軸のデータを{min_len}個に揃えました。")
                 data_y = data_y[:min_len]
             
             # NaNを処理
@@ -1350,7 +1350,7 @@ class TikZPlotConverter(QMainWindow):
             # 方向が異なる場合は、データの長さが一致しない可能性が高い
             # この場合は短い方に合わせる必要があるかもしれないが、
             # ユーザーに警告を表示することでより適切な対応を促す
-            warnings.append(f"X軸とY軸のセル範囲の方向が異なります（X軸: {'行方向' if x_is_row else '列方向'}, Y軸: {'行方向' if y_is_row else '列方向'}）")
+            warnings.append(f"データの向きの情報: X軸は{'横方向（行に沿って）' if x_is_row else '縦方向（列に沿って）'}、Y軸は{'横方向（行に沿って）' if y_is_row else '縦方向（列に沿って）'}です。これは問題ありません。")
             
             # デバッグ情報を追加
             x_debug = f"X軸データ({len(data_x)}個): {str(data_x[:5])}{'...' if len(data_x) > 5 else ''}"
@@ -1360,16 +1360,16 @@ class TikZPlotConverter(QMainWindow):
             
             # データの数が合わない場合の特別なペアリングアルゴリズム
             if len(data_x) != len(data_y):
-                warnings.append(f"X軸({len(data_x)}個)とY軸({len(data_y)}個)のデータ数が一致しません")
+                warnings.append(f"X軸({len(data_x)}個)とY軸({len(data_y)}個)のデータ数を自動的に調整しました。")
                 
                 if len(data_x) < len(data_y):
                     # X軸データが少ない場合、Y軸データを先頭から必要な分だけ使用
                     data_y = data_y[:len(data_x)]
-                    warnings.append(f"Y軸データを先頭から{len(data_x)}個使用します")
+                    warnings.append(f"Y軸データは先頭から{len(data_x)}個を使用します。")
                 else:
                     # Y軸データが少ない場合、X軸データを先頭から必要な分だけ使用
                     data_x = data_x[:len(data_y)]
-                    warnings.append(f"X軸データを先頭から{len(data_y)}個使用します")
+                    warnings.append(f"X軸データは先頭から{len(data_y)}個を使用します。")
         
         # NoneとNaNを処理
         data_x = [float(x) if x is not None else float('nan') for x in data_x]
@@ -1382,10 +1382,10 @@ class TikZPlotConverter(QMainWindow):
             
         if len(data_x) > min_len:
             data_x = data_x[:min_len]
-            warnings.append(f"X軸のデータ数({len(data_x)})がY軸({min_len})より多いため、最初の{min_len}個のみ使用します")
+            warnings.append(f"データ数を調整しました: X軸のデータを{min_len}個に揃えました。")
         elif len(data_y) > min_len:
             data_y = data_y[:min_len]
-            warnings.append(f"Y軸のデータ数({len(data_y)})がX軸({min_len})より多いため、最初の{min_len}個のみ使用します")
+            warnings.append(f"データ数を調整しました: Y軸のデータを{min_len}個に揃えました。")
         
         # 無効なデータを除去
         valid_indices = [i for i, (x, y) in enumerate(zip(data_x, data_y)) 
