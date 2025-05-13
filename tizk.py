@@ -2237,7 +2237,7 @@ class TikZPlotConverter(QMainWindow):
         axis_options.append("minor tick num=1")
         axis_options.append("tick label style={font=\\small}")
         axis_options.append("every node near coord/.style={font=\\footnotesize}")
-        axis_options.append("clip=false")  # これを追加
+        axis_options.append("clip=true")  # 軸の範囲外のデータを非表示にする
         
         if self.global_settings['grid']:
             axis_options.append("grid=both")
