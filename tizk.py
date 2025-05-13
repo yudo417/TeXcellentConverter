@@ -2061,32 +2061,119 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"データテーブル更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     def generate_tikz_code_multi_datasets(self):
-        """複数のデータセットを持つTikZコードを生成する"""
-        # 結果のLaTeXコード
+        """複数のデータセットを含むTikZコードを生成する"""
+        # LaTeXコード生成
         latex = []
         
-        # figure環境の開始
-        latex.append(f"\\begin{{figure}}[{self.global_settings['position']}]")
-        latex.append("    \\centering")
+        # 図の開始
+        latex.append("\\begin{figure}[" + self.global_settings['position'] + "]")
+        latex.append("  \\centering")
         
-        # tikzpictureの開始
-        latex.append("    \\begin{tikzpicture}")
+        # 図の幅と高さ設定
+        width = self.global_settings['width']
+        height = self.global_settings['height']
         
-        # axis環境の設定
-        axis_options = []
-        axis_options.append(f"width={self.global_settings['width']}\\textwidth")
-        axis_options.append(f"height={self.global_settings['height']}\\textwidth")
-        axis_options.append(f"xlabel={{{self.global_settings['x_label']}}}")
-        axis_options.append(f"ylabel={{{self.global_settings['y_label']}}}")
+        # TikZ図の開始
+        latex.append("  \\begin{tikzpicture}")
         
+        # 軸設定
         x_min = self.global_settings['x_min']
         x_max = self.global_settings['x_max']
         y_min = self.global_settings['y_min']
         y_max = self.global_settings['y_max']
         
-        # 目盛り間隔
-        x_tick_step = getattr(self, 'x_tick_step', 1.0)
-        y_tick_step = getattr(self, 'y_tick_step', 1.0)
+        # 軸の範囲チェックと補正
+        # データの実際の最小値と最大値を計算
+        all_x_values = []
+        all_y_values = []
+        for dataset in self.datasets:
+            if dataset.get('data_x') and dataset.get('data_y'):
+                all_x_values.extend(dataset['data_x'])
+                all_y_values.extend(dataset['data_y'])
+        
+        if all_x_values and all_y_values:
+            data_x_min = min(all_x_values)
+            data_x_max = max(all_x_values)
+            data_y_min = min(all_y_values)
+            data_y_max = max(all_y_values)
+            
+            # データポイントが1つしかない場合や、min/maxが同じ場合の処理
+            if abs(data_x_max - data_x_min) < 1e-10:
+                data_x_min -= 0.5 if abs(data_x_min) > 1 else 0.1
+                data_x_max += 0.5 if abs(data_x_max) > 1 else 0.1
+            
+            if abs(data_y_max - data_y_min) < 1e-10:
+                data_y_min -= 0.5 if abs(data_y_min) > 1 else 0.1
+                data_y_max += 0.5 if abs(data_y_max) > 1 else 0.1
+            
+            # 軸の範囲がデータの範囲を含んでいるか確認し、必要に応じて調整
+            if x_min > data_x_min or x_min == 0:
+                x_min = data_x_min - abs(data_x_min) * 0.1 - 0.1
+            if x_max < data_x_max or x_max == 0:
+                x_max = data_x_max + abs(data_x_max) * 0.1 + 0.1
+            if y_min > data_y_min or y_min == 0:
+                y_min = data_y_min - abs(data_y_min) * 0.1 - 0.1
+            if y_max < data_y_max or y_max == 0:
+                y_max = data_y_max + abs(data_y_max) * 0.1 + 0.1
+            
+            # 小さすぎる値は0に近い値に設定
+            if abs(y_min) < 1e-10:
+                y_min = -0.1
+            if abs(y_max) < 1e-10:
+                y_max = 0.1
+            if abs(x_min) < 1e-10:
+                x_min = -0.1
+            if abs(x_max) < 1e-10:
+                x_max = 0.1
+            
+            # 範囲が同じ値の場合（データが全て同じ値の場合）
+            if abs(x_min - x_max) < 1e-10:
+                x_min -= 0.5
+                x_max += 0.5
+            if abs(y_min - y_max) < 1e-10:
+                y_min -= 0.5
+                y_max += 0.5
+                
+            # 範囲が極端に小さい場合も調整
+            if abs(x_max - x_min) < 1e-3:
+                margin = abs(x_min) * 0.2 if abs(x_min) > 1e-10 else 0.1
+                x_min -= margin
+                x_max += margin
+            if abs(y_max - y_min) < 1e-3:
+                margin = abs(y_min) * 0.2 if abs(y_min) > 1e-10 else 0.1
+                y_min -= margin
+                y_max += margin
+        
+        # 目盛りの設定
+        xtick_values = []
+        ytick_values = []
+        
+        # X軸の目盛りを設定
+        if self.x_tick_step > 0:
+            tick_min = math.ceil(x_min / self.x_tick_step) * self.x_tick_step
+            tick_max = math.floor(x_max / self.x_tick_step) * self.x_tick_step
+            
+            current = tick_min
+            while current <= tick_max:
+                xtick_values.append(current)
+                current += self.x_tick_step
+        
+        # Y軸の目盛りを設定
+        if self.y_tick_step > 0:
+            tick_min = math.ceil(y_min / self.y_tick_step) * self.y_tick_step
+            tick_max = math.floor(y_max / self.y_tick_step) * self.y_tick_step
+            
+            current = tick_min
+            while current <= tick_max:
+                ytick_values.append(current)
+                current += self.y_tick_step
+        
+        # axis環境の設定
+        axis_options = []
+        axis_options.append(f"width={width}\\textwidth")
+        axis_options.append(f"height={height}\\textwidth")
+        axis_options.append(f"xlabel={{{self.global_settings['x_label']}}}")
+        axis_options.append(f"ylabel={{{self.global_settings['y_label']}}}")
         
         if x_min != x_max:
             axis_options.append(f"xmin={x_min}, xmax={x_max}")
@@ -2094,8 +2181,26 @@ class TikZPlotConverter(QMainWindow):
             axis_options.append(f"ymin={y_min}, ymax={y_max}")
         
         # xtick, ytickを自動生成
-        xticks = ','.join(str(round(x_min + i * x_tick_step, 8)) for i in range(int((x_max - x_min) / x_tick_step) + 1))
-        yticks = ','.join(str(round(y_min + i * y_tick_step, 8)) for i in range(int((y_max - y_min) / y_tick_step) + 1))
+        if xtick_values:
+            xticks = ','.join(str(round(tick, 8)) for tick in xtick_values)
+        else:
+            # ゼロ除算を防ぐ
+            if abs(x_max - x_min) < 1e-10 or self.x_tick_step < 1e-10:
+                xticks = str(round(x_min, 8))
+            else:
+                steps = max(1, min(20, int((x_max - x_min) / self.x_tick_step) + 1))  # 最大20ステップに制限
+                xticks = ','.join(str(round(x_min + i * self.x_tick_step, 8)) for i in range(steps))
+        
+        if ytick_values:
+            yticks = ','.join(str(round(tick, 8)) for tick in ytick_values)
+        else:
+            # ゼロ除算を防ぐ
+            if abs(y_max - y_min) < 1e-10 or self.y_tick_step < 1e-10:
+                yticks = str(round(y_min, 8))
+            else:
+                steps = max(1, min(20, int((y_max - y_min) / self.y_tick_step) + 1))  # 最大20ステップに制限
+                yticks = ','.join(str(round(y_min + i * self.y_tick_step, 8)) for i in range(steps))
+        
         axis_options.append(f"xtick={{{xticks}}}")
         axis_options.append(f"ytick={{{yticks}}}")
         
@@ -2160,7 +2265,7 @@ class TikZPlotConverter(QMainWindow):
                     latex.append(f"        % X軸への垂線")
                     latex.append(f"        \\draw[{point_color}, dashed] (axis cs:{x},{y}) -- (axis cs:{x},{y_min});")
                     # X座標値の表示（値も表示が選択されている場合）
-                    if '値も表示' in coord_display and not is_tick_value(x, x_min, x_max, x_tick_step):
+                    if '値も表示' in coord_display and not is_tick_value(x, x_min, x_max, self.x_tick_step):
                         formatted_x = '{:g}'.format(x)
                         latex.append(f"        % X座標値を表示")
                         latex.append(f"        \\node[{point_color}, below, yshift=-2pt, font=\\small] at (axis cs:{x},{y_min}) {{{formatted_x}}};")
@@ -2170,7 +2275,7 @@ class TikZPlotConverter(QMainWindow):
                     latex.append(f"        % Y軸への垂線")
                     latex.append(f"        \\draw[{point_color}, dashed] (axis cs:{x},{y}) -- (axis cs:{x_min},{y});")
                     # Y座標値の表示（値も表示が選択されている場合）
-                    if '値も表示' in coord_display and not is_tick_value(y, y_min, y_max, y_tick_step):
+                    if '値も表示' in coord_display and not is_tick_value(y, y_min, y_max, self.y_tick_step):
                         formatted_y = '{:g}'.format(y)
                         latex.append(f"        % Y座標値を表示")
                         latex.append(f"        \\node[{point_color}, left, xshift=-2pt, font=\\small] at (axis cs:{x_min},{y}) {{{formatted_y}}};")
