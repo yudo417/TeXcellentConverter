@@ -25,21 +25,22 @@ class TikZPlotConverter(QMainWindow):
         self.datasets = []  # 複数のデータセットを格納するリスト
         self.current_dataset_index = -1  # 現在選択されているデータセットのインデックス
         
-        # グラフ全体の設定（すべてのデータセットに共通）
+        # グラフ全体の設定
         self.global_settings = {
-            'x_label': 'x',          # X軸ラベル
-            'y_label': 'y',          # Y軸ラベル
-            'x_min': 0,              # X軸最小値
-            'x_max': 10,             # X軸最大値
-            'y_min': 0,              # Y軸最小値
-            'y_max': 10,             # Y軸最大値
-            'grid': True,            # グリッド表示
-            'legend_pos': 'north east', # 凡例位置
-            'caption': 'グラフのタイトル', # キャプション
-            'label': 'fig:plot',     # ラベル
-            'position': 'H',         # 図の位置
-            'width': 0.8,            # 図の幅
-            'height': 0.5            # 図の高さ
+            'x_label': 'x',
+            'y_label': 'y',
+            'x_min': 0,
+            'x_max': 10,
+            'y_min': 0,
+            'y_max': 10,
+            'grid': True,
+            'show_legend': True,
+            'legend_pos': 'north east',  # 右上をデフォルトに
+            'caption': 'グラフのタイトル',
+            'label': 'fig:plot',
+            'position': 'H',  # h=ここに、t=上部、b=下部、p=独立ページ、H=絶対ここに
+            'width': 0.8,  # \textwidthに対する比率
+            'height': 0.5   # \textwidthに対する比率
         }
         
         # UIを初期化
@@ -719,27 +720,37 @@ class TikZPlotConverter(QMainWindow):
         self.gridCheck.setChecked(self.global_settings['grid'])
         axisLayout.addWidget(self.gridCheck, 4, 0, 1, 2)
         
-        axisGroup.setLayout(axisLayout)
-        
-        # 凡例設定
-        legendGroup = QGroupBox("データセット個別設定 - 凡例")
-        legendLayout = QFormLayout()
-        
+        # 凡例設定を軸設定グループに追加
         self.legendCheck = QCheckBox('凡例を表示')
-        self.legendCheck.setChecked(True)
-        
-        self.legendLabel = QLineEdit('データ')
+        self.legendCheck.setChecked(self.global_settings.get('show_legend', True))
         
         legendPosLabel = QLabel('凡例の位置:')
         self.legendPosCombo = QComboBox()
-        self.legendPosCombo.addItems(['north west', 'north east', 'south west', 'south east', 'north', 'south', 'east', 'west'])
-        self.legendPosCombo.setCurrentText(self.global_settings['legend_pos'])
+        self.legendPosCombo.addItems(['左上', '右上', '左下', '右下'])
+        # 内部での対応用のマッピング
+        self.legend_pos_mapping = {
+            '左上': 'north west',
+            '右上': 'north east',
+            '左下': 'south west',
+            '右下': 'south east'
+        }
+        # 逆マッピングで初期値を設定
+        reverse_mapping = {v: k for k, v in self.legend_pos_mapping.items()}
+        current_pos = self.global_settings['legend_pos']
+        # 現在の設定が四隅以外の場合はデフォルトで右上にする
+        if current_pos in reverse_mapping:
+            self.legendPosCombo.setCurrentText(reverse_mapping[current_pos])
+        else:
+            self.legendPosCombo.setCurrentText('右上')
         
-        legendLayout.addRow(self.legendCheck)
-        legendLayout.addRow('凡例ラベル:', self.legendLabel)
-        legendLayout.addRow(legendPosLabel, self.legendPosCombo)
+        # 凡例表示チェックボックスとラベルを追加
+        axisLayout.addWidget(self.legendCheck, 5, 0, 1, 2)
         
-        legendGroup.setLayout(legendLayout)
+        # 凡例位置のラベルとコンボボックスを追加
+        axisLayout.addWidget(legendPosLabel, 6, 0)
+        axisLayout.addWidget(self.legendPosCombo, 6, 1)
+        
+        axisGroup.setLayout(axisLayout)
         
         # 図の設定
         figureGroup = QGroupBox("グラフ全体設定 - 図")
@@ -793,7 +804,16 @@ class TikZPlotConverter(QMainWindow):
         plotTabLayout.addWidget(QLabel("【データセット個別の設定】"))
         plotTabLayout.addWidget(plotTypeGroup)
         plotTabLayout.addWidget(styleGroup)
-        plotTabLayout.addWidget(legendGroup)
+        
+        # 凡例ラベルだけはデータセット個別の設定として残す
+        legendLabelGroup = QGroupBox("データセット個別設定 - 凡例ラベル")
+        legendLabelLayout = QFormLayout()
+        
+        self.legendLabel = QLineEdit('データ')
+        legendLabelLayout.addRow('凡例ラベル:', self.legendLabel)
+        
+        legendLabelGroup.setLayout(legendLabelLayout)
+        plotTabLayout.addWidget(legendLabelGroup)
         
         plotTab.setLayout(plotTabLayout)
         
@@ -1543,8 +1563,16 @@ class TikZPlotConverter(QMainWindow):
             # グリッド
             self.global_settings['grid'] = self.gridCheck.isChecked()
             
-            # 凡例位置
-            self.global_settings['legend_pos'] = self.legendPosCombo.currentText()
+            # 凡例設定
+            self.global_settings['show_legend'] = self.legendCheck.isChecked()
+            # 日本語表記から内部表現に変換
+            legend_pos_jp = self.legendPosCombo.currentText()
+            # 四隅のいずれかであることを確認
+            if legend_pos_jp in self.legend_pos_mapping:
+                self.global_settings['legend_pos'] = self.legend_pos_mapping[legend_pos_jp]
+            else:
+                # デフォルトは右上
+                self.global_settings['legend_pos'] = 'north east'
             
             # 図の設定
             self.global_settings['caption'] = self.captionEntry.text()
@@ -2214,7 +2242,8 @@ class TikZPlotConverter(QMainWindow):
         if self.global_settings['grid']:
             axis_options.append("grid=both")
         
-        if self.legendCheck.isChecked():
+        # 凡例の表示/非表示と位置の設定
+        if self.global_settings.get('show_legend', True):
             axis_options.append(f"legend pos={self.global_settings['legend_pos']}")
         
         # axis環境の開始
@@ -2236,7 +2265,9 @@ class TikZPlotConverter(QMainWindow):
             line_width = dataset.get('line_width', 1.0)
             marker_style = dataset.get('marker_style', '*')
             marker_size = dataset.get('marker_size', 3.0)
-            show_legend = dataset.get('show_legend', True)
+            
+            # グローバル設定の凡例表示/非表示を優先
+            show_legend = self.global_settings.get('show_legend', True) and dataset.get('show_legend', True)
             legend_label = dataset.get('legend_label', dataset.get('name', ''))
             
             # データセットを処理
