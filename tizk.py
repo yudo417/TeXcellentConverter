@@ -1045,7 +1045,34 @@ class TikZPlotConverter(QMainWindow):
                     return
                 
                 # CSVファイルの読み込み
-                df = pd.read_csv(file_path)
+                try:
+                    # まずUTF-8で試す
+                    df = pd.read_csv(file_path, encoding='utf-8', sep=None, engine='python')
+                except UnicodeDecodeError:
+                    try:
+                        # 次にShift-JISで試す
+                        df = pd.read_csv(file_path, encoding='shift_jis', sep=None, engine='python')
+                    except UnicodeDecodeError:
+                        try:
+                            # 次にCP932（Windows日本語）で試す
+                            df = pd.read_csv(file_path, encoding='cp932', sep=None, engine='python')
+                        except UnicodeDecodeError:
+                            try:
+                                # 次にEUC-JPで試す
+                                df = pd.read_csv(file_path, encoding='euc_jp', sep=None, engine='python')
+                            except UnicodeDecodeError:
+                                # それでも失敗する場合はエラーメッセージを表示
+                                QMessageBox.warning(self, "エンコーディングエラー", 
+                                                  "CSVファイルのエンコーディングを自動判別できませんでした。\n"
+                                                  "ファイルが破損しているか、サポートされていないエンコーディングの可能性があります。\n"
+                                                  "UTF-8、Shift-JIS、CP932、EUC-JPのいずれかで保存し直してください。")
+                                return
+                except Exception as e:
+                    # その他のエラーが発生した場合
+                    QMessageBox.warning(self, "CSVファイル読み込みエラー", 
+                                      f"CSVファイルの読み込み中にエラーが発生しました: {str(e)}\n"
+                                      "ファイル形式を確認してください。")
+                    return
                 
                 try:
                     # A1:A10形式のセル範囲を解析してデータを取得
