@@ -27,20 +27,21 @@ class TikZPlotConverter(QMainWindow):
         
         # グラフ全体の設定
         self.global_settings = {
-            'x_label': 'x',
-            'y_label': 'y',
+            'x_label': 'x軸',
+            'y_label': 'y軸',
             'x_min': 0,
             'x_max': 10,
             'y_min': 0,
             'y_max': 10,
             'grid': True,
             'show_legend': True,
-            'legend_pos': 'north east',  # 右上をデフォルトに
-            'caption': 'グラフのタイトル',
-            'label': 'fig:plot',
-            'position': 'H',  # h=ここに、t=上部、b=下部、p=独立ページ、H=絶対ここに
-            'width': 0.8,  # \textwidthに対する比率
-            'height': 0.5   # \textwidthに対する比率
+            'legend_pos': 'north east',  # 凡例の位置
+            'width': 0.8,
+            'height': 0.6,
+            'caption': 'TikZで生成したグラフ',
+            'label': 'fig:tikz_plot',
+            'position': 'htbp',
+            'scale_type': 'normal'  # normal, logx, logy, loglog のいずれか
         }
         
         # UIを初期化
@@ -749,6 +750,40 @@ class TikZPlotConverter(QMainWindow):
         # 凡例位置のラベルとコンボボックスを追加
         axisLayout.addWidget(legendPosLabel, 6, 0)
         axisLayout.addWidget(self.legendPosCombo, 6, 1)
+        
+        # スケールタイプ設定
+        scaleTypeLabel = QLabel('軸の目盛りタイプ:')
+        scaleTypeLayout = QHBoxLayout()
+        self.scaleTypeGroup = QButtonGroup(self)
+        
+        self.normalScaleRadio = QRadioButton('通常')
+        self.logXScaleRadio = QRadioButton('X軸対数')
+        self.logYScaleRadio = QRadioButton('Y軸対数')
+        self.logLogScaleRadio = QRadioButton('両軸対数')
+        
+        self.scaleTypeGroup.addButton(self.normalScaleRadio)
+        self.scaleTypeGroup.addButton(self.logXScaleRadio)
+        self.scaleTypeGroup.addButton(self.logYScaleRadio)
+        self.scaleTypeGroup.addButton(self.logLogScaleRadio)
+        
+        # デフォルト設定
+        scale_type = self.global_settings.get('scale_type', 'normal')
+        if scale_type == 'logx':
+            self.logXScaleRadio.setChecked(True)
+        elif scale_type == 'logy':
+            self.logYScaleRadio.setChecked(True)
+        elif scale_type == 'loglog':
+            self.logLogScaleRadio.setChecked(True)
+        else:
+            self.normalScaleRadio.setChecked(True)
+        
+        scaleTypeLayout.addWidget(self.normalScaleRadio)
+        scaleTypeLayout.addWidget(self.logXScaleRadio)
+        scaleTypeLayout.addWidget(self.logYScaleRadio)
+        scaleTypeLayout.addWidget(self.logLogScaleRadio)
+        
+        axisLayout.addWidget(scaleTypeLabel, 7, 0)
+        axisLayout.addLayout(scaleTypeLayout, 7, 1)
         
         axisGroup.setLayout(axisLayout)
         
@@ -1574,6 +1609,16 @@ class TikZPlotConverter(QMainWindow):
                 # デフォルトは右上
                 self.global_settings['legend_pos'] = 'north east'
             
+            # スケールタイプの設定
+            if self.logXScaleRadio.isChecked():
+                self.global_settings['scale_type'] = 'logx'
+            elif self.logYScaleRadio.isChecked():
+                self.global_settings['scale_type'] = 'logy'
+            elif self.logLogScaleRadio.isChecked():
+                self.global_settings['scale_type'] = 'loglog'
+            else:
+                self.global_settings['scale_type'] = 'normal'
+            
             # 図の設定
             self.global_settings['caption'] = self.captionEntry.text()
             self.global_settings['label'] = self.labelEntry.text()
@@ -2208,26 +2253,81 @@ class TikZPlotConverter(QMainWindow):
         if y_min != y_max:
             axis_options.append(f"ymin={y_min}, ymax={y_max}")
         
-        # xtick, ytickを自動生成
-        if xtick_values:
-            xticks = ','.join(str(round(tick, 8)) for tick in xtick_values)
-        else:
-            # ゼロ除算を防ぐ
-            if abs(x_max - x_min) < 1e-10 or self.x_tick_step < 1e-10:
-                xticks = str(round(x_min, 8))
-            else:
-                steps = max(1, min(20, int((x_max - x_min) / self.x_tick_step) + 1))  # 最大20ステップに制限
-                xticks = ','.join(str(round(x_min + i * self.x_tick_step, 8)) for i in range(steps))
+        # スケールタイプに基づく軸の設定
+        scale_type = self.global_settings.get('scale_type', 'normal')
+        is_xlog = scale_type == 'logx' or scale_type == 'loglog'
+        is_ylog = scale_type == 'logy' or scale_type == 'loglog'
         
-        if ytick_values:
-            yticks = ','.join(str(round(tick, 8)) for tick in ytick_values)
-        else:
-            # ゼロ除算を防ぐ
-            if abs(y_max - y_min) < 1e-10 or self.y_tick_step < 1e-10:
-                yticks = str(round(y_min, 8))
+        # 対数スケールの場合は、0以下の値がないか確認し、あれば調整する
+        if is_xlog and x_min <= 0:
+            # 警告を表示
+            self.statusBar.showMessage(f"X軸の対数スケールには正の値のみ有効です。X軸の最小値を0.1に自動調整しました。", 5000)
+            # 既存データの最小値を考慮（ただし正の値のみ）
+            if all_x_values:
+                positive_x = [x for x in all_x_values if x > 0]
+                if positive_x:
+                    x_min = min(positive_x) * 0.5  # 少し余裕を持たせる
+                else:
+                    x_min = 0.1  # データに正の値がなければ0.1をデフォルトとする
             else:
-                steps = max(1, min(20, int((y_max - y_min) / self.y_tick_step) + 1))  # 最大20ステップに制限
-                yticks = ','.join(str(round(y_min + i * self.y_tick_step, 8)) for i in range(steps))
+                x_min = 0.1  # データがなければ0.1をデフォルトとする
+        
+        if is_ylog and y_min <= 0:
+            # 警告を表示
+            self.statusBar.showMessage(f"Y軸の対数スケールには正の値のみ有効です。Y軸の最小値を0.1に自動調整しました。", 5000)
+            # 既存データの最小値を考慮（ただし正の値のみ）
+            if all_y_values:
+                positive_y = [y for y in all_y_values if y > 0]
+                if positive_y:
+                    y_min = min(positive_y) * 0.5  # 少し余裕を持たせる
+                else:
+                    y_min = 0.1  # データに正の値がなければ0.1をデフォルトとする
+            else:
+                y_min = 0.1  # データがなければ0.1をデフォルトとする
+        
+        if is_xlog:
+            axis_options.append("xmode=log")
+            axis_options.append("log basis x=10")
+        if is_ylog:
+            axis_options.append("ymode=log")
+            axis_options.append("log basis y=10")
+        
+        # xtick, ytickを自動生成
+        if is_xlog:
+            # 対数目盛りの場合は10のべき乗でメモリを生成
+            log_x_min = math.floor(math.log10(max(x_min, 1e-10)))
+            log_x_max = math.ceil(math.log10(max(x_max, 1e-10)))
+            xticks = ','.join(str(10**i) for i in range(log_x_min, log_x_max + 1))
+            # 補助目盛りを追加
+            axis_options.append("xminorticks=true")
+        else:
+            if xtick_values:
+                xticks = ','.join(str(round(tick, 8)) for tick in xtick_values)
+            else:
+                # ゼロ除算を防ぐ
+                if abs(x_max - x_min) < 1e-10 or self.x_tick_step < 1e-10:
+                    xticks = str(round(x_min, 8))
+                else:
+                    steps = max(1, min(20, int((x_max - x_min) / self.x_tick_step) + 1))  # 最大20ステップに制限
+                    xticks = ','.join(str(round(x_min + i * self.x_tick_step, 8)) for i in range(steps))
+        
+        if is_ylog:
+            # 対数目盛りの場合は10のべき乗でメモリを生成
+            log_y_min = math.floor(math.log10(max(y_min, 1e-10)))
+            log_y_max = math.ceil(math.log10(max(y_max, 1e-10)))
+            yticks = ','.join(str(10**i) for i in range(log_y_min, log_y_max + 1))
+            # 補助目盛りを追加
+            axis_options.append("yminorticks=true")
+        else:
+            if ytick_values:
+                yticks = ','.join(str(round(tick, 8)) for tick in ytick_values)
+            else:
+                # ゼロ除算を防ぐ
+                if abs(y_max - y_min) < 1e-10 or self.y_tick_step < 1e-10:
+                    yticks = str(round(y_min, 8))
+                else:
+                    steps = max(1, min(20, int((y_max - y_min) / self.y_tick_step) + 1))  # 最大20ステップに制限
+                    yticks = ','.join(str(round(y_min + i * self.y_tick_step, 8)) for i in range(steps))
         
         axis_options.append(f"xtick={{{xticks}}}")
         axis_options.append(f"ytick={{{yticks}}}")
@@ -2270,9 +2370,43 @@ class TikZPlotConverter(QMainWindow):
             show_legend = self.global_settings.get('show_legend', True) and dataset.get('show_legend', True)
             legend_label = dataset.get('legend_label', dataset.get('name', ''))
             
-            # データセットを処理
-            self.add_dataset_to_latex(latex, dataset, i, plot_type, color, line_width, 
-                                     marker_style, marker_size, show_legend, legend_label)
+            # 対数スケールの場合、データフィルタリングが必要
+            if (is_xlog or is_ylog) and dataset.get('data_source_type') == 'measured':
+                data_x = dataset.get('data_x', [])
+                data_y = dataset.get('data_y', [])
+                filtered_data_x = []
+                filtered_data_y = []
+                invalid_points = 0
+                
+                for x, y in zip(data_x, data_y):
+                    if (is_xlog and x <= 0) or (is_ylog and y <= 0):
+                        invalid_points += 1
+                        continue
+                    filtered_data_x.append(x)
+                    filtered_data_y.append(y)
+                
+                if invalid_points > 0:
+                    warning_msg = f"データセット '{dataset.get('name', '')}' の {invalid_points}個の点が対数スケールに適さないため除外されました"
+                    latex.append(f"        % 警告: {warning_msg}")
+                    self.statusBar.showMessage(warning_msg, 5000)
+                
+                # フィルタリングされたデータがない場合
+                if not filtered_data_x:
+                    latex.append(f"        % データセット{i+1}: {dataset.get('name', '')} - 対数スケールに適した点がありません")
+                    continue
+                
+                # フィルタリングされたデータで元のデータを置き換えた一時的なデータセットを作成
+                filtered_dataset = dataset.copy()
+                filtered_dataset['data_x'] = filtered_data_x
+                filtered_dataset['data_y'] = filtered_data_y
+                
+                # フィルタリングされたデータセットを処理
+                self.add_dataset_to_latex(latex, filtered_dataset, i, plot_type, color, line_width, 
+                                        marker_style, marker_size, show_legend, legend_label)
+            else:
+                # 通常のデータセットを処理
+                self.add_dataset_to_latex(latex, dataset, i, plot_type, color, line_width, 
+                                        marker_style, marker_size, show_legend, legend_label)
             
             # 特殊点の追加
             special_points = dataset.get('special_points', [])
@@ -2339,6 +2473,11 @@ class TikZPlotConverter(QMainWindow):
         """LaTeXコードにデータセットを追加する"""
         data_source_type = dataset.get('data_source_type', 'measured')
         
+        # スケールタイプを取得
+        scale_type = self.global_settings.get('scale_type', 'normal')
+        is_xlog = scale_type == 'logx' or scale_type == 'loglog'
+        is_ylog = scale_type == 'logy' or scale_type == 'loglog'
+        
         if data_source_type == 'formula':
             # 数式の場合は理論曲線として描画
             equation = dataset.get('equation', 'x^2')
@@ -2347,6 +2486,12 @@ class TikZPlotConverter(QMainWindow):
             domain_min = dataset.get('domain_min', 0)
             domain_max = dataset.get('domain_max', 10)
             samples = dataset.get('samples', 200)
+            
+            # 対数軸の場合は、domain値を調整（0や負の値を除外）
+            if is_xlog and domain_min <= 0:
+                # 警告を表示
+                latex.append(f"        % 警告: X軸が対数スケールのため、domain_min値が調整されました")
+                domain_min = max(0.01, domain_min)  # 最小値を正の値に設定
             
             # 数式がない場合はスキップ
             if not equation.strip():
