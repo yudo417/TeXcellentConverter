@@ -38,7 +38,7 @@ class TikZPlotConverter(QMainWindow):
             'legend_pos': 'north east',  # 凡例の位置
             'width': 0.8,
             'height': 0.6,
-            'caption': 'TikZで生成したグラフ',
+            'caption': 'グラフのキャプション',
             'label': 'fig:tikz_plot',
             'position': 'htbp',
             'scale_type': 'normal'  # normal, logx, logy, loglog のいずれか
@@ -1845,16 +1845,24 @@ class TikZPlotConverter(QMainWindow):
         try:
             if self.current_dataset_index < 0 or not self.datasets or self.current_dataset_index >= len(self.datasets):
                 return
+            
+            # 現在のデータセットを取得
             dataset = self.datasets[self.current_dataset_index]
+            
+            # 色の設定（1回のみ）
             if not isinstance(self.currentColor, QColor):
                 self.currentColor = QColor(self.currentColor)
+            # QColorオブジェクトのコピーを作成して代入
             dataset['color'] = QColor(self.currentColor)
-            dataset['color'] = QColor(self.currentColor)
+            
+            # 基本設定の更新
             dataset['line_width'] = self.lineWidthSpin.value()
             dataset['marker_style'] = self.markerCombo.currentText()
             dataset['marker_size'] = self.markerSizeSpin.value()
             dataset['show_legend'] = self.legendCheck.isChecked()
             dataset['legend_label'] = self.legendLabel.text()
+            
+            # プロットタイプの設定
             if self.lineRadio.isChecked():
                 dataset['plot_type'] = "line"
             elif self.scatterRadio.isChecked():
@@ -1863,8 +1871,12 @@ class TikZPlotConverter(QMainWindow):
                 dataset['plot_type'] = "line_scatter"
             else:
                 dataset['plot_type'] = "bar"
+            
+            # データソースタイプの設定（実測/数式）
             if hasattr(self, 'measuredRadio') and hasattr(self, 'formulaRadio'):
                 dataset['data_source_type'] = 'measured' if self.measuredRadio.isChecked() else 'formula'
+                
+                # 測定データの場合
                 if self.measuredRadio.isChecked():
                     if self.csvRadio.isChecked():
                         dataset['file_type'] = 'csv'
@@ -1880,7 +1892,7 @@ class TikZPlotConverter(QMainWindow):
                     dataset['x_range'] = self.xRangeEntry.text().strip()
                     dataset['y_range'] = self.yRangeEntry.text().strip()
                     
-                    # 手入力データの保存は「データ入力タブがアクティブ」かつ「手入力モード」のときだけ
+                    # 手入力データの保存
                     if (
                         hasattr(self, 'tabWidget')
                         and self.tabWidget.currentIndex() == 0  # データ入力タブ
@@ -1896,8 +1908,11 @@ class TikZPlotConverter(QMainWindow):
                                     data_y.append(float(y_item.text()))
                                 except ValueError:
                                     pass
-                        dataset['data_x'] = data_x
-                        dataset['data_y'] = data_y
+                        # リストのコピーを作成して代入
+                        dataset['data_x'] = data_x.copy()
+                        dataset['data_y'] = data_y.copy()
+                
+                # 数式データの場合
                 else:
                     dataset['equation'] = self.equationEntry.text()
                     dataset['domain_min'] = self.domainMinSpin.value()
@@ -1906,16 +1921,29 @@ class TikZPlotConverter(QMainWindow):
                     dataset['show_tangent'] = self.showTangentCheck.isChecked()
                     dataset['tangent_x'] = self.tangentXSpin.value()
                     dataset['tangent_length'] = self.tangentLengthSpin.value()
-                    # 色情報を直接保存
-                    dataset['tangent_color'] = self.tangentColor
-                    # ボタンのスタイルを更新
-                    self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
+                    
+                    # 色情報を深いコピーで保存
+                    if hasattr(self, 'tangentColor'):
+                        dataset['tangent_color'] = QColor(self.tangentColor)
+                        
+                        # ボタンのスタイルを更新
+                        if hasattr(self, 'tangentColorButton'):
+                            self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
+                    
                     # 線スタイル
-                    tangent_style = dataset.get('tangent_style', '実線')
-                    index = self.tangentStyleCombo.findText(tangent_style)
-                    if index >= 0:
-                        self.tangentStyleCombo.setCurrentIndex(index)
-                    self.showTangentEquationCheck.setChecked(dataset.get('show_tangent_equation', False))
+                    if hasattr(self, 'tangentStyleCombo'):
+                        tangent_style = dataset.get('tangent_style', '実線')
+                        index = self.tangentStyleCombo.findText(tangent_style)
+                        if index >= 0:
+                            self.tangentStyleCombo.setCurrentIndex(index)
+                    
+                    # 接線方程式
+                    if hasattr(self, 'showTangentEquationCheck'):
+                        self.showTangentEquationCheck.setChecked(dataset.get('show_tangent_equation', False))
+            
+            # デバッグ情報
+            print(f"データセット '{dataset.get('name')}' が更新されました")
+            
         except Exception as e:
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
@@ -1923,17 +1951,21 @@ class TikZPlotConverter(QMainWindow):
     def update_ui_from_dataset(self, dataset):
         """現在のデータセットに基づいてUIを更新する"""
         try:
+            # 一時的にUIコンポーネントから発生するシグナルを切断
+            # これにより他のデータセットに影響を与えるのを防ぐ
+            self.block_signals_temporarily(True)
+            
             # データソースタイプの設定
             data_source_type = dataset.get('data_source_type', 'measured')
             
             # データソースタイプ表示ラベルを更新
             self.dataSourceTypeDisplayLabel.setText("実測データ" if data_source_type == 'measured' else "数式データ")
             
-            # 色の設定（共通項目）
+            # 色の設定（共通項目）- 独自のコピーを作成
             color = dataset.get('color', QColor('blue'))
             if not isinstance(color, QColor):
                 color = QColor(color)
-            self.currentColor = color
+            self.currentColor = QColor(color)  # 新しいQColorオブジェクトを作成
             self.colorButton.setStyleSheet(f'background-color: {self.currentColor.name()};')
             
             # 線の太さ
@@ -1966,8 +1998,7 @@ class TikZPlotConverter(QMainWindow):
             else: 
                 self.barRadio.setChecked(True)
                 
-            # ラジオボタンを更新（イベントハンドラが発生）
-            # 注：ここでイベントが発生するため、下記のコードはイベントハンドラー内で上書きされる可能性がある
+            # データソースタイプラジオボタンの更新
             if data_source_type == 'measured':
                 if not self.measuredRadio.isChecked():
                     self.measuredRadio.setChecked(True)
@@ -1975,10 +2006,9 @@ class TikZPlotConverter(QMainWindow):
                 if not self.formulaRadio.isChecked():
                     self.formulaRadio.setChecked(True)
             
-            # データソースタイプに応じた設定の更新
+            # データソースタイプに応じた詳細設定の更新
             if data_source_type == 'measured':
                 # 実測値の場合
-                # CSVファイルパス
                 file_path = dataset.get('file_path', '')
                 file_type = dataset.get('file_type', 'csv')
                 
@@ -1986,14 +2016,13 @@ class TikZPlotConverter(QMainWindow):
                 self.xRangeEntry.setText(dataset.get('x_range', ''))
                 self.yRangeEntry.setText(dataset.get('y_range', ''))
                 
+                # ファイルタイプに応じた設定
                 if file_type == 'csv':
                     self.csvRadio.setChecked(True)
                     self.fileEntry.setText(file_path)
-                    self.toggle_source_fields()  # UIの有効/無効を更新
                 elif file_type == 'excel':
                     self.excelRadio.setChecked(True)
                     self.excelEntry.setText(file_path)
-                    self.toggle_source_fields()  # UIの有効/無効を更新
                     
                     # シート名を設定
                     sheet_name = dataset.get('sheet_name', '')
@@ -2003,23 +2032,12 @@ class TikZPlotConverter(QMainWindow):
                             self.sheetCombobox.setCurrentIndex(index)
                 elif file_type == 'manual':
                     self.manualRadio.setChecked(True)
-                    self.toggle_source_fields()
                 
-                # 削除：列名が設定されている場合は選択
-                # x_column = dataset.get('x_column', '')
-                # y_column = dataset.get('y_column', '')
-                # if x_column:
-                #     index = self.xColCombo.findText(x_column)
-                #     if index >= 0:
-                #         self.xColCombo.setCurrentIndex(index)
-                # if y_column:
-                #     index = self.yColCombo.findText(y_column)
-                #     if index >= 0:
-                #         self.yColCombo.setCurrentIndex(index)
+                # UIの有効/無効状態を更新
+                self.toggle_source_fields()
                 
-                # データテーブルを必ずクリアして更新
+                # データテーブルを更新
                 self.dataTable.setRowCount(0)
-                # 既存のデータがある場合のみテーブルに表示
                 if dataset.get('data_x') and len(dataset.get('data_x')) > 0:
                     self.update_data_table_from_dataset(dataset)
             else:
@@ -2030,32 +2048,84 @@ class TikZPlotConverter(QMainWindow):
                 self.domainMaxSpin.setValue(dataset.get('domain_max', 10))
                 self.samplesSpin.setValue(dataset.get('samples', 200))
             
-                # 微分・積分設定を削除し、接線設定のみ残す
-                self.showTangentCheck.setChecked(dataset.get('show_tangent', False))
-                self.tangentXSpin.setValue(dataset.get('tangent_x', 5))
-                self.tangentLengthSpin.setValue(dataset.get('tangent_length', 2))
+                # 接線設定の更新
+                if hasattr(self, 'showTangentCheck'):
+                    self.showTangentCheck.setChecked(dataset.get('show_tangent', False))
                 
-                # 色設定の更新
-                tangent_color = dataset.get('tangent_color', QColor('purple'))
-                self.tangentColor = QColor(tangent_color)
+                if hasattr(self, 'tangentXSpin'):
+                    self.tangentXSpin.setValue(dataset.get('tangent_x', 5))
                 
-                # ボタンの背景色を更新
-                self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
+                if hasattr(self, 'tangentLengthSpin'):
+                    self.tangentLengthSpin.setValue(dataset.get('tangent_length', 2))
                 
-                tangent_style = dataset.get('tangent_style', '実線')
-                index = self.tangentStyleCombo.findText(tangent_style)
-                if index >= 0:
-                    self.tangentStyleCombo.setCurrentIndex(index)
+                # 接線の色設定
+                if hasattr(self, 'tangentColorButton'):
+                    tangent_color = dataset.get('tangent_color', QColor('purple'))
+                    self.tangentColor = QColor(tangent_color)  # 新しいQColorオブジェクトを作成
+                    self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
                 
-                # 接線の式表示設定も更新
-                self.showTangentEquationCheck.setChecked(dataset.get('show_tangent_equation', False))
+                # 接線スタイル
+                if hasattr(self, 'tangentStyleCombo'):
+                    tangent_style = dataset.get('tangent_style', '実線')
+                    index = self.tangentStyleCombo.findText(tangent_style)
+                    if index >= 0:
+                        self.tangentStyleCombo.setCurrentIndex(index)
                 
-            # データソースに応じたUIの表示/非表示を更新
+                # 接線方程式表示
+                if hasattr(self, 'showTangentEquationCheck'):
+                    self.showTangentEquationCheck.setChecked(dataset.get('show_tangent_equation', False))
+            
+            # UIベースのデータソースタイプの更新
             self.update_ui_based_on_data_source_type()
-                
+            
+            # シグナル接続を復元
+            self.block_signals_temporarily(False)
+            
+            # デバッグ情報
+            print(f"データセット '{dataset.get('name')}' からUIを更新しました")
+            
         except Exception as e:
+            # シグナル接続を確実に復元
+            self.block_signals_temporarily(False)
             import traceback
             QMessageBox.critical(self, "エラー", f"UI更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+    
+    def block_signals_temporarily(self, block):
+        """UI要素からのシグナルを一時的にブロック/ブロック解除する"""
+        # グラフ設定関連のUI要素
+        ui_elements = [
+            self.lineWidthSpin,
+            self.markerCombo,
+            self.markerSizeSpin,
+            self.lineRadio,
+            self.scatterRadio,
+            self.lineScatterRadio,
+            self.barRadio,
+            self.legendCheck,
+            self.legendLabel
+        ]
+        
+        # データソースタイプ関連（存在する場合）
+        if hasattr(self, 'measuredRadio'):
+            ui_elements.append(self.measuredRadio)
+        if hasattr(self, 'formulaRadio'):
+            ui_elements.append(self.formulaRadio)
+            
+        # 数式関連（存在する場合）
+        if hasattr(self, 'equationEntry'):
+            ui_elements.append(self.equationEntry)
+        if hasattr(self, 'domainMinSpin'):
+            ui_elements.append(self.domainMinSpin)
+        if hasattr(self, 'domainMaxSpin'):
+            ui_elements.append(self.domainMaxSpin)
+        if hasattr(self, 'samplesSpin'):
+            ui_elements.append(self.samplesSpin)
+        if hasattr(self, 'showTangentCheck'):
+            ui_elements.append(self.showTangentCheck)
+            
+        # すべての要素のシグナルをブロック/解除
+        for element in ui_elements:
+            element.blockSignals(block)
     
     def update_ui_based_on_data_source_type(self):
         """データソースタイプに基づいてUIの表示/非表示を更新する"""
