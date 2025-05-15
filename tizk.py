@@ -1180,9 +1180,17 @@ class TikZPlotConverter(QMainWindow):
                     if len(result) == 3:
                         data_x, data_y, warnings = result
                         if warnings:
+                            # 警告メッセージがリストやタプルの場合、文字列に変換
+                            safe_warnings = []
+                            for warning in warnings:
+                                if isinstance(warning, (list, tuple)):
+                                    safe_warnings.append(str(warning))
+                                else:
+                                    safe_warnings.append(str(warning))
+                            
                             QMessageBox.information(self, "データ読み込み情報", 
                                               "データは正常に読み込まれました。参考情報:\n- " + 
-                                              "\n- ".join(warnings))
+                                              "\n- ".join(safe_warnings))
                     else:
                         data_x, data_y = result
                 except Exception as e:
@@ -1406,106 +1414,247 @@ class TikZPlotConverter(QMainWindow):
     def extract_data_from_excel_range(self, file_path, sheet_name, x_range, y_range):
         """Excelファイルから直接セル範囲のデータを抽出する"""
         import openpyxl
+        import math
         
         # ワークブックとシートを読み込む
-        wb = openpyxl.load_workbook(file_path, data_only=True)
-        sheet = wb[sheet_name]
-        
-        # セル範囲からデータを取得
-        x_cells = list(sheet[x_range])
-        y_cells = list(sheet[y_range])
-        
-        data_x = []
-        data_y = []
-        warnings = []
-        
-        # X軸データの取得方法を判断
-        x_is_row = len(x_cells) == 1  # 1行の場合は行方向（横）
-        x_is_column = all(len(row) == 1 for row in x_cells)  # 全ての行が1列の場合は列方向（縦）
-        
-        # Y軸データの取得方法を判断
-        y_is_row = len(y_cells) == 1  # 1行の場合は行方向（横）
-        y_is_column = all(len(row) == 1 for row in y_cells)  # 全ての行が1列の場合は列方向（縦）
-        
-        # X軸データの抽出
-        if not (x_is_row or x_is_column):
-            raise ValueError("X軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
-        
-        if x_is_row:
-            # 横方向の範囲（1行の複数セル）
-            data_x = [cell.value for cell in x_cells[0]]
-        else:
-            # 縦方向の範囲（1列の複数セル）
-            data_x = [row[0].value for row in x_cells]
-        
-        # Y軸データの抽出
-        if not (y_is_row or y_is_column):
-            raise ValueError("Y軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
-        
-        if y_is_row:
-            # 横方向の範囲（1行の複数セル）
-            data_y = [cell.value for cell in y_cells[0]]
-        else:
-            # 縦方向の範囲（1列の複数セル）
-            data_y = [row[0].value for row in y_cells]
-        
-        # X軸とY軸の方向が異なる場合の処理
-        if (x_is_row and y_is_column) or (x_is_column and y_is_row):
-            # 方向が異なる場合は、データの長さが一致しない可能性が高い
-            # この場合は短い方に合わせる必要があるかもしれないが、
-            # ユーザーに警告を表示することでより適切な対応を促す
-            warnings.append(f"データの向きの情報: X軸は{'横方向（行に沿って）' if x_is_row else '縦方向（列に沿って）'}、Y軸は{'横方向（行に沿って）' if y_is_row else '縦方向（列に沿って）'}です。これは問題ありません。")
+        try:
+            print(f"Excel読み込み試行: {file_path}, シート: {sheet_name}, X範囲: {x_range}, Y範囲: {y_range}")
+            wb = openpyxl.load_workbook(file_path, data_only=True)
+            sheet = wb[sheet_name]
             
-            # デバッグ情報を追加
-            x_debug = f"X軸データ({len(data_x)}個): {str(data_x[:5])}{'...' if len(data_x) > 5 else ''}"
-            y_debug = f"Y軸データ({len(data_y)}個): {str(data_y[:5])}{'...' if len(data_y) > 5 else ''}"
-            warnings.append(x_debug)
-            warnings.append(y_debug)
-            
-            # データの数が合わない場合の特別なペアリングアルゴリズム
-            if len(data_x) != len(data_y):
-                warnings.append(f"X軸({len(data_x)}個)とY軸({len(data_y)}個)のデータ数を自動的に調整しました。")
+            # セル範囲からデータを取得
+            try:
+                x_cells = list(sheet[x_range])
+                print(f"X軸セル範囲読み込み成功: {len(x_cells)}行")
+            except Exception as e:
+                print(f"X軸セル範囲読み込みエラー: {str(e)}")
+                raise ValueError(f"X軸のセル範囲「{x_range}」が無効です: {str(e)}")
                 
-                if len(data_x) < len(data_y):
-                    # X軸データが少ない場合、Y軸データを先頭から必要な分だけ使用
-                    data_y = data_y[:len(data_x)]
-                    warnings.append(f"Y軸データは先頭から{len(data_x)}個を使用します。")
+            try:
+                y_cells = list(sheet[y_range])
+                print(f"Y軸セル範囲読み込み成功: {len(y_cells)}行")
+            except Exception as e:
+                print(f"Y軸セル範囲読み込みエラー: {str(e)}")
+                raise ValueError(f"Y軸のセル範囲「{y_range}」が無効です: {str(e)}")
+            
+            data_x = []
+            data_y = []
+            warnings = []
+            
+            # X軸データの取得方法を判断
+            x_is_row = len(x_cells) == 1  # 1行の場合は行方向（横）
+            x_is_column = all(len(row) == 1 for row in x_cells)  # 全ての行が1列の場合は列方向（縦）
+            
+            # Y軸データの取得方法を判断
+            y_is_row = len(y_cells) == 1  # 1行の場合は行方向（横）
+            y_is_column = all(len(row) == 1 for row in y_cells)  # 全ての行が1列の場合は列方向（縦）
+            
+            # X軸データの抽出
+            if not (x_is_row or x_is_column):
+                raise ValueError("X軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
+            
+            if x_is_row:
+                # 横方向の範囲（1行の複数セル）
+                data_x = [cell.value for cell in x_cells[0]]
+            else:
+                # 縦方向の範囲（1列の複数セル）
+                data_x = [row[0].value for row in x_cells]
+            
+            # Y軸データの抽出
+            if not (y_is_row or y_is_column):
+                raise ValueError("Y軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
+            
+            if y_is_row:
+                # 横方向の範囲（1行の複数セル）
+                data_y = [cell.value for cell in y_cells[0]]
+            else:
+                # 縦方向の範囲（1列の複数セル）
+                data_y = [row[0].value for row in y_cells]
+            
+            # セルデータを安全に文字列化する関数
+            def safe_str_value(value):
+                if value is None:
+                    return "None"
+                elif isinstance(value, (list, tuple)):
+                    return f"リスト型データ({len(value)}個)"
                 else:
-                    # Y軸データが少ない場合、X軸データを先頭から必要な分だけ使用
-                    data_x = data_x[:len(data_y)]
-                    warnings.append(f"X軸データは先頭から{len(data_y)}個を使用します。")
-        
-        # NoneとNaNを処理
-        data_x = [float(x) if x is not None else float('nan') for x in data_x]
-        data_y = [float(y) if y is not None else float('nan') for y in data_y]
-        
-        # データの長さを同じにする
-        min_len = min(len(data_x), len(data_y))
-        if min_len == 0:
-            raise ValueError("有効なデータがありません。セル範囲を確認してください。")
+                    return str(value)
             
-        if len(data_x) > min_len:
-            data_x = data_x[:min_len]
-            warnings.append(f"データ数を調整しました: X軸のデータを{min_len}個に揃えました。")
-        elif len(data_y) > min_len:
-            data_y = data_y[:min_len]
-            warnings.append(f"データ数を調整しました: Y軸のデータを{min_len}個に揃えました。")
-        
-        # 無効なデータを除去
-        valid_indices = [i for i, (x, y) in enumerate(zip(data_x, data_y)) 
-                        if not (math.isnan(x) or math.isnan(y))]
-        
-        if not valid_indices:
-            raise ValueError("有効なデータポイントがありません。セル範囲に数値データが含まれているか確認してください。")
+            # 最初の数個のデータのサンプルを収集
+            x_samples = [safe_str_value(x) for x in data_x[:3]]
+            y_samples = [safe_str_value(y) for y in data_y[:3]]
             
-        if len(valid_indices) < min_len:
-            warnings.append(f"数値に変換できないデータが{min_len - len(valid_indices)}個あったため無視されました")
+            # データ型情報を取得
+            x_types = set(type(x).__name__ for x in data_x if x is not None)
+            y_types = set(type(y).__name__ for y in data_y if y is not None)
             
-        data_x = [data_x[i] for i in valid_indices]
-        data_y = [data_y[i] for i in valid_indices]
-        
-        # 警告がある場合はそれを返り値に含める
-        return data_x, data_y, warnings if warnings else (data_x, data_y)
+            # 複合型や意外な型があればその情報を追加
+            x_type_info = ", ".join(x_types) if x_types else "None"
+            y_type_info = ", ".join(y_types) if y_types else "None"
+            
+            # X軸とY軸の方向が異なる場合の処理
+            if (x_is_row and y_is_column) or (x_is_column and y_is_row):
+                # 方向が異なる場合は、データの長さが一致しない可能性が高い
+                # この場合は短い方に合わせる必要があるかもしれないが、
+                # ユーザーに警告を表示することでより適切な対応を促す
+                warnings.append(f"データの向きの情報: X軸は{'横方向（行に沿って）' if x_is_row else '縦方向（列に沿って）'}、Y軸は{'横方向（行に沿って）' if y_is_row else '縦方向（列に沿って）'}です。これは問題ありません。")
+                
+                # デバッグ情報の安全な追加
+                warnings.append(f"X軸データタイプ: {x_type_info}, サンプル: {', '.join(x_samples)}")
+                warnings.append(f"Y軸データタイプ: {y_type_info}, サンプル: {', '.join(y_samples)}")
+                
+                # データの数が合わない場合の特別なペアリングアルゴリズム
+                if len(data_x) != len(data_y):
+                    warnings.append(f"X軸({len(data_x)}個)とY軸({len(data_y)}個)のデータ数を自動的に調整しました。")
+                    
+                    if len(data_x) < len(data_y):
+                        # X軸データが少ない場合、Y軸データを先頭から必要な分だけ使用
+                        data_y = data_y[:len(data_x)]
+                        warnings.append(f"Y軸データは先頭から{len(data_x)}個を使用します。")
+                    else:
+                        # Y軸データが少ない場合、X軸データを先頭から必要な分だけ使用
+                        data_x = data_x[:len(data_y)]
+                        warnings.append(f"X軸データは先頭から{len(data_y)}個を使用します。")
+            
+            # 複合データ型（リスト、配列など）や文字列の処理
+            processed_data_x = []
+            for x in data_x:
+                try:
+                    if x is None:
+                        # Noneは欠損値として扱う
+                        processed_data_x.append(float('nan'))
+                    elif isinstance(x, (int, float)):
+                        # 数値はそのまま使用
+                        processed_data_x.append(float(x))
+                    elif isinstance(x, str):
+                        # 文字列は数値変換を試みる
+                        x = x.strip().replace(',', '')  # カンマを除去
+                        if x:
+                            try:
+                                processed_data_x.append(float(x))
+                            except ValueError:
+                                # 数値に変換できない文字列は欠損値
+                                processed_data_x.append(float('nan'))
+                                warnings.append(f"数値に変換できない文字列「{x}」を欠損値として処理しました")
+                        else:
+                            processed_data_x.append(float('nan'))
+                    elif isinstance(x, (list, tuple)):
+                        # リストやタプルの場合、最初の要素を使用（配列関数の結果など）
+                        if len(x) > 0:
+                            first_item = x[0]
+                            if first_item is None:
+                                processed_data_x.append(float('nan'))
+                            elif isinstance(first_item, (int, float)):
+                                processed_data_x.append(float(first_item))
+                            elif isinstance(first_item, str):
+                                try:
+                                    processed_data_x.append(float(first_item.strip().replace(',', '')))
+                                except ValueError:
+                                    processed_data_x.append(float('nan'))
+                                    warnings.append(f"複合データの数値変換に失敗しました: {safe_str_value(first_item)}")
+                            else:
+                                processed_data_x.append(float('nan'))
+                                warnings.append(f"未対応の複合データ型: {type(first_item).__name__}")
+                        else:
+                            processed_data_x.append(float('nan'))
+                    else:
+                        # その他の型はテキスト変換を試みる
+                        try:
+                            processed_data_x.append(float(str(x)))
+                        except:
+                            processed_data_x.append(float('nan'))
+                            warnings.append(f"未対応のデータ型: {type(x).__name__}")
+                except Exception as e:
+                    # 例外が発生した場合は欠損値として処理
+                    processed_data_x.append(float('nan'))
+                    warnings.append(f"データ処理中にエラー: {str(e)}")
+            
+            processed_data_y = []
+            for y in data_y:
+                try:
+                    if y is None:
+                        processed_data_y.append(float('nan'))
+                    elif isinstance(y, (int, float)):
+                        processed_data_y.append(float(y))
+                    elif isinstance(y, str):
+                        y = y.strip().replace(',', '')
+                        if y:
+                            try:
+                                processed_data_y.append(float(y))
+                            except ValueError:
+                                processed_data_y.append(float('nan'))
+                                warnings.append(f"数値に変換できない文字列「{y}」を欠損値として処理しました")
+                        else:
+                            processed_data_y.append(float('nan'))
+                    elif isinstance(y, (list, tuple)):
+                        if len(y) > 0:
+                            first_item = y[0]
+                            if first_item is None:
+                                processed_data_y.append(float('nan'))
+                            elif isinstance(first_item, (int, float)):
+                                processed_data_y.append(float(first_item))
+                            elif isinstance(first_item, str):
+                                try:
+                                    processed_data_y.append(float(first_item.strip().replace(',', '')))
+                                except ValueError:
+                                    processed_data_y.append(float('nan'))
+                                    warnings.append(f"複合データの数値変換に失敗しました: {safe_str_value(first_item)}")
+                            else:
+                                processed_data_y.append(float('nan'))
+                                warnings.append(f"未対応の複合データ型: {type(first_item).__name__}")
+                        else:
+                            processed_data_y.append(float('nan'))
+                    else:
+                        try:
+                            processed_data_y.append(float(str(y)))
+                        except:
+                            processed_data_y.append(float('nan'))
+                            warnings.append(f"未対応のデータ型: {type(y).__name__}")
+                except Exception as e:
+                    processed_data_y.append(float('nan'))
+                    warnings.append(f"データ処理中にエラー: {str(e)}")
+            
+            # 処理済みデータに置き換え
+            data_x = processed_data_x
+            data_y = processed_data_y
+            
+            # データの長さを同じにする
+            min_len = min(len(data_x), len(data_y))
+            if min_len == 0:
+                raise ValueError("有効なデータがありません。セル範囲を確認してください。")
+                
+            if len(data_x) > min_len:
+                data_x = data_x[:min_len]
+                warnings.append(f"データ数を調整しました: X軸のデータを{min_len}個に揃えました。")
+            elif len(data_y) > min_len:
+                data_y = data_y[:min_len]
+                warnings.append(f"データ数を調整しました: Y軸のデータを{min_len}個に揃えました。")
+            
+            # 無効なデータを除去
+            valid_indices = [i for i, (x, y) in enumerate(zip(data_x, data_y)) 
+                            if not (math.isnan(x) or math.isnan(y))]
+            
+            if not valid_indices:
+                raise ValueError("有効なデータポイントがありません。セル範囲に数値データが含まれているか確認してください。")
+                
+            if len(valid_indices) < min_len:
+                warnings.append(f"数値に変換できないデータが{min_len - len(valid_indices)}個あったため無視されました")
+                
+            data_x = [data_x[i] for i in valid_indices]
+            data_y = [data_y[i] for i in valid_indices]
+            
+            # 警告があれば表示のためログに追加
+            for warning in warnings:
+                print(f"警告: {warning}")
+            
+            # 警告がある場合はそれを返り値に含める
+            return data_x, data_y, warnings if warnings else (data_x, data_y)
+            
+        except Exception as e:
+            import traceback
+            print(f"Excel読み込みエラー: {str(e)}")
+            print(traceback.format_exc())
+            raise ValueError(f"Excelセル範囲からのデータ抽出中にエラーが発生しました: {str(e)}")
     
     # 特殊点を追加
     def add_special_point(self):
