@@ -225,7 +225,6 @@ class TikZPlotConverter(QMainWindow):
         # CSVファイル選択
         csvLayout = QHBoxLayout()
         self.csvRadio = QRadioButton("CSVファイル:")
-        self.csvRadio.setChecked(True)
         self.fileEntry = QLineEdit()
         browseButton = QPushButton('参照...')
         browseButton.clicked.connect(self.browse_csv_file)
@@ -254,6 +253,7 @@ class TikZPlotConverter(QMainWindow):
         
         # データ直接入力
         self.manualRadio = QRadioButton("データを直接入力:")
+        self.manualRadio.setChecked(True)  # 初期状態では直接入力を選択
         
         # ボタングループの設定
         sourceGroup = QButtonGroup(self)
@@ -266,7 +266,7 @@ class TikZPlotConverter(QMainWindow):
         self.dataTable = QTableWidget(10, 2)  # 行数, 列数
         self.dataTable.setHorizontalHeaderLabels(['X', 'Y'])
         self.dataTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.dataTable.setEnabled(False)  # 初期状態では無効
+        self.dataTable.setEnabled(True)  # 初期状態で有効化（直接入力モード）
         self.dataTable.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         
         # データテーブル操作ボタン
@@ -1019,6 +1019,9 @@ class TikZPlotConverter(QMainWindow):
         scrollHint.setAlignment(Qt.AlignHCenter)
         mainLayout.insertWidget(0, scrollHint)
         
+        # 初期状態のデータソース選択を反映
+        self.toggle_source_fields()
+    
     # CSVファイル選択ダイアログ
     def browse_csv_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -1050,12 +1053,15 @@ class TikZPlotConverter(QMainWindow):
             self.statusBar.showMessage("ファイル読み込みエラー")
     
     # データソース選択に応じてUIを切り替え
-    def toggle_source_fields(self):
+    def toggle_source_fields(self, button=None):
         if self.csvRadio.isChecked():
             self.fileEntry.setEnabled(True)
             self.excelEntry.setEnabled(False)
             self.sheetCombobox.setEnabled(False)
             self.dataTable.setEnabled(False)
+            # セル範囲入力欄を有効化
+            self.xRangeEntry.setEnabled(True)
+            self.yRangeEntry.setEnabled(True)
             # CSVファイル用のツールチップ
             self.loadDataButton.setToolTip("CSVファイルからデータを読み込み、現在のデータセットに保存します")
         elif self.excelRadio.isChecked():
@@ -1063,6 +1069,9 @@ class TikZPlotConverter(QMainWindow):
             self.excelEntry.setEnabled(True)
             self.sheetCombobox.setEnabled(True)
             self.dataTable.setEnabled(False)
+            # セル範囲入力欄を有効化
+            self.xRangeEntry.setEnabled(True)
+            self.yRangeEntry.setEnabled(True)
             # Excelファイル用のツールチップ
             self.loadDataButton.setToolTip("Excelファイルからデータを読み込み、現在のデータセットに保存します")
         elif self.manualRadio.isChecked():
@@ -1070,6 +1079,9 @@ class TikZPlotConverter(QMainWindow):
             self.excelEntry.setEnabled(False)
             self.sheetCombobox.setEnabled(False)
             self.dataTable.setEnabled(True)
+            # セル範囲入力欄を無効化
+            self.xRangeEntry.setEnabled(False)
+            self.yRangeEntry.setEnabled(False)
             # 手入力データ用のツールチップ
             self.loadDataButton.setToolTip("テーブルに入力したデータを現在のデータセットに保存します")
     
@@ -1088,18 +1100,19 @@ class TikZPlotConverter(QMainWindow):
             x_range = self.xRangeEntry.text().strip()
             y_range = self.yRangeEntry.text().strip()
             
-            # セル範囲のチェック
-            if not x_range or not y_range:
-                QMessageBox.warning(self, "警告", "X軸とY軸のセル範囲を指定してください")
-                return
-            
             if self.csvRadio.isChecked():
+                # CSVファイル選択時のチェックと処理
                 file_path = self.fileEntry.text()
                 if not file_path or not os.path.exists(file_path):
                     QMessageBox.warning(self, "警告", "有効なCSVファイルを選択してください")
                     return
                 
-                # CSVファイルの読み込み
+                # セル範囲のチェック
+                if not x_range or not y_range:
+                    QMessageBox.warning(self, "警告", "X軸とY軸のセル範囲を指定してください")
+                    return
+                
+                # CSVファイルの読み込み処理（以下略）...
                 try:
                     # まずUTF-8で試す
                     df = pd.read_csv(file_path, encoding='utf-8', sep=None, engine='python')
@@ -1143,6 +1156,7 @@ class TikZPlotConverter(QMainWindow):
                     return
                 
             elif self.excelRadio.isChecked():
+                # Excelファイル選択時のチェックと処理
                 file_path = self.excelEntry.text()
                 if not file_path or not os.path.exists(file_path):
                     QMessageBox.warning(self, "警告", "有効なExcelファイルを選択してください")
@@ -1151,6 +1165,11 @@ class TikZPlotConverter(QMainWindow):
                 sheet_name = self.sheetCombobox.currentText()
                 if not sheet_name:
                     QMessageBox.warning(self, "警告", "シート名を選択してください")
+                    return
+                
+                # セル範囲のチェック
+                if not x_range or not y_range:
+                    QMessageBox.warning(self, "警告", "X軸とY軸のセル範囲を指定してください")
                     return
                 
                 try:
@@ -1177,9 +1196,7 @@ class TikZPlotConverter(QMainWindow):
                     return
                 
             elif self.manualRadio.isChecked():
-                data_x = []
-                data_y = []
-                
+                # 手入力データの場合
                 for row in range(self.dataTable.rowCount()):
                     x_item = self.dataTable.item(row, 0)
                     y_item = self.dataTable.item(row, 1)
@@ -1196,6 +1213,10 @@ class TikZPlotConverter(QMainWindow):
                 if not data_x:
                     QMessageBox.warning(self, "警告", "有効なデータポイントがありません")
                     return
+            else:
+                # データソースが選択されていない場合
+                QMessageBox.warning(self, "警告", "データソース（CSV/Excel/手入力）を選択してください")
+                return
             
             # データの長さチェック
             if len(data_x) != len(data_y):
@@ -1210,9 +1231,10 @@ class TikZPlotConverter(QMainWindow):
             self.datasets[self.current_dataset_index]['data_x'] = data_x
             self.datasets[self.current_dataset_index]['data_y'] = data_y
             
-            # セル範囲の保存
-            self.datasets[self.current_dataset_index]['x_range'] = x_range
-            self.datasets[self.current_dataset_index]['y_range'] = y_range
+            # セル範囲の保存（CSVとExcelの場合のみ）
+            if self.csvRadio.isChecked() or self.excelRadio.isChecked():
+                self.datasets[self.current_dataset_index]['x_range'] = x_range
+                self.datasets[self.current_dataset_index]['y_range'] = y_range
             
             # データテーブルを更新（手動入力モードの場合）
             if self.manualRadio.isChecked():
