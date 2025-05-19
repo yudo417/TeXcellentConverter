@@ -31,7 +31,7 @@ if [ -f "dist/TexcellentConverter_macOS.zip" ]; then
     if [ ! -d "dist/TexcellentConverter.app" ]; then
         echo ".appファイル削除完了"
     else
-        echo "警告: .appファイルの削除に失敗しました"
+        echo "警告: .appファイルの削除に失敗"
     fi
 else
     echo "警告: ZIPファイル生成失敗。"
