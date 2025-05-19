@@ -17,3 +17,31 @@ __pycache__/
 venv/
 ENV/
 env/
+
+# バックアップファイル
+*.bak
+*.bak?
+*.backup
+
+# エディタの一時ファイル
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# ログファイル
+*.log
+
+# ローカル設定ファイル
+local_settings.py
+config.local.py
+
+# 環境変数ファイル
+.env
+.env.local
+
+# キャッシュディレクトリ
+.pytest_cache/
+.coverage
+htmlcov/

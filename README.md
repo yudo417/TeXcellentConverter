@@ -13,23 +13,21 @@ TexcellentConverterは、Excel表をLaTeXコードに変換したり、TikZグ�
 
 ## インストール方法
 
-1. Python 3.8以上をインストール
-2. 必要なライブラリをインストール
-   ```
-   pip install -r requirements.txt
-   ```
-3. アプリを起動
-   ```
-   python main.py
-   ```
+### Windows
+1. [リリースページ](https://github.com/yourusername/TexcellentConverter/releases)から最新の「TexcellentConverter_Windows.zip」をダウンロード
+2. ダウンロードしたZIPファイルを任意の場所に解凍
+3. フォルダ内の「TexcellentConverter.exe」をダブルクリックして起動
+
+### macOS
+1. [リリースページ](https://github.com/yourusername/TexcellentConverter/releases)から最新の「TexcellentConverter_macOS.zip」をダウンロード
+2. ダウンロードしたZIPファイルを任意の場所に解凍
+3. 解凍した「TexcellentConverter.app」をダブルクリックして起動
+   ※初回起動時、「開発元を確認できないアプリ」という警告が表示される場合は、Controlキーを押しながらアプリをクリックし、「開く」を選択してください。
 
 ## 使い方
 
 ### 1. アプリの起動
-ターミナル（コマンドプロンプト）で以下を実行します。
-```sh
-python main.py
-```
+解凍したフォルダから「TexcellentConverter.exe」（Windowsの場合）または「TexcellentConverter.app」（macOSの場合）をダブルクリックして起動します。
 
 ---
 
@@ -72,22 +70,12 @@ python main.py
 - **エラー表示**  
 　ファイル選択や範囲指定に誤りがある場合は、エラーメッセージが表示されます。
 
----
-
-### 5. よくある質問
-
-- **Q. セル範囲は必ず指定しないといけませんか？**  
-　A. はい、A1:E6のように範囲を必ず指定してください。
-
-- **Q. 罫線や結合セルも対応していますか？**  
-　A. はい、結合セルや罫線も自動でLaTeXコードに反映されます。
-
 ## 動作環境
-- Windows, macOS, Linux
-- Python 3.8以上
+- Windows 10以降
+- macOS 10.13 (High Sierra) 以降
+- Python, pip等のインストールは不要です（アプリに全て同梱されています）
 
 ## ライセンス
 MIT License
 
-## 作者
-- hayashikazuki
+
