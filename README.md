@@ -5,8 +5,6 @@ TexcellentConverterは、Excel表をLaTeXコードに変換したり、TikZグ�
 ## 特徴
 - Excelファイルから簡単にLaTeX表を生成
 - TikZ形式のグラフをGUIで作成・編集
-- クリップボードへのワンクリックコピー
-- 直感的な日本語UI
 
 ## スクリーンショット
 ![screenshot](screenshots/sample.png)
