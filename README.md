@@ -76,6 +76,8 @@ TeXcellentConverterのインストール方法を説明します．
 - Python, pip等のインストールは不要です（アプリに全て同梱されています）
 
 ## ライセンス
-MIT License
+GNU General Public License v3.0 (GPL-3.0)
 
+Copyright (C) 2025 yudo417
 
+詳細は[LICENSE](https://github.com/yudo417/TeXcellentConverter/blob/main/LICENSE)をご覧ください。
