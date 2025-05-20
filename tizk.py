@@ -3429,11 +3429,6 @@ class TikZPlotConverter(QMainWindow):
             clipboard.setText(latex_code)
             self.statusBar.showMessage("LaTeXコードをクリップボードにコピーしました", 3000)  # 3秒間表示
 
-    # 微分曲線の色選択ダイアログは削除
-    
-    # 積分曲線の色選択ダイアログは削除
-            
-    # 接線の色選択ダイアログ
     def select_tangent_color(self):
         """接線の色を選択するダイアログを表示"""
         color = QColorDialog.getColor(self.tangentColor, self, "接線の色を選択")
