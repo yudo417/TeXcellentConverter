@@ -3443,28 +3443,6 @@ class TikZPlotConverter(QMainWindow):
             self.tangentColorButton.setStyleSheet(f'background-color: {color.name()};')
             self.statusBar.showMessage("接線の色を設定しました", 2000)
 
-    # 数式グラフをプレビュー
-    def preview_formula_graph(self):
-        try:
-            equation = self.equationEntry.text().strip()
-            if not equation:
-                QMessageBox.warning(self, "警告", "有効な数式を入力してください")
-                return
-
-            # Matplotlibを使用してグラフをプレビュー表示
-            # 注：この機能を実装するにはMatplotlibをインポートする必要があります
-            QMessageBox.information(self, "プレビュー機能", 
-                "グラフのプレビュー機能が準備されています。\n\n"
-                f"数式：{equation}\n"
-                f"範囲：{self.domainMinSpin.value()} 〜 {self.domainMaxSpin.value()}\n"
-                f"サンプル数：{self.samplesSpin.value()}\n\n"
-                "接線表示：" + ("はい" if self.showTangentCheck.isChecked() else "いいえ") + 
-                (f" (x={self.tangentXSpin.value()})" if self.showTangentCheck.isChecked() else "") + "\n\n"
-                "完全なプレビュー機能を有効にするには、Matplotlibをインポートして実装してください。")
-        except Exception as e:
-            import traceback
-            QMessageBox.critical(self, "エラー", f"数式プレビュー中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
-            self.statusBar.showMessage("プレビューエラー")
 
     # まず、クラスのトップレベルに数式を変換するヘルパーメソッドを追加
     def format_equation_for_tikz(self, equation):
