@@ -17,12 +17,12 @@ fi
 
 echo "ZIPファイル生成"
 cd dist
-zip -r TeXcellentConverter-v1.0.0-mac-arm64.zip TeXcellentConverter.app
+zip -r TeXcellentConverter-v1.0.0-macOS-arm64.zip TeXcellentConverter.app
 cd ..
 
-if [ -f "dist/TeXcellentConverter-v1.0.0-mac-arm64.zip" ]; then
-    SIZE=$(du -h "dist/TeXcellentConverter-v1.0.0-mac-arm64.zip" | cut -f1)
-    echo "ビルド終了: dist/TeXcellentConverter-v1.0.0-mac-arm64.zip (サイズ: $SIZE)"
+if [ -f "dist/TeXcellentConverter-v1.0.0-macOS-arm64.zip" ]; then
+    SIZE=$(du -h "dist/TeXcellentConverter-v1.0.0-macOS-arm64.zip" | cut -f1)
+    echo "ビルド終了: dist/TeXcellentConverter-v1.0.0-macOS-arm64.zip (サイズ: $SIZE)"
 
     echo ".appファイル削除"
     rm -rf dist/TeXcellentConverter.app
