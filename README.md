@@ -12,18 +12,17 @@ TexcellentConverterは、Excel表をLaTeXコードに変換したり、TikZグ�
 ## インストール方法
 TeXcellentConverterのインストール方法を説明します．
 
-ここでは，インストールするバージョンを **{version}** と表記しています．
+ここでは，インストールするバージョンを ``{version}`` と表記しています．
 
-### Windows
-1. [リリースページ](https://github.com/yudo417/TexcellentConverter/releases)から最新の「TexcellentConverter_Windows.zip」をダウンロード
-2. ダウンロードしたZIPファイルを任意の場所に解凍
-3. フォルダ内の「TexcellentConverter.exe」をダブルクリックして起動
+### Windows版
+1. [リリースページ](https://github.com/yudo417/TexcellentConverter/releases)から最新の``TeXcellentConverter-{version}-win-x64.zip``をダウンロードしてください．
+2. ダウンロードしたZIPファイルを任意の場所に解凍してください．
+3. フォルダ内の``TeXcellentConverter-{version}-win-x64.exe``をダブルクリックすると起動できます．
 
-### macOS
-1. [リリースページ](https://github.com/yudo417/TexcellentConverter/releases)から最新の「TexcellentConverter-{version}-macOS-arm64.zip」をダウンロード
-2. ダウンロードしたZIPファイルを任意の場所に解凍
-3. 解凍した「TexcellentConverter.app」をダブルクリックして起動
-   ※初回起動時、「開発元を確認できないアプリ」という警告が表示される場合は、Controlキーを押しながらアプリをクリックし、「開く」を選択してください．
+### macOS版
+1. [リリースページ](https://github.com/yudo417/TexcellentConverter/releases)から最新の``TeXcellentConverter-{version}-macOS-arm64.zip``をダウンロード
+2. ダウンロードしたZIPファイルを任意の場所に解凍してください．
+3. 解凍した``TexcellentConverter.app``をダブルクリックすると起動できます．
 
 ## 使い方
 
