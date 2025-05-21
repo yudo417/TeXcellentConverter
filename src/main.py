@@ -281,8 +281,8 @@ class ExcelToLatexConverter(QMainWindow):
         self.statusBar.showMessage(f"LaTeXコードに変換中: 範囲 {cell_range}...")
 
         # 有効範囲取得
-        merged_cells_map = {} # (origin_r, origin_c) -> merged_cell_data
-        merged_cells_data = []
+        merged_cells_map = {} # 結合セルの絶対座標 -> 結合セルのデータ
+        merged_cells_data = [] # 結合セルのデータ
         for merged_range in ws.merged_cells.ranges:
             min_r_m, max_r_m = merged_range.min_row, merged_range.max_row
             min_c_m, max_c_m = merged_range.min_col, merged_range.max_col
@@ -306,9 +306,9 @@ class ExcelToLatexConverter(QMainWindow):
                     'rowspan': eff_max_r - eff_min_r + 1,
                     'colspan': eff_max_c - eff_min_c + 1,
                     'value': cell_value,
-                    'origin_min_row': merged_range.min_row, # Original top-left absolute coords
+                    'origin_min_row': merged_range.min_row, 
                     'origin_min_col': merged_range.min_col,
-                    'origin_max_row': merged_range.max_row, # Original bottom-right absolute coords
+                    'origin_max_row': merged_range.max_row, 
                     'origin_max_col': merged_range.max_col,
                 }
                 merged_cells_data.append(data)
@@ -318,7 +318,7 @@ class ExcelToLatexConverter(QMainWindow):
         # セルステータスと値の初期化
         num_rows = max_row - min_row + 1
         num_cols = max_col - min_col + 1
-        cell_status = [[0] * num_cols for _ in range(num_rows)] # 0:通常, 1:結合左上, -1:結合続き
+        cell_status = [[0] * num_cols for _ in range(num_rows)] # 相対座標のステータス(0:通常, 1:結合左上, -1:結合続き)
         cell_values = [[''] * num_cols for _ in range(num_rows)]
         cell_origin = {} # (rel_r, rel_c) -> (origin_abs_r, origin_abs_c) of merged cell
 
@@ -328,17 +328,13 @@ class ExcelToLatexConverter(QMainWindow):
             # Iterate through the *original* merge range to correctly identify status
             for r_abs in range(data['origin_min_row'], data['origin_max_row'] + 1):
                  for c_abs in range(data['origin_min_col'], data['origin_max_col'] + 1):
-                     # Check if this absolute cell falls within our selected range
-                     if min_row <= r_abs <= max_row and min_col <= c_abs <= max_col:
-                         rel_r, rel_c = r_abs - min_row, c_abs - min_col
-                         # Mark top-left based on *original* coordinates
+                     if min_row <= r_abs <= max_row and min_col <= c_abs <= max_col: # 範囲内であれば
+                         rel_r, rel_c = r_abs - min_row, c_abs - min_col # 左上から見て何行目，何列目か（今後相対座標と呼ぶ）
                          if r_abs == origin_r and c_abs == origin_c:
-                             cell_status[rel_r][rel_c] = 1
-                         # Mark continuation cells, avoid overwriting top-left
+                             cell_status[rel_r][rel_c] = 1 
                          elif cell_status[rel_r][rel_c] == 0:
                              cell_status[rel_r][rel_c] = -1
-                         # Store the origin for all cells in the merge range
-                         cell_origin[(rel_r, rel_c)] = (origin_r, origin_c)
+                         cell_origin[(rel_r, rel_c)] = (origin_r, origin_c) #　相対座標->絶対座標のマッピング
 
 
         # セルデータの抽出とエスケープ
@@ -348,13 +344,11 @@ class ExcelToLatexConverter(QMainWindow):
                     cell = ws.cell(row=r_idx + min_row, column=c_idx + min_col)
                     value = cell.value
                     if value is None: value = ""
-                    elif isinstance(value, (int, float)) and value == int(value): value = int(value)
+                    elif isinstance(value, (int, float)) and value == int(value): value = int(value) # valueErrorをinstanceで避ける
                     value = str(value)
                     for char in ['&', '%', '$', '#', '_', '{', '}', '~', '^', '\\']:
                         if char in value: value = value.replace(char, '\\' + char)
-                    cell_values[r_idx][c_idx] = value
-
-        # --- 空行・列削除 (省略) ---
+                    cell_values[r_idx][c_idx] = value # 相対座標の値
 
         # LaTeX表の生成開始
         latex = []
@@ -375,8 +369,9 @@ class ExcelToLatexConverter(QMainWindow):
             col = 0
             while col < num_cols:
                 if cell_status[r][col] == 1: # 結合セルの左上
-                    origin_r_abs, origin_c_abs = cell_origin.get((r, col), (r + min_row, col + min_col))
-                    cell_info = merged_cells_map.get((origin_r_abs, origin_c_abs))
+                    origin_r_abs, origin_c_abs = cell_origin.get((r, col), (r + min_row, col + min_col)) # 相座 -> 絶座(防御のためのgetであり通常は呼び出されないはず……
+                    cell_info = merged_cells_map.get((origin_r_abs, origin_c_abs)) # 絶座 -> 結合セルのデータ
+                    # TODO
 
                     if cell_info:
                         value = cell_info['value']
