@@ -83,10 +83,26 @@ class ExcelToLatexConverter(QMainWindow):
         
         # セル範囲
         rangeLayout = QHBoxLayout()
-        rangeLabel = QLabel('セル範囲 (例: A1:E6):')
+        rangeLabel = QLabel('セル範囲:')
         self.rangeEntry = QLineEdit()
+        self.rangeEntry.setPlaceholderText('例: A1:E6')  # プレースホルダーテキスト追加
+
+
+        # ヘルプボタンを追加
+        rangeHelpButton = QPushButton('?')
+        rangeHelpButton.setFixedSize(20, 20)
+        rangeHelpButton.setStyleSheet('border-radius: 10px; background-color: #007AFF; color: white;')
+        rangeHelpButton.clicked.connect(lambda: QMessageBox.information(
+            self, "セル範囲の指定方法", 
+            "表にしたい範囲の左上のセルと右下のセルを「A1:E6」のように指定してください。\n\n"
+            "・A1: 左上のセル\n・E6: 右下のセル\n・コロン(:)で区切ります（「:」は小文字）\n\n"
+            "結合セルを含む場合は、その結合セル全体が範囲内に入るように選択してください。\n"
+            "（結合セルを一部だけ選択すると、正しく値が表示されない場合があります）"
+        ))
+
         rangeLayout.addWidget(rangeLabel)
         rangeLayout.addWidget(self.rangeEntry)
+        rangeLayout.addWidget(rangeHelpButton)
         
         # オプション
         optionsGroup = QGroupBox("オプション")
@@ -237,10 +253,6 @@ class ExcelToLatexConverter(QMainWindow):
 
     def excel_to_latex_universal(self, excel_file, sheet_name, cell_range, caption, label,
                                 position, show_value, remove_empty, format_math, add_borders=True):
-        """
-        任意のExcel表をLaTeXに変換する汎用的な関数
-        結合セルや多様なパターンに対応 (罫線ロジック修正版 V3)
-        """
         try:
             wb = load_workbook(excel_file, data_only=show_value)
             ws = wb[sheet_name]
@@ -260,15 +272,15 @@ class ExcelToLatexConverter(QMainWindow):
                 min_row, max_row = start_row, end_row
                 min_col, max_col = start_col, end_col
             except Exception as e:
-                QMessageBox.warning(self, "警告", f"範囲の形式が正しくありません: {cell_range}\nエラー: {e}")
+                QMessageBox.warning(self, "警告", f"範囲の形式が正しくありません: {cell_range}\nエラー: {e}\n表にしたい範囲の左上のセルと右下のセルを指定してください.\n例: A1:E6")
                 return ""
         else:
             QMessageBox.warning(self, "警告", "セル範囲を指定してください")
             return ""
 
-        self.statusBar.showMessage(f"変換中: 範囲 {cell_range}...")
+        self.statusBar.showMessage(f"LaTeXコードに変換中: 範囲 {cell_range}...")
 
-        # 結合セル情報の抽出とエスケープ処理
+        # 有効範囲取得
         merged_cells_map = {} # (origin_r, origin_c) -> merged_cell_data
         merged_cells_data = []
         for merged_range in ws.merged_cells.ranges:
@@ -289,7 +301,7 @@ class ExcelToLatexConverter(QMainWindow):
                     if char in cell_value: cell_value = cell_value.replace(char, '\\' + char)
 
                 data = {
-                    'min_row': eff_min_r, 'max_row': eff_max_r, # Effective range within selection
+                    'min_row': eff_min_r, 'max_row': eff_max_r, # セル範囲とmerge範囲の重なり
                     'min_col': eff_min_c, 'max_col': eff_max_c,
                     'rowspan': eff_max_r - eff_min_r + 1,
                     'colspan': eff_max_c - eff_min_c + 1,
