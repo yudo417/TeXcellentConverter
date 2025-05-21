@@ -1,15 +1,15 @@
 import sys
 import os
-import pandas as pd
+# 最適化したインポート
+from pandas import ExcelFile
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QLineEdit, QPushButton,
                              QFileDialog, QComboBox, QMessageBox, QTextEdit,
                              QCheckBox, QGridLayout, QGroupBox, QSplitter,
                              QStatusBar, QFrame)
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor
-import openpyxl
-from openpyxl.utils import get_column_letter, column_index_from_string
+from openpyxl import load_workbook
+from openpyxl.utils import column_index_from_string
 
 class ExcelToLatexConverter(QMainWindow):
     def __init__(self):
@@ -29,7 +29,8 @@ class ExcelToLatexConverter(QMainWindow):
         
         # --- 上部：設定部分 ---
         settingsWidget = QWidget()
-        settingsLayout = QVBoxLayout(settingsWidget)
+        settingsLayout = QVBoxLayout()
+        settingsWidget.setLayout(settingsLayout)
         
         # 注意書き用のレイアウト
         infoLayout = QVBoxLayout()
@@ -140,7 +141,8 @@ class ExcelToLatexConverter(QMainWindow):
         
         # --- 下部：結果表示部分 ---
         resultWidget = QWidget()
-        resultLayout = QVBoxLayout(resultWidget)
+        resultLayout = QVBoxLayout()
+        resultWidget.setLayout(resultLayout)
         
         resultLabel = QLabel("LaTeX コード:")
         self.resultText = QTextEdit()
@@ -149,6 +151,7 @@ class ExcelToLatexConverter(QMainWindow):
         
         copyButton = QPushButton("クリップボードにコピー")
         copyButton.clicked.connect(self.copy_to_clipboard)
+        copyButton.setStyleSheet("background-color: #007BFF; color: white; font-size: 16px; padding: 12px; font-weight: 900; border-radius: 8px; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);")
         
         resultLayout.addWidget(resultLabel)
         resultLayout.addWidget(self.resultText)
@@ -179,7 +182,7 @@ class ExcelToLatexConverter(QMainWindow):
 
     def update_sheet_names(self, file_path):
         try:
-            xls = pd.ExcelFile(file_path)
+            xls = ExcelFile(file_path)
             self.sheetCombobox.clear()
             self.sheetCombobox.addItems(xls.sheet_names)
             self.statusBar.showMessage(f"ファイル '{os.path.basename(file_path)}' を読み込みました")
@@ -193,6 +196,7 @@ class ExcelToLatexConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", "有効なExcelファイルを選択してください")
             return
 
+        # 選択データの回収
         sheet_name = self.sheetCombobox.currentText()
         cell_range = self.rangeEntry.text()
         caption = self.captionEntry.text()
@@ -238,7 +242,7 @@ class ExcelToLatexConverter(QMainWindow):
         結合セルや多様なパターンに対応 (罫線ロジック修正版 V3)
         """
         try:
-            wb = openpyxl.load_workbook(excel_file, data_only=show_value)
+            wb = load_workbook(excel_file, data_only=show_value)
             ws = wb[sheet_name]
         except Exception as e:
              QMessageBox.critical(self, "エラー", f"Excelファイルの読み込みに失敗しました: {e}")
@@ -251,8 +255,8 @@ class ExcelToLatexConverter(QMainWindow):
                 start_row = int(''.join(filter(str.isdigit, start_cell)))
                 end_col_letter = ''.join(filter(str.isalpha, end_cell))
                 end_row = int(''.join(filter(str.isdigit, end_cell)))
-                start_col = openpyxl.utils.column_index_from_string(start_col_letter)
-                end_col = openpyxl.utils.column_index_from_string(end_col_letter)
+                start_col = column_index_from_string(start_col_letter)
+                end_col = column_index_from_string(end_col_letter)
                 min_row, max_row = start_row, end_row
                 min_col, max_col = start_col, end_col
             except Exception as e:

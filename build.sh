@@ -2,7 +2,7 @@
 
 echo "TexcellentConverter dev mode running"
 
-python tizk.py
+python src/main.py
 
 if [ $? -eq 0 ]; then
     echo "正常に終了"
