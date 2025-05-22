@@ -128,17 +128,9 @@ class ExcelToLatexConverter(QMainWindow):
         self.showValueCheck.setChecked(True)
         optionsLayout.addWidget(self.showValueCheck, 3, 0)
         
-        self.removeEmptyRowsCheck = QCheckBox('空の行と列を削除')
-        self.removeEmptyRowsCheck.setChecked(False)
-        optionsLayout.addWidget(self.removeEmptyRowsCheck, 3, 1)
-        
-        self.formatMathCheck = QCheckBox('数式を$で囲む')
-        self.formatMathCheck.setChecked(False)
-        optionsLayout.addWidget(self.formatMathCheck, 4, 0)
-        
         self.addBordersCheck = QCheckBox('罫線を追加')
         self.addBordersCheck.setChecked(True)
-        optionsLayout.addWidget(self.addBordersCheck, 4, 1)
+        optionsLayout.addWidget(self.addBordersCheck, 3, 1)
         
         optionsGroup.setLayout(optionsLayout)
         
@@ -219,14 +211,12 @@ class ExcelToLatexConverter(QMainWindow):
         label = self.labelEntry.text()
         position = self.positionCombo.currentText()
         show_value = self.showValueCheck.isChecked()
-        remove_empty = self.removeEmptyRowsCheck.isChecked()
-        format_math = self.formatMathCheck.isChecked()
         add_borders = self.addBordersCheck.isChecked()
 
         try:
             latex_code = self.excel_to_latex_universal(
                 excel_file, sheet_name, cell_range, caption, label, position,
-                show_value, remove_empty, format_math, add_borders
+                show_value, add_borders
             )
             if latex_code:  # エラー発生時は空文字列が返る
                 # 注意書きコメントを削除（GUIに表示しているので）
@@ -252,7 +242,7 @@ class ExcelToLatexConverter(QMainWindow):
             self.statusBar.showMessage("LaTeXコードをクリップボードにコピーしました", 3000)  # 3秒間表示
 
     def excel_to_latex_universal(self, excel_file, sheet_name, cell_range, caption, label,
-                                position, show_value, remove_empty, format_math, add_borders=True):
+                                position, show_value, add_borders=True):
         try:
             wb = load_workbook(excel_file, data_only=show_value)
             ws = wb[sheet_name]
