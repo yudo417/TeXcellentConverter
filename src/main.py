@@ -279,9 +279,8 @@ class ExcelToLatexConverter(QMainWindow):
             return ""
 
         self.statusBar.showMessage(f"LaTeXコードに変換中: 範囲 {cell_range}...")
-
-        # 有効範囲取得
-        merged_cells_map = {} # 結合セルの絶対座標 -> 結合セルのデータ
+     
+        merged_cells_map = {}
         merged_cells_data = [] # 結合セルのデータ
         for merged_range in ws.merged_cells.ranges:
             min_r_m, max_r_m = merged_range.min_row, merged_range.max_row
@@ -312,7 +311,7 @@ class ExcelToLatexConverter(QMainWindow):
                     'origin_max_col': merged_range.max_col,
                 }
                 merged_cells_data.append(data)
-                merged_cells_map[(merged_range.min_row, merged_range.min_col)] = data
+                merged_cells_map[(merged_range.min_row, merged_range.min_col)] = data # 絶座 -> 結合セルのデータ
 
 
         # セルステータスと値の初期化
@@ -322,7 +321,7 @@ class ExcelToLatexConverter(QMainWindow):
         cell_values = [[''] * num_cols for _ in range(num_rows)]
         cell_origin = {} # (rel_r, rel_c) -> (origin_abs_r, origin_abs_c) of merged cell
 
-        # 結合セル情報のマッピング (修正)
+        # status -1含め全てにorigin_r, origin_cを設定
         for data in merged_cells_data:
             origin_r, origin_c = data['origin_min_row'], data['origin_min_col']
             # Iterate through the *original* merge range to correctly identify status
@@ -334,10 +333,10 @@ class ExcelToLatexConverter(QMainWindow):
                              cell_status[rel_r][rel_c] = 1 
                          elif cell_status[rel_r][rel_c] == 0:
                              cell_status[rel_r][rel_c] = -1
-                         cell_origin[(rel_r, rel_c)] = (origin_r, origin_c) #　相対座標->絶対座標のマッピング
+                         cell_origin[(rel_r, rel_c)] = (origin_r, origin_c) #　相対座標->origin座標のマッピング
 
 
-        # セルデータの抽出とエスケープ
+        # status 0, 1のセルの値を抽出
         for r_idx in range(num_rows):
             for c_idx in range(num_cols):
                 if cell_status[r_idx][c_idx] >= 0: # 通常セル or 結合左上
@@ -365,13 +364,12 @@ class ExcelToLatexConverter(QMainWindow):
 
         # 各行のLaTeXコード生成
         for r in range(num_rows):
-            cells_in_row = []
+            cells_in_row = [] #cline,hline含め1行ずつ処理
             col = 0
             while col < num_cols:
                 if cell_status[r][col] == 1: # 結合セルの左上
                     origin_r_abs, origin_c_abs = cell_origin.get((r, col), (r + min_row, col + min_col)) # 相座 -> 絶座(防御のためのgetであり通常は呼び出されないはず……
                     cell_info = merged_cells_map.get((origin_r_abs, origin_c_abs)) # 絶座 -> 結合セルのデータ
-                    # TODO
 
                     if cell_info:
                         value = cell_info['value']
@@ -381,68 +379,65 @@ class ExcelToLatexConverter(QMainWindow):
                         border_str = "{|c|}" if add_borders else "{c}"
 
                         row_cmd = f"\\multirow{{{eff_rowspan}}}{{*}}" if eff_rowspan > 1 else ""
-                        col_cmd_start = f"\\multicolumn{{{eff_colspan}}}{border_str}" if eff_colspan > 1 else ""
+                        col_cmd_start = f"\\multicolumn{{{eff_colspan}}}{border_str}" if eff_colspan > 1 else "" #ex) \multicolumn{3}{|c|}
 
-                        content = f"{row_cmd}{{{value}}}" if row_cmd else value
+                        content = f"{row_cmd}{{{value}}}" if row_cmd else value #ex) \multirow{3}{*}{値}
                         full_cmd = f"{col_cmd_start}{{{content}}}" if col_cmd_start else content
                         cells_in_row.append(full_cmd)
 
-                        col += eff_colspan
+                        col += eff_colspan # スパン分列カウントを進める
                     else: # Map error
                         cells_in_row.append(cell_values[r][col])
                         col += 1
                 elif cell_status[r][col] == -1: # 結合セルの他の部分
                     origin_r_abs, origin_c_abs = cell_origin.get((r, col), (None, None))
-                    cell_info = merged_cells_map.get((origin_r_abs, origin_c_abs))
+                    cell_info = merged_cells_map.get((origin_r_abs, origin_c_abs)) # status -1でもoriginなので参照可
 
                     if cell_info:
-                        # Is current cell (r, col) the starting column for this row's segment of the merge?
-                        is_segment_start_col = (col + min_col == cell_info['min_col']) # Check against *effective* min_col
-                        # Calculate the colspan for this row's segment
+                        # 現座標がorigin_cか
+                        is_segment_start_col = (col + min_col == cell_info['min_col']) 
+                        # 現座標とlast_col含むセルのスパン
                         segment_colspan = min(cell_info['max_col'], max_col) - (col + min_col) + 1
 
                         if is_segment_start_col:
-                            # If it's the start col for this row's segment, output multicolumn if needed
+                            # 末colじゃなければ
                             if segment_colspan > 1:
                                 border_str = "{|c|}" if add_borders else "{c}"
                                 cells_in_row.append(f"\\multicolumn{{{segment_colspan}}}{border_str}{{}}")
                                 col += segment_colspan
                             else:
-                                cells_in_row.append("") # No multicolumn needed if segment_colspan is 1
+                                cells_in_row.append("") 
                                 col += 1
                         else:
-                            # If not the start col, it's covered by a previous multicolumn, skip
                             col += 1
                     else: # Map error
                         cells_in_row.append("")
                         col += 1
-                else: # 通常のセル
+                else: # 通常のセル(status 0)
                     cells_in_row.append(cell_values[r][col])
                     col += 1
 
-            row_str = f"      {' & '.join(cells_in_row)} \\\\"
+            row_str = f"      {' & '.join(cells_in_row)} \\\\" # 一行分のLaTeXコード最終
 
-            # --- 罫線処理 (改訂版 V2) ---
+            # \cline，\hline処理
             line_command = ""
             if add_borders:
-                if r == num_rows - 1: # Below the last row
+                # 末行
+                if r == num_rows - 1: 
                     line_command = "\\hline"
                 else:
-                    # Check if \hline is needed below row r
                     needs_hline = True
                     for c_next in range(num_cols):
-                        if cell_status[r + 1][c_next] == -1: # Is the cell below a continuation?
+                        if cell_status[r + 1][c_next] == -1: # どっかにstatus -1があるか
                             origin_r_abs, origin_c_abs = cell_origin.get((r + 1, c_next), (None, None))
-                            # Check if the merge started at or before the current row r (absolute check)
-                            if origin_r_abs is not None and origin_r_abs <= r + min_row:
+                            if origin_r_abs is not None and origin_r_abs <= r + min_row: # 結合セルの最終行の場合を弾く
                                 needs_hline = False
                                 break
-                        # No need to check for status 1 here, only continuations matter for hline/cline decision
 
                     if needs_hline:
                         line_command = "\\hline"
                     else:
-                        # \cline is needed. Find columns where the cell below IS NOT a continuation from row r or above.
+                        # cline処理
                         clines = []
                         current_cline_start = -1
                         for c in range(num_cols):
@@ -452,15 +447,15 @@ class ExcelToLatexConverter(QMainWindow):
                                 if origin_r_abs is not None and origin_r_abs <= r + min_row:
                                     is_continuation_below = True
 
-                            if not is_continuation_below: # Draw cline over this column
+                            if not is_continuation_below: # 下線を引いて良い
                                 if current_cline_start == -1:
-                                    current_cline_start = c + 1 # 1-based index
-                            else: # Stop cline before this column
+                                    current_cline_start = c + 1 # 初回なので下線スタート列
+                            else: #下線を引いてはいけない
                                 if current_cline_start != -1:
-                                    clines.append(f"\\cline{{{current_cline_start}-{c}}}") # c is 0-based end col index
-                                    current_cline_start = -1
+                                    clines.append(f"\\cline{{{current_cline_start}-{c}}}") # 現在の列まで（LaTeX換算では列は1から始まる）
+                                    current_cline_start = -1 # 次の下線スタート列のためにリセット
 
-                        # End of loop, check if cline is ongoing
+                        # 末列まで下線ひいてはいけない
                         if current_cline_start != -1:
                             clines.append(f"\\cline{{{current_cline_start}-{num_cols}}}") # End at last col (1-based)
 
