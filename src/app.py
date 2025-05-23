@@ -312,23 +312,382 @@ class ExcelToLatexTab(QWidget):
         return "\n".join(latex)
 
     def add_dataset(self, name_arg=None):
-        """データセットを追加"""
-        if name_arg:
-            name = name_arg
-        else:
-            name = f"Dataset {len(self.datasets) + 1}"
+        """新しいデータセットを追加する"""
+        try:
+            # 既存のデータセットの状態を保存（存在する場合）
+            if self.current_dataset_index >= 0 and self.current_dataset_index < len(self.datasets):
+                self.update_current_dataset()
+                
+            final_name = ""
+            if name_arg is None:
+                dataset_count = self.datasetList.count() + 1
+                # QInputDialog.getText returns (text: str, ok: bool)
+                text_from_dialog, ok = QInputDialog.getText(self, "データセット名", "新しいデータセット名を入力してください:",
+                                                          QLineEdit.Normal, f"データセット{dataset_count}")
+                if not ok or not text_from_dialog.strip(): # Ensure name is not empty or just whitespace
+                    if self.statusBar:
+                        self.statusBar.showMessage("データセットの追加がキャンセルされました。", 3000)
+                    return
+                final_name = text_from_dialog.strip()
+            else:
+                if name_arg is False:  # Falseが渡された場合の対策
+                    dataset_count = self.datasetList.count() + 1
+                    final_name = f"データセット{dataset_count}"
+                else:
+                    final_name = str(name_arg).strip() # Ensure argument is also a string and stripped
+
+            if not final_name: # Double check if somehow final_name is empty
+                dataset_count = self.datasetList.count() + 1
+                final_name = f"データセット{dataset_count}"
+                if self.statusBar:
+                    self.statusBar.showMessage("データセット名が空のため、デフォルト名を使用します。", 3000)
+
+            # 明示的に空のデータと初期設定を持つデータセットを作成
+            dataset = {
+                'name': final_name, # Always a string
+                'data_source_type': 'measured',  # 'measured' または 'formula'
+                'data_x': [],
+                'data_y': [],
+                'color': QColor('blue'),  # QColorオブジェクトを新規作成
+                'line_width': 1.0,
+                'marker_style': '*',
+                'marker_size': 2.0,
+                'plot_type': "line",
+                'legend_label': final_name, # Always a string, initialized with name
+                'show_legend': True,
+                'equation': '',
+                'domain_min': 0,
+                'domain_max': 10,
+                'samples': 200,
+                'special_points': [],  # [(x, y, color, show_coords), ...]
+                'annotations': [],     # [(x, y, text, color, pos), ...]
+                # ファイル読み込み関連の設定
+                'file_path': '',
+                'file_type': 'csv',  # 'csv' or 'excel' or 'manual'
+                'sheet_name': '',
+                'x_column': '',
+                'y_column': ''
+            }
+            
+            self.datasets.append(dataset)
+            self.datasetList.addItem(final_name) # addItem directly with the guaranteed string
+            
+            # 新しく追加したデータセットを選択（これがon_dataset_selectedを呼び出す）
+            self.datasetList.setCurrentRow(len(self.datasets) - 1)
+            if self.statusBar:
+                self.statusBar.showMessage(f"データセット '{final_name}' を追加しました", 3000)
+
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"データセット追加中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+    
+    def remove_dataset(self):
+        """選択されたデータセットを削除する"""
+        try:
+            if not self.datasets:
+                QMessageBox.warning(self, "警告", "削除するデータセットがありません")
+                return
+            
+            current_row = self.datasetList.currentRow()
+            if current_row < 0:
+                QMessageBox.warning(self, "警告", "削除するデータセットを選択してください")
+                return
+            
+            dataset_name = str(self.datasets[current_row]['name'])
+            reply = QMessageBox.question(self, "確認",
+                                       f"データセット '{dataset_name}' を削除してもよろしいですか？",
+                                       QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            
+            if reply == QMessageBox.Yes:
+                self.datasets.pop(current_row)
+                item = self.datasetList.takeItem(current_row)
+                if item:
+                    del item #明示的に削除
+                
+                if self.datasets: # 他のデータセットがある場合
+                    new_index = max(0, min(current_row, len(self.datasets) - 1))
+                    self.datasetList.setCurrentRow(new_index)
+                    # on_dataset_selectedが呼ばれるので、current_dataset_indexはそこで更新される
+                else: # データセットがなくなった場合
+                    self.current_dataset_index = -1
+                    self.update_ui_for_no_datasets() 
+                    self.add_dataset("データセット1") # Or add a new default one
+                
+                if self.statusBar:
+                    self.statusBar.showMessage(f"データセット '{dataset_name}' を削除しました", 3000)
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"データセット削除中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+    
+    def update_ui_for_no_datasets(self):
+        """データセットがない場合にUIをリセット/クリアする"""
+        # 例: 関連する入力フィールドをクリアまたは無効化
+        if hasattr(self, 'legendLabel'):
+            self.legendLabel.setText("")
+        # 他のUI要素も必要に応じてリセット
+        pass # Placeholder
+    
+    def rename_dataset(self):
+        """選択されたデータセットの名前を変更する"""
+        try:
+            if self.current_dataset_index < 0 or not self.datasets:
+                QMessageBox.warning(self, "警告", "名前を変更するデータセットが選択されていません。")
+                return
+            
+            current_row = self.datasetList.currentRow() # currentRowが選択されていれば正しいはず
+            # current_dataset_index と current_row の一貫性を確認
+            if current_row != self.current_dataset_index:
+                 # 予期せぬ状態。current_dataset_index に合わせるかエラー表示
+                 current_row = self.current_dataset_index
+                 self.datasetList.setCurrentRow(current_row)
+
+            current_name = str(self.datasets[current_row]['name'])
+            current_legend = str(self.datasets[current_row].get('legend_label', current_name))
+
+            new_name_text, ok = QInputDialog.getText(self, "データセット名の変更", \
+                                                      "新しいデータセット名を入力してください:",
+                                                      QLineEdit.Normal, current_name)
+            
+            if ok and new_name_text.strip():
+                actual_new_name = new_name_text.strip()
+                if not actual_new_name:
+                    QMessageBox.warning(self, "警告", "データセット名は空にできません。")
+                    return
+
+                self.datasets[current_row]['name'] = actual_new_name
+                # 凡例ラベルが元の名前と同じだった場合、凡例ラベルも更新
+                if current_legend == current_name:
+                    self.datasets[current_row]['legend_label'] = actual_new_name
+                    if hasattr(self, 'legendLabel'):
+                        self.legendLabel.setText(actual_new_name) # UIも即時更新
+                
+                item = self.datasetList.item(current_row)
+                if item:
+                    item.setText(actual_new_name)
+                if self.statusBar:
+                    self.statusBar.showMessage(f"データセット名を '{actual_new_name}' に変更しました", 3000)
+            elif ok and not new_name_text.strip():
+                 QMessageBox.warning(self, "警告", "データセット名は空にできません。")
+
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"データセット名の変更中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+    
+    def on_dataset_selected(self, row):
+        try:
+            # 以前のデータセットの状態を保存（存在する場合）
+            old_index = self.current_dataset_index
+            if old_index >= 0 and old_index < len(self.datasets):
+                self.update_current_dataset()
+            if row < 0 or row >= len(self.datasets):
+                if not self.datasets:
+                    self.current_dataset_index = -1
+                    self.update_ui_for_no_datasets()
+                return
+            # 現在のインデックスを更新
+            self.current_dataset_index = row
+            # UIを更新（この中でデータテーブルも更新される）
+            dataset = self.datasets[row]
+            # --- ここでUIのみを更新し、保存処理は呼ばない ---
+            self.update_ui_from_dataset(dataset)
+            if self.statusBar:
+                self.statusBar.showMessage(f"データセット '{dataset['name']}' からUIを更新しました", 3000)
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"データセット選択処理中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+    
+    def update_current_dataset(self):
+        try:
+            if self.current_dataset_index < 0 or not self.datasets or self.current_dataset_index >= len(self.datasets):
+                return
+            
+            # 現在のデータセットを取得
+            dataset = self.datasets[self.current_dataset_index]
+            
+            # 色の設定（1回のみ）
+            if not isinstance(self.currentColor, QColor):
+                self.currentColor = QColor(self.currentColor)
+            # QColorオブジェクトのコピーを作成して代入
+            dataset['color'] = QColor(self.currentColor)
+            
+            # 基本設定の更新
+            if hasattr(self, 'lineWidthSpin'):
+                dataset['line_width'] = self.lineWidthSpin.value()
+            if hasattr(self, 'markerCombo'):
+                dataset['marker_style'] = self.markerCombo.currentText()
+            if hasattr(self, 'markerSizeSpin'):
+                dataset['marker_size'] = self.markerSizeSpin.value()
+            if hasattr(self, 'legendCheck'):
+                dataset['show_legend'] = self.legendCheck.isChecked()
+            if hasattr(self, 'legendLabel'):
+                dataset['legend_label'] = self.legendLabel.text()
+            
+            # プロットタイプの更新
+            if hasattr(self, 'lineRadio') and self.lineRadio.isChecked():
+                dataset['plot_type'] = 'line'
+            elif hasattr(self, 'scatterRadio') and self.scatterRadio.isChecked():
+                dataset['plot_type'] = 'scatter'
+            elif hasattr(self, 'lineScatterRadio') and self.lineScatterRadio.isChecked():
+                dataset['plot_type'] = 'line+scatter'
+            elif hasattr(self, 'barRadio') and self.barRadio.isChecked():
+                dataset['plot_type'] = 'bar'
+            
+            # データソースタイプの更新
+            if hasattr(self, 'measuredRadio') and self.measuredRadio.isChecked():
+                dataset['data_source_type'] = 'measured'
+            elif hasattr(self, 'formulaRadio') and self.formulaRadio.isChecked():
+                dataset['data_source_type'] = 'formula'
+            
+            # 数式関連の設定
+            if hasattr(self, 'equationEntry'):
+                dataset['equation'] = self.equationEntry.text()
+            if hasattr(self, 'domainMinSpin'):
+                dataset['domain_min'] = self.domainMinSpin.value()
+            if hasattr(self, 'domainMaxSpin'):
+                dataset['domain_max'] = self.domainMaxSpin.value()
+            if hasattr(self, 'samplesSpin'):
+                dataset['samples'] = self.samplesSpin.value()
+            
+            if self.statusBar:
+                self.statusBar.showMessage(f"データセット '{dataset['name']}' が更新されました", 3000)
+                
+        except Exception as e:
+            print(f"Error updating current dataset: {e}")
+    
+    def update_ui_from_dataset(self, dataset):
+        """データセットの内容でUIを更新"""
+        try:
+            self.block_signals_temporarily(True)
+            
+            # 色の更新
+            color = dataset.get('color', QColor('blue'))
+            if isinstance(color, QColor):
+                self.currentColor = QColor(color)
+                if hasattr(self, 'colorButton'):
+                    self.colorButton.setStyleSheet(f"background-color: {color.name()}")
+            
+            # 基本設定の更新
+            if hasattr(self, 'lineWidthSpin'):
+                self.lineWidthSpin.setValue(dataset.get('line_width', 1.0))
+            if hasattr(self, 'markerCombo'):
+                self.markerCombo.setCurrentText(dataset.get('marker_style', '*'))
+            if hasattr(self, 'markerSizeSpin'):
+                self.markerSizeSpin.setValue(dataset.get('marker_size', 2.0))
+            if hasattr(self, 'legendCheck'):
+                self.legendCheck.setChecked(dataset.get('show_legend', True))
+            if hasattr(self, 'legendLabel'):
+                self.legendLabel.setText(dataset.get('legend_label', dataset['name']))
+            
+            # プロットタイプの更新
+            plot_type = dataset.get('plot_type', 'line')
+            if hasattr(self, 'lineRadio'):
+                self.lineRadio.setChecked(plot_type == 'line')
+            if hasattr(self, 'scatterRadio'):
+                self.scatterRadio.setChecked(plot_type == 'scatter')
+            if hasattr(self, 'lineScatterRadio'):
+                self.lineScatterRadio.setChecked(plot_type == 'line+scatter')
+            if hasattr(self, 'barRadio'):
+                self.barRadio.setChecked(plot_type == 'bar')
+            
+            # データソースタイプの更新
+            data_source_type = dataset.get('data_source_type', 'measured')
+            if hasattr(self, 'measuredRadio'):
+                self.measuredRadio.setChecked(data_source_type == 'measured')
+            if hasattr(self, 'formulaRadio'):
+                self.formulaRadio.setChecked(data_source_type == 'formula')
+            
+            # 数式関連の設定
+            if hasattr(self, 'equationEntry'):
+                self.equationEntry.setText(dataset.get('equation', ''))
+            if hasattr(self, 'domainMinSpin'):
+                self.domainMinSpin.setValue(dataset.get('domain_min', 0))
+            if hasattr(self, 'domainMaxSpin'):
+                self.domainMaxSpin.setValue(dataset.get('domain_max', 10))
+            if hasattr(self, 'samplesSpin'):
+                self.samplesSpin.setValue(dataset.get('samples', 200))
+            
+            # データテーブルの更新
+            self.update_data_table_from_dataset(dataset)
+            
+            # データソースタイプに基づくUIの更新
+            self.update_ui_based_on_data_source_type()
+            
+            self.block_signals_temporarily(False)
+        except Exception as e:
+            print(f"Error updating UI from dataset: {e}")
+    
+    def block_signals_temporarily(self, block):
+        """シグナルを一時的にブロック"""
+        widgets = []
+        if hasattr(self, 'lineWidthSpin'):
+            widgets.append(self.lineWidthSpin)
+        if hasattr(self, 'markerCombo'):
+            widgets.append(self.markerCombo)
+        if hasattr(self, 'markerSizeSpin'):
+            widgets.append(self.markerSizeSpin)
+        if hasattr(self, 'legendCheck'):
+            widgets.append(self.legendCheck)
+        if hasattr(self, 'legendLabel'):
+            widgets.append(self.legendLabel)
+        if hasattr(self, 'lineRadio'):
+            widgets.append(self.lineRadio)
+        if hasattr(self, 'scatterRadio'):
+            widgets.append(self.scatterRadio)
+        if hasattr(self, 'lineScatterRadio'):
+            widgets.append(self.lineScatterRadio)
+        if hasattr(self, 'barRadio'):
+            widgets.append(self.barRadio)
         
-        # データセット作成
-        dataset = {
-            'name': name,
-            'data_x': [1, 2, 3, 4, 5],
-            'data_y': [1, 4, 9, 16, 25]
-        }
-        
-        self.datasets.append(dataset)
-        
-        if self.statusBar:
-            self.statusBar.showMessage(f"データセット '{name}' を追加しました")
+        for widget in widgets:
+            widget.blockSignals(block)
+    
+    def update_data_table_from_dataset(self, dataset):
+        """データセットからデータテーブルを更新"""
+        try:
+            if hasattr(self, 'dataTable'):
+                # テーブルをクリア
+                self.dataTable.setRowCount(0)
+                
+                # データがある場合はテーブルに設定
+                data_x = dataset.get('data_x', [])
+                data_y = dataset.get('data_y', [])
+                
+                if data_x and data_y:
+                    max_rows = max(len(data_x), len(data_y))
+                    self.dataTable.setRowCount(max_rows)
+                    
+                    for i in range(max_rows):
+                        # X値の設定
+                        if i < len(data_x):
+                            x_item = QTableWidgetItem(str(data_x[i]))
+                            self.dataTable.setItem(i, 0, x_item)
+                        
+                        # Y値の設定
+                        if i < len(data_y):
+                            y_item = QTableWidgetItem(str(data_y[i]))
+                            self.dataTable.setItem(i, 1, y_item)
+                else:
+                    # データがない場合は10行の空テーブルを作成
+                    self.dataTable.setRowCount(10)
+        except Exception as e:
+            print(f"Error updating data table: {e}")
+    
+    def update_ui_based_on_data_source_type(self):
+        """データソースタイプに基づいてUIの表示を更新"""
+        try:
+            if hasattr(self, 'measuredRadio') and hasattr(self, 'formulaRadio'):
+                if self.measuredRadio.isChecked():
+                    if hasattr(self, 'measuredContainer'):
+                        self.measuredContainer.setVisible(True)
+                    if hasattr(self, 'formulaContainer'):
+                        self.formulaContainer.setVisible(False)
+                else:
+                    if hasattr(self, 'measuredContainer'):
+                        self.measuredContainer.setVisible(False)
+                    if hasattr(self, 'formulaContainer'):
+                        self.formulaContainer.setVisible(True)
+        except Exception as e:
+            print(f"Error updating UI based on data source type: {e}")
 
 
 class InfoTab(QWidget):
@@ -487,15 +846,74 @@ class TikZPlotTab(QWidget):
     def __init__(self):
         super().__init__()
         self.statusBar = None
-        self.datasets = []
-        self.current_dataset_index = -1
         
-        # 初期化
-        self.special_points = []
-        self.annotations = []
-        self.param_values = []
+        # データと状態の初期化
+        self.datasets = []  # 複数のデータセットを格納するリスト
+        self.current_dataset_index = -1  # 現在選択されているデータセットのインデックス
+        
+        # グラフ全体の設定
+        self.global_settings = {
+            'x_label': 'x軸',
+            'y_label': 'y軸',
+            'x_min': 0,
+            'x_max': 10,
+            'y_min': 0,
+            'y_max': 10,
+            'grid': True,
+            'show_legend': True,
+            'legend_pos': 'north east',  # 凡例の位置
+            'width': 0.8,
+            'height': 0.6,
+            'caption': 'グラフのキャプション',
+            'label': 'fig:tikz_plot',
+            'position': 'htbp',
+            'scale_type': 'normal'  # normal, logx, logy, loglog のいずれか
+        }
+        
+        # 色の初期化
+        self.currentColor = QColor('blue')
+        
+        # 目盛り間隔の値を保持する変数を初期化
+        self.x_tick_step = 1.0
+        self.y_tick_step = 1.0
         
         self.initUI()
+        
+        # 初期データセットを追加（UIの初期化後に呼び出す）
+        QTimer.singleShot(0, lambda: self.add_dataset("データセット1"))
+
+    # QColorオブジェクトをTikZ互換のRGB形式に変換するヘルパー関数
+    def color_to_tikz_rgb(self, color):
+        """QColorオブジェクトをTikZ互換のRGB形式に変換する"""
+        # red, green, blueの一般的な色名はそのまま使用
+        if color == QColor('red'):
+            return 'red'
+        elif color == QColor('green'):
+            return 'green'
+        elif color == QColor('blue'):
+            return 'blue'
+        elif color == QColor('black'):
+            return 'black'
+        elif color == QColor('yellow'):
+            return 'yellow'
+        elif color == QColor('cyan'):
+            return 'cyan'
+        elif color == QColor('magenta'):
+            return 'magenta'
+        elif color == QColor('orange'):
+            return 'orange'
+        elif color == QColor('purple'):
+            return 'purple'
+        elif color == QColor('brown'):
+            return 'brown'
+        elif color == QColor('gray'):
+            return 'gray'
+        # それ以外の色はRGB値として変換（0-255から0-1へ）
+        else:
+            r = color.red() / 255.0
+            g = color.green() / 255.0
+            b = color.blue() / 255.0
+            return f"color = {{rgb,255:red,{color.red()};green,{color.green()};blue,{color.blue()}}}"
 
     def set_status_bar(self, status_bar):
         self.statusBar = status_bar
@@ -550,6 +968,7 @@ class TikZPlotTab(QWidget):
         self.datasetList = QListWidget()
         self.datasetList.currentRowChanged.connect(self.on_dataset_selected)
         self.datasetList.setMinimumHeight(100)
+        self.datasetList.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         datasetLayout.addWidget(QLabel("データセット:"))
         datasetLayout.addWidget(self.datasetList)
         
@@ -586,12 +1005,14 @@ class TikZPlotTab(QWidget):
         convertButton = QPushButton("LaTeXコードに変換")
         convertButton.clicked.connect(self.convert_to_tikz)
         convertButton.setStyleSheet('background-color: #4CAF50; color: white; font-size: 14px; padding: 10px;')
+        convertButton.setFixedHeight(32)
         mainLayout.addWidget(convertButton)
         
         # 結果表示エリア
         self.resultText = QTextEdit()
         self.resultText.setReadOnly(True)
-        self.resultText.setMinimumHeight(200)
+        self.resultText.setMinimumHeight(100)
+        self.resultText.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         mainLayout.addWidget(QLabel("生成されたTikZコード:"))
         mainLayout.addWidget(self.resultText)
         
@@ -608,9 +1029,6 @@ class TikZPlotTab(QWidget):
         finalLayout = QVBoxLayout()
         finalLayout.addWidget(scrollArea)
         self.setLayout(finalLayout)
-        
-        # 初期データセット追加
-        self.add_dataset("Dataset 1")
 
     def create_data_input_tab(self, tabWidget):
         """データ入力タブを作成"""
@@ -861,7 +1279,7 @@ class TikZPlotTab(QWidget):
         
         # X軸ラベル
         xLabelLabel = QLabel('X軸ラベル:')
-        self.xLabelEntry = QLineEdit('X')
+        self.xLabelEntry = QLineEdit('x軸')
         axisLayout.addWidget(xLabelLabel, 0, 0)
         axisLayout.addWidget(self.xLabelEntry, 0, 1)
         
@@ -876,7 +1294,7 @@ class TikZPlotTab(QWidget):
         
         # Y軸ラベル
         yLabelLabel = QLabel('Y軸ラベル:')
-        self.yLabelEntry = QLineEdit('Y')
+        self.yLabelEntry = QLineEdit('y軸')
         axisLayout.addWidget(yLabelLabel, 1, 0)
         axisLayout.addWidget(self.yLabelEntry, 1, 1)
         
@@ -931,6 +1349,7 @@ class TikZPlotTab(QWidget):
         legendPosLabel = QLabel('凡例の位置:')
         self.legendPosCombo = QComboBox()
         self.legendPosCombo.addItems(['左上', '右上', '左下', '右下'])
+        self.legendPosCombo.setCurrentText('右上')
         
         axisLayout.addWidget(self.legendCheck, 5, 0, 1, 2)
         axisLayout.addWidget(legendPosLabel, 6, 0)
@@ -947,11 +1366,12 @@ class TikZPlotTab(QWidget):
         self.captionEntry = QLineEdit('グラフのキャプション')
         
         # ラベル
-        self.labelEntry = QLineEdit('fig:graph')
+        self.labelEntry = QLineEdit('fig:tikz_plot')
         
         # 位置
         self.positionCombo = QComboBox()
         self.positionCombo.addItems(['h', 'htbp', 't', 'b', 'p', 'H'])
+        self.positionCombo.setCurrentText('htbp')
         
         # 幅と高さ
         self.widthSpin = QDoubleSpinBox()
@@ -976,7 +1396,6 @@ class TikZPlotTab(QWidget):
         plotTabLayout.addWidget(figureGroup)
         
         # 区切り線
-        from PyQt5.QtWidgets import QFrame
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
         separator.setFrameShadow(QFrame.Sunken)
@@ -993,7 +1412,7 @@ class TikZPlotTab(QWidget):
         self.scatterRadio = QRadioButton('散布図')
         self.lineScatterRadio = QRadioButton('線＋散布図')
         self.barRadio = QRadioButton('棒グラフ')
-        self.scatterRadio.setChecked(True)  # デフォルト
+        self.lineRadio.setChecked(True)  # デフォルト
         
         plotTypeLayout.addWidget(self.lineRadio)
         plotTypeLayout.addWidget(self.scatterRadio)
@@ -1036,7 +1455,7 @@ class TikZPlotTab(QWidget):
         self.markerSizeSpin = QDoubleSpinBox()
         self.markerSizeSpin.setRange(0.5, 10.0)
         self.markerSizeSpin.setSingleStep(0.5)
-        self.markerSizeSpin.setValue(3.0)
+        self.markerSizeSpin.setValue(2.0)
         styleLayout.addWidget(markerSizeLabel, 4, 0)
         styleLayout.addWidget(self.markerSizeSpin, 4, 1)
         
@@ -1455,131 +1874,392 @@ class TikZPlotTab(QWidget):
             QMessageBox.critical(self, "エラー", f"数式データ生成中にエラーが発生しました: {str(e)}")
 
     def add_dataset(self, name_arg=None):
-        """データセットを追加"""
-        if name_arg:
-            name = name_arg
-        else:
-            name = f"Dataset {len(self.datasets) + 1}"
-        
-        # データセット作成
-        dataset = {
-            'name': name,
-            'data_x': [1, 2, 3, 4, 5],
-            'data_y': [1, 4, 9, 16, 25]
-        }
-        
-        self.datasets.append(dataset)
-        self.datasetList.addItem(name)
-        self.datasetList.setCurrentRow(len(self.datasets) - 1)
-        
-        if self.statusBar:
-            self.statusBar.showMessage(f"データセット '{name}' を追加しました")
+        """新しいデータセットを追加する"""
+        try:
+            # 既存のデータセットの状態を保存（存在する場合）
+            if self.current_dataset_index >= 0 and self.current_dataset_index < len(self.datasets):
+                self.update_current_dataset()
+                
+            final_name = ""
+            if name_arg is None:
+                dataset_count = self.datasetList.count() + 1
+                # QInputDialog.getText returns (text: str, ok: bool)
+                text_from_dialog, ok = QInputDialog.getText(self, "データセット名", "新しいデータセット名を入力してください:",
+                                                          QLineEdit.Normal, f"データセット{dataset_count}")
+                if not ok or not text_from_dialog.strip(): # Ensure name is not empty or just whitespace
+                    if self.statusBar:
+                        self.statusBar.showMessage("データセットの追加がキャンセルされました。", 3000)
+                    return
+                final_name = text_from_dialog.strip()
+            else:
+                if name_arg is False:  # Falseが渡された場合の対策
+                    dataset_count = self.datasetList.count() + 1
+                    final_name = f"データセット{dataset_count}"
+                else:
+                    final_name = str(name_arg).strip() # Ensure argument is also a string and stripped
 
-    def remove_dataset(self):
-        """選択されたデータセットを削除"""
-        current_row = self.datasetList.currentRow()
-        if current_row >= 0:
-            dataset_name = self.datasets[current_row]['name']
-            self.datasets.pop(current_row)
-            self.datasetList.takeItem(current_row)
-            self.current_dataset_index = -1
-            if self.statusBar:
-                self.statusBar.showMessage(f"データセット '{dataset_name}' を削除しました")
-
-    def rename_dataset(self):
-        """データセット名を変更"""
-        current_row = self.datasetList.currentRow()
-        if current_row >= 0:
-            old_name = self.datasets[current_row]['name']
-            new_name, ok = QInputDialog.getText(self, 'データセット名変更', '新しい名前を入力してください:', text=old_name)
-            if ok and new_name.strip():
-                self.datasets[current_row]['name'] = new_name
-                self.datasetList.item(current_row).setText(new_name)
+            if not final_name: # Double check if somehow final_name is empty
+                dataset_count = self.datasetList.count() + 1
+                final_name = f"データセット{dataset_count}"
                 if self.statusBar:
-                    self.statusBar.showMessage(f"データセット名を '{old_name}' から '{new_name}' に変更しました")
+                    self.statusBar.showMessage("データセット名が空のため、デフォルト名を使用します。", 3000)
 
+            # 明示的に空のデータと初期設定を持つデータセットを作成
+            dataset = {
+                'name': final_name, # Always a string
+                'data_source_type': 'measured',  # 'measured' または 'formula'
+                'data_x': [],
+                'data_y': [],
+                'color': QColor('blue'),  # QColorオブジェクトを新規作成
+                'line_width': 1.0,
+                'marker_style': '*',
+                'marker_size': 2.0,
+                'plot_type': "line",
+                'legend_label': final_name, # Always a string, initialized with name
+                'show_legend': True,
+                'equation': '',
+                'domain_min': 0,
+                'domain_max': 10,
+                'samples': 200,
+                'special_points': [],  # [(x, y, color, show_coords), ...]
+                'annotations': [],     # [(x, y, text, color, pos), ...]
+                # ファイル読み込み関連の設定
+                'file_path': '',
+                'file_type': 'csv',  # 'csv' or 'excel' or 'manual'
+                'sheet_name': '',
+                'x_column': '',
+                'y_column': ''
+            }
+            
+            self.datasets.append(dataset)
+            self.datasetList.addItem(final_name) # addItem directly with the guaranteed string
+            
+            # 新しく追加したデータセットを選択（これがon_dataset_selectedを呼び出す）
+            self.datasetList.setCurrentRow(len(self.datasets) - 1)
+            if self.statusBar:
+                self.statusBar.showMessage(f"データセット '{final_name}' を追加しました", 3000)
+
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"データセット追加中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+    
+    def remove_dataset(self):
+        """選択されたデータセットを削除する"""
+        try:
+            if not self.datasets:
+                QMessageBox.warning(self, "警告", "削除するデータセットがありません")
+                return
+            
+            current_row = self.datasetList.currentRow()
+            if current_row < 0:
+                QMessageBox.warning(self, "警告", "削除するデータセットを選択してください")
+                return
+            
+            dataset_name = str(self.datasets[current_row]['name'])
+            reply = QMessageBox.question(self, "確認",
+                                       f"データセット '{dataset_name}' を削除してもよろしいですか？",
+                                       QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            
+            if reply == QMessageBox.Yes:
+                self.datasets.pop(current_row)
+                item = self.datasetList.takeItem(current_row)
+                if item:
+                    del item #明示的に削除
+                
+                if self.datasets: # 他のデータセットがある場合
+                    new_index = max(0, min(current_row, len(self.datasets) - 1))
+                    self.datasetList.setCurrentRow(new_index)
+                    # on_dataset_selectedが呼ばれるので、current_dataset_indexはそこで更新される
+                else: # データセットがなくなった場合
+                    self.current_dataset_index = -1
+                    self.update_ui_for_no_datasets() 
+                    self.add_dataset("データセット1") # Or add a new default one
+                
+                if self.statusBar:
+                    self.statusBar.showMessage(f"データセット '{dataset_name}' を削除しました", 3000)
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"データセット削除中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+    
+    def update_ui_for_no_datasets(self):
+        """データセットがない場合にUIをリセット/クリアする"""
+        # 例: 関連する入力フィールドをクリアまたは無効化
+        if hasattr(self, 'legendLabel'):
+            self.legendLabel.setText("")
+        # 他のUI要素も必要に応じてリセット
+        pass # Placeholder
+    
+    def rename_dataset(self):
+        """選択されたデータセットの名前を変更する"""
+        try:
+            if self.current_dataset_index < 0 or not self.datasets:
+                QMessageBox.warning(self, "警告", "名前を変更するデータセットが選択されていません。")
+                return
+            
+            current_row = self.datasetList.currentRow() # currentRowが選択されていれば正しいはず
+            # current_dataset_index と current_row の一貫性を確認
+            if current_row != self.current_dataset_index:
+                 # 予期せぬ状態。current_dataset_index に合わせるかエラー表示
+                 current_row = self.current_dataset_index
+                 self.datasetList.setCurrentRow(current_row)
+
+            current_name = str(self.datasets[current_row]['name'])
+            current_legend = str(self.datasets[current_row].get('legend_label', current_name))
+
+            new_name_text, ok = QInputDialog.getText(self, "データセット名の変更", \
+                                                      "新しいデータセット名を入力してください:",
+                                                      QLineEdit.Normal, current_name)
+            
+            if ok and new_name_text.strip():
+                actual_new_name = new_name_text.strip()
+                if not actual_new_name:
+                    QMessageBox.warning(self, "警告", "データセット名は空にできません。")
+                    return
+
+                self.datasets[current_row]['name'] = actual_new_name
+                # 凡例ラベルが元の名前と同じだった場合、凡例ラベルも更新
+                if current_legend == current_name:
+                    self.datasets[current_row]['legend_label'] = actual_new_name
+                    if hasattr(self, 'legendLabel'):
+                        self.legendLabel.setText(actual_new_name) # UIも即時更新
+                
+                item = self.datasetList.item(current_row)
+                if item:
+                    item.setText(actual_new_name)
+                if self.statusBar:
+                    self.statusBar.showMessage(f"データセット名を '{actual_new_name}' に変更しました", 3000)
+            elif ok and not new_name_text.strip():
+                 QMessageBox.warning(self, "警告", "データセット名は空にできません。")
+
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"データセット名の変更中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+    
     def on_dataset_selected(self, row):
-        """データセットが選択された時の処理"""
-        if row >= 0:
+        try:
+            # 以前のデータセットの状態を保存（存在する場合）
+            old_index = self.current_dataset_index
+            if old_index >= 0 and old_index < len(self.datasets):
+                self.update_current_dataset()
+            if row < 0 or row >= len(self.datasets):
+                if not self.datasets:
+                    self.current_dataset_index = -1
+                    self.update_ui_for_no_datasets()
+                return
+            # 現在のインデックスを更新
             self.current_dataset_index = row
-            self.update_ui_from_dataset(self.datasets[row])
-
+            # UIを更新（この中でデータテーブルも更新される）
+            dataset = self.datasets[row]
+            # --- ここでUIのみを更新し、保存処理は呼ばない ---
+            self.update_ui_from_dataset(dataset)
+            if self.statusBar:
+                self.statusBar.showMessage(f"データセット '{dataset['name']}' からUIを更新しました", 3000)
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "エラー", f"データセット選択処理中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
+    
+    def update_current_dataset(self):
+        try:
+            if self.current_dataset_index < 0 or not self.datasets or self.current_dataset_index >= len(self.datasets):
+                return
+            
+            # 現在のデータセットを取得
+            dataset = self.datasets[self.current_dataset_index]
+            
+            # 色の設定（1回のみ）
+            if not isinstance(self.currentColor, QColor):
+                self.currentColor = QColor(self.currentColor)
+            # QColorオブジェクトのコピーを作成して代入
+            dataset['color'] = QColor(self.currentColor)
+            
+            # 基本設定の更新
+            if hasattr(self, 'lineWidthSpin'):
+                dataset['line_width'] = self.lineWidthSpin.value()
+            if hasattr(self, 'markerCombo'):
+                dataset['marker_style'] = self.markerCombo.currentText()
+            if hasattr(self, 'markerSizeSpin'):
+                dataset['marker_size'] = self.markerSizeSpin.value()
+            if hasattr(self, 'legendCheck'):
+                dataset['show_legend'] = self.legendCheck.isChecked()
+            if hasattr(self, 'legendLabel'):
+                dataset['legend_label'] = self.legendLabel.text()
+            
+            # プロットタイプの更新
+            if hasattr(self, 'lineRadio') and self.lineRadio.isChecked():
+                dataset['plot_type'] = 'line'
+            elif hasattr(self, 'scatterRadio') and self.scatterRadio.isChecked():
+                dataset['plot_type'] = 'scatter'
+            elif hasattr(self, 'lineScatterRadio') and self.lineScatterRadio.isChecked():
+                dataset['plot_type'] = 'line+scatter'
+            elif hasattr(self, 'barRadio') and self.barRadio.isChecked():
+                dataset['plot_type'] = 'bar'
+            
+            # データソースタイプの更新
+            if hasattr(self, 'measuredRadio') and self.measuredRadio.isChecked():
+                dataset['data_source_type'] = 'measured'
+            elif hasattr(self, 'formulaRadio') and self.formulaRadio.isChecked():
+                dataset['data_source_type'] = 'formula'
+            
+            # 数式関連の設定
+            if hasattr(self, 'equationEntry'):
+                dataset['equation'] = self.equationEntry.text()
+            if hasattr(self, 'domainMinSpin'):
+                dataset['domain_min'] = self.domainMinSpin.value()
+            if hasattr(self, 'domainMaxSpin'):
+                dataset['domain_max'] = self.domainMaxSpin.value()
+            if hasattr(self, 'samplesSpin'):
+                dataset['samples'] = self.samplesSpin.value()
+            
+            if self.statusBar:
+                self.statusBar.showMessage(f"データセット '{dataset['name']}' が更新されました", 3000)
+                
+        except Exception as e:
+            print(f"Error updating current dataset: {e}")
+    
     def update_ui_from_dataset(self, dataset):
         """データセットの内容でUIを更新"""
         try:
             self.block_signals_temporarily(True)
             
-            # UI要素が存在するかチェックしてから更新
-            if hasattr(self, 'plot_type_combo'):
-                self.plot_type_combo.setCurrentText(dataset.get('plot_type', 'scatter'))
-            if hasattr(self, 'line_width_spin'):
-                self.line_width_spin.setValue(dataset.get('line_width', 1.0))
-            if hasattr(self, 'marker_combo'):
-                self.marker_combo.setCurrentText(dataset.get('marker_style', '*'))
-            if hasattr(self, 'marker_size_spin'):
-                self.marker_size_spin.setValue(dataset.get('marker_size', 3))
-            if hasattr(self, 'legend_check'):
-                self.legend_check.setChecked(dataset.get('show_legend', True))
-            if hasattr(self, 'legend_entry'):
-                self.legend_entry.setText(dataset.get('legend_label', dataset['name']))
+            # 色の更新
+            color = dataset.get('color', QColor('blue'))
+            if isinstance(color, QColor):
+                self.currentColor = QColor(color)
+                if hasattr(self, 'colorButton'):
+                    self.colorButton.setStyleSheet(f"background-color: {color.name()}")
             
-            # 色ボタンの更新
-            if hasattr(self, 'color_btn'):
-                color = dataset.get('color', 'blue')
-                if isinstance(color, str):
-                    if color.startswith('#'):
-                        self.color_btn.setStyleSheet(f"background-color: {color}")
-                    else:
-                        self.color_btn.setStyleSheet(f"background-color: {color}")
+            # 基本設定の更新
+            if hasattr(self, 'lineWidthSpin'):
+                self.lineWidthSpin.setValue(dataset.get('line_width', 1.0))
+            if hasattr(self, 'markerCombo'):
+                self.markerCombo.setCurrentText(dataset.get('marker_style', '*'))
+            if hasattr(self, 'markerSizeSpin'):
+                self.markerSizeSpin.setValue(dataset.get('marker_size', 2.0))
+            if hasattr(self, 'legendCheck'):
+                self.legendCheck.setChecked(dataset.get('show_legend', True))
+            if hasattr(self, 'legendLabel'):
+                self.legendLabel.setText(dataset.get('legend_label', dataset['name']))
+            
+            # プロットタイプの更新
+            plot_type = dataset.get('plot_type', 'line')
+            if hasattr(self, 'lineRadio'):
+                self.lineRadio.setChecked(plot_type == 'line')
+            if hasattr(self, 'scatterRadio'):
+                self.scatterRadio.setChecked(plot_type == 'scatter')
+            if hasattr(self, 'lineScatterRadio'):
+                self.lineScatterRadio.setChecked(plot_type == 'line+scatter')
+            if hasattr(self, 'barRadio'):
+                self.barRadio.setChecked(plot_type == 'bar')
+            
+            # データソースタイプの更新
+            data_source_type = dataset.get('data_source_type', 'measured')
+            if hasattr(self, 'measuredRadio'):
+                self.measuredRadio.setChecked(data_source_type == 'measured')
+            if hasattr(self, 'formulaRadio'):
+                self.formulaRadio.setChecked(data_source_type == 'formula')
+            
+            # 数式関連の設定
+            if hasattr(self, 'equationEntry'):
+                self.equationEntry.setText(dataset.get('equation', ''))
+            if hasattr(self, 'domainMinSpin'):
+                self.domainMinSpin.setValue(dataset.get('domain_min', 0))
+            if hasattr(self, 'domainMaxSpin'):
+                self.domainMaxSpin.setValue(dataset.get('domain_max', 10))
+            if hasattr(self, 'samplesSpin'):
+                self.samplesSpin.setValue(dataset.get('samples', 200))
+            
+            # データテーブルの更新
+            self.update_data_table_from_dataset(dataset)
+            
+            # データソースタイプに基づくUIの更新
+            self.update_ui_based_on_data_source_type()
             
             self.block_signals_temporarily(False)
         except Exception as e:
             print(f"Error updating UI from dataset: {e}")
-
+    
     def block_signals_temporarily(self, block):
         """シグナルを一時的にブロック"""
         widgets = []
-        if hasattr(self, 'plot_type_combo'):
-            widgets.append(self.plot_type_combo)
-        if hasattr(self, 'line_width_spin'):
-            widgets.append(self.line_width_spin)
-        if hasattr(self, 'marker_combo'):
-            widgets.append(self.marker_combo)
-        if hasattr(self, 'marker_size_spin'):
-            widgets.append(self.marker_size_spin)
-        if hasattr(self, 'legend_check'):
-            widgets.append(self.legend_check)
-        if hasattr(self, 'legend_entry'):
-            widgets.append(self.legend_entry)
+        if hasattr(self, 'lineWidthSpin'):
+            widgets.append(self.lineWidthSpin)
+        if hasattr(self, 'markerCombo'):
+            widgets.append(self.markerCombo)
+        if hasattr(self, 'markerSizeSpin'):
+            widgets.append(self.markerSizeSpin)
+        if hasattr(self, 'legendCheck'):
+            widgets.append(self.legendCheck)
+        if hasattr(self, 'legendLabel'):
+            widgets.append(self.legendLabel)
+        if hasattr(self, 'lineRadio'):
+            widgets.append(self.lineRadio)
+        if hasattr(self, 'scatterRadio'):
+            widgets.append(self.scatterRadio)
+        if hasattr(self, 'lineScatterRadio'):
+            widgets.append(self.lineScatterRadio)
+        if hasattr(self, 'barRadio'):
+            widgets.append(self.barRadio)
         
         for widget in widgets:
             widget.blockSignals(block)
-
-    def update_current_dataset(self):
-        """現在のデータセットを更新"""
-        if self.current_dataset_index >= 0 and self.current_dataset_index < len(self.datasets):
-            dataset = self.datasets[self.current_dataset_index]
-            if hasattr(self, 'plot_type_combo'):
-                dataset['plot_type'] = self.plot_type_combo.currentText()
-            if hasattr(self, 'line_width_spin'):
-                dataset['line_width'] = self.line_width_spin.value()
-            if hasattr(self, 'marker_combo'):
-                dataset['marker_style'] = self.marker_combo.currentText()
-            if hasattr(self, 'marker_size_spin'):
-                dataset['marker_size'] = self.marker_size_spin.value()
-            if hasattr(self, 'legend_check'):
-                dataset['show_legend'] = self.legend_check.isChecked()
-            if hasattr(self, 'legend_entry'):
-                dataset['legend_label'] = self.legend_entry.text()
+    
+    def update_data_table_from_dataset(self, dataset):
+        """データセットからデータテーブルを更新"""
+        try:
+            if hasattr(self, 'dataTable'):
+                # テーブルをクリア
+                self.dataTable.setRowCount(0)
+                
+                # データがある場合はテーブルに設定
+                data_x = dataset.get('data_x', [])
+                data_y = dataset.get('data_y', [])
+                
+                if data_x and data_y:
+                    max_rows = max(len(data_x), len(data_y))
+                    self.dataTable.setRowCount(max_rows)
+                    
+                    for i in range(max_rows):
+                        # X値の設定
+                        if i < len(data_x):
+                            x_item = QTableWidgetItem(str(data_x[i]))
+                            self.dataTable.setItem(i, 0, x_item)
+                        
+                        # Y値の設定
+                        if i < len(data_y):
+                            y_item = QTableWidgetItem(str(data_y[i]))
+                            self.dataTable.setItem(i, 1, y_item)
+                else:
+                    # データがない場合は10行の空テーブルを作成
+                    self.dataTable.setRowCount(10)
+        except Exception as e:
+            print(f"Error updating data table: {e}")
+    
+    def update_ui_based_on_data_source_type(self):
+        """データソースタイプに基づいてUIの表示を更新"""
+        try:
+            if hasattr(self, 'measuredRadio') and hasattr(self, 'formulaRadio'):
+                if self.measuredRadio.isChecked():
+                    if hasattr(self, 'measuredContainer'):
+                        self.measuredContainer.setVisible(True)
+                    if hasattr(self, 'formulaContainer'):
+                        self.formulaContainer.setVisible(False)
+                else:
+                    if hasattr(self, 'measuredContainer'):
+                        self.measuredContainer.setVisible(False)
+                    if hasattr(self, 'formulaContainer'):
+                        self.formulaContainer.setVisible(True)
+        except Exception as e:
+            print(f"Error updating UI based on data source type: {e}")
 
     def select_color(self):
         """色を選択"""
-        color = QColorDialog.getColor()
+        color = QColorDialog.getColor(self.currentColor)
         if color.isValid():
-            if hasattr(self, 'color_btn'):
-                self.color_btn.setStyleSheet(f"background-color: {color.name()}")
+            self.currentColor = color
+            self.colorButton.setStyleSheet(f"background-color: {color.name()}")
+            # 現在のデータセットにも反映
             if self.current_dataset_index >= 0 and self.current_dataset_index < len(self.datasets):
-                self.datasets[self.current_dataset_index]['color'] = color.name()
+                self.datasets[self.current_dataset_index]['color'] = QColor(color)
 
     def select_tangent_color(self):
         """理論曲線の色を選択"""
@@ -1695,13 +2375,33 @@ TikZ/pgfplotsで使用可能な数学関数:
 
     def convert_to_tikz(self):
         """TikZコードを生成"""
+        # データセットが空かチェック
         if not self.datasets:
             QMessageBox.warning(self, "警告", "データセットがありません。先にデータセットを追加してください。")
             return
         
+        # データが存在するデータセットがあるかチェック
+        has_data = False
+        for dataset in self.datasets:
+            if dataset.get('data_x') and dataset.get('data_y'):
+                has_data = True
+                break
+        
+        if not has_data:
+            QMessageBox.warning(self, "警告", "データが入力されているデータセットがありません。\n"
+                              "先に「データ入力」タブでデータを読み込んでください。")
+            return
+        
         try:
+            # 現在のデータセットの設定を保存
+            if self.current_dataset_index >= 0:
+                self.update_current_dataset()
+            
+            # グローバル設定を更新
+            self.update_global_settings()
+            
             tikz_code = self.generate_tikz_code_multi_datasets()
-            self.result_text.setPlainText(tikz_code)
+            self.resultText.setPlainText(tikz_code)
             if self.statusBar:
                 self.statusBar.showMessage("TikZコードが生成されました")
         except Exception as e:
@@ -1709,66 +2409,230 @@ TikZ/pgfplotsで使用可能な数学関数:
             if self.statusBar:
                 self.statusBar.showMessage("コード生成エラー")
 
+    def update_global_settings(self):
+        """グローバル設定を更新"""
+        try:
+            if hasattr(self, 'xLabelEntry'):
+                self.global_settings['x_label'] = self.xLabelEntry.text()
+            if hasattr(self, 'yLabelEntry'):
+                self.global_settings['y_label'] = self.yLabelEntry.text()
+            if hasattr(self, 'xMinSpin'):
+                self.global_settings['x_min'] = self.xMinSpin.value()
+            if hasattr(self, 'xMaxSpin'):
+                self.global_settings['x_max'] = self.xMaxSpin.value()
+            if hasattr(self, 'yMinSpin'):
+                self.global_settings['y_min'] = self.yMinSpin.value()
+            if hasattr(self, 'yMaxSpin'):
+                self.global_settings['y_max'] = self.yMaxSpin.value()
+            if hasattr(self, 'gridCheck'):
+                self.global_settings['grid'] = self.gridCheck.isChecked()
+            if hasattr(self, 'legendCheck'):
+                self.global_settings['show_legend'] = self.legendCheck.isChecked()
+            if hasattr(self, 'legendPosCombo'):
+                legend_pos_map = {
+                    '左上': 'north west',
+                    '右上': 'north east',
+                    '左下': 'south west',
+                    '右下': 'south east'
+                }
+                jp_pos = self.legendPosCombo.currentText()
+                self.global_settings['legend_pos'] = legend_pos_map.get(jp_pos, 'north east')
+            if hasattr(self, 'widthSpin'):
+                self.global_settings['width'] = self.widthSpin.value()
+            if hasattr(self, 'heightSpin'):
+                self.global_settings['height'] = self.heightSpin.value()
+            if hasattr(self, 'captionEntry'):
+                self.global_settings['caption'] = self.captionEntry.text()
+            if hasattr(self, 'labelEntry'):
+                self.global_settings['label'] = self.labelEntry.text()
+            if hasattr(self, 'positionCombo'):
+                self.global_settings['position'] = self.positionCombo.currentText()
+            
+            # 目盛り間隔の更新
+            if hasattr(self, 'xTickStepSpin'):
+                self.x_tick_step = self.xTickStepSpin.value()
+            if hasattr(self, 'yTickStepSpin'):
+                self.y_tick_step = self.yTickStepSpin.value()
+                
+        except Exception as e:
+            print(f"Error updating global settings: {e}")
+
     def generate_tikz_code_multi_datasets(self):
-        """複数のデータセットからTikZコードを生成"""
+        """複数のデータセットを含むTikZコードを生成する"""
+        # LaTeXコード生成
         latex = []
         
-        # begin{tikzpicture}
-        latex.append("\\begin{tikzpicture}")
+        # 図の開始
+        latex.append("\\begin{figure}[" + self.global_settings['position'] + "]")
+        latex.append("  \\centering")
         
-        # figure size設定
-        size_options = {
-            "small": "width=6cm,height=4cm",
-            "normal": "width=8cm,height=6cm", 
-            "large": "width=12cm,height=8cm"
-        }
-        size_setting = size_options.get(self.figure_size_combo.currentText(), size_options["normal"])
+        # 図の幅と高さ設定
+        width = self.global_settings['width']
+        height = self.global_settings['height']
         
-        latex.append("\\begin{axis}[")
+        # TikZ図の開始
+        latex.append("  \\begin{tikzpicture}")
         
         # 軸設定
-        title = self.title_entry.text() or "My Plot"
-        xlabel = self.xlabel_entry.text() or "X"
-        ylabel = self.ylabel_entry.text() or "Y"
+        x_min = self.global_settings['x_min']
+        x_max = self.global_settings['x_max']
+        y_min = self.global_settings['y_min']
+        y_max = self.global_settings['y_max']
         
-        latex.append(f"    {size_setting},")
-        latex.append(f"    title={{{title}}},")
-        latex.append(f"    xlabel={{{xlabel}}},")
-        latex.append(f"    ylabel={{{ylabel}}},")
+        # 軸の範囲チェックと補正
+        # データの実際の最小値と最大値を計算
+        all_x_values = []
+        all_y_values = []
+        for dataset in self.datasets:
+            if dataset.get('data_x') and dataset.get('data_y'):
+                all_x_values.extend(dataset['data_x'])
+                all_y_values.extend(dataset['data_y'])
         
-        if self.grid_check.isChecked():
-            latex.append("    grid=major,")
+        if all_x_values and all_y_values:
+            data_x_min = min(all_x_values)
+            data_x_max = max(all_x_values)
+            data_y_min = min(all_y_values)
+            data_y_max = max(all_y_values)
+            
+            # データポイントが1つしかない場合や、min/maxが同じ場合の処理
+            if abs(data_x_max - data_x_min) < 1e-10:
+                data_x_min -= 0.5 if abs(data_x_min) > 1 else 0.1
+                data_x_max += 0.5 if abs(data_x_max) > 1 else 0.1
+            
+            if abs(data_y_max - data_y_min) < 1e-10:
+                data_y_min -= 0.5 if abs(data_y_min) > 1 else 0.1
+                data_y_max += 0.5 if abs(data_y_max) > 1 else 0.1
+            
+            # 軸の範囲がデータの範囲を含んでいるか確認し、必要に応じて調整
+            if x_min > data_x_min or x_min == 0:
+                x_min = data_x_min - abs(data_x_min) * 0.1 - 0.1
+            if x_max < data_x_max or x_max == 0:
+                x_max = data_x_max + abs(data_x_max) * 0.1 + 0.1
+            if y_min > data_y_min or y_min == 0:
+                y_min = data_y_min - abs(data_y_min) * 0.1 - 0.1
+            if y_max < data_y_max or y_max == 0:
+                y_max = data_y_max + abs(data_y_max) * 0.1 + 0.1
+            
+            # 小さすぎる値は0に近い値に設定
+            if abs(y_min) < 1e-10:
+                y_min = -0.1
+            if abs(y_max) < 1e-10:
+                y_max = 0.1
+            if abs(x_min) < 1e-10:
+                x_min = -0.1
+            if abs(x_max) < 1e-10:
+                x_max = 0.1
+            
+            # 範囲が同じ値の場合（データが全て同じ値の場合）
+            if abs(x_min - x_max) < 1e-10:
+                x_min -= 0.5
+                x_max += 0.5
+            if abs(y_min - y_max) < 1e-10:
+                y_min -= 0.5
+                y_max += 0.5
+                
+            # 範囲が極端に小さい場合も調整
+            if abs(x_max - x_min) < 1e-3:
+                margin = abs(x_min) * 0.2 if abs(x_min) > 1e-10 else 0.1
+                x_min -= margin
+                x_max += margin
+            if abs(y_max - y_min) < 1e-3:
+                margin = abs(y_min) * 0.2 if abs(y_min) > 1e-10 else 0.1
+                y_min -= margin
+                y_max += margin
         
-        legend_pos = self.legend_pos_combo.currentText()
-        latex.append(f"    legend pos={legend_pos},")
+        # 目盛りの設定
+        xtick_values = []
+        ytick_values = []
         
-        # 軸範囲設定
-        if self.xmin_entry.text() and self.xmax_entry.text():
-            latex.append(f"    xmin={self.xmin_entry.text()}, xmax={self.xmax_entry.text()},")
-        if self.ymin_entry.text() and self.ymax_entry.text():
-            latex.append(f"    ymin={self.ymin_entry.text()}, ymax={self.ymax_entry.text()},")
+        # X軸の目盛りを設定
+        if self.x_tick_step > 0:
+            tick_min = math.ceil(x_min / self.x_tick_step) * self.x_tick_step
+            tick_max = math.floor(x_max / self.x_tick_step) * self.x_tick_step
+            
+            current = tick_min
+            while current <= tick_max:
+                xtick_values.append(current)
+                current += self.x_tick_step
         
-        latex.append("]")
+        # Y軸の目盛りを設定
+        if self.y_tick_step > 0:
+            tick_min = math.ceil(y_min / self.y_tick_step) * self.y_tick_step
+            tick_max = math.floor(y_max / self.y_tick_step) * self.y_tick_step
+            
+            current = tick_min
+            while current <= tick_max:
+                ytick_values.append(current)
+                current += self.y_tick_step
+        
+        # axis環境の設定
+        axis_options = []
+        axis_options.append(f"width={width}\\textwidth")
+        axis_options.append(f"height={height}\\textwidth")
+        axis_options.append(f"xlabel={{{self.global_settings['x_label']}}}")
+        axis_options.append(f"ylabel={{{self.global_settings['y_label']}}}")
+        
+        if x_min != x_max:
+            axis_options.append(f"xmin={x_min}, xmax={x_max}")
+        if y_min != y_max:
+            axis_options.append(f"ymin={y_min}, ymax={y_max}")
+        
+        # xtick, ytickを自動生成
+        if xtick_values:
+            xticks = ','.join(str(round(tick, 8)) for tick in xtick_values)
+        else:
+            # ゼロ除算を防ぐ
+            if abs(x_max - x_min) < 1e-10 or self.x_tick_step < 1e-10:
+                xticks = str(round(x_min, 8))
+            else:
+                steps = max(1, min(20, int((x_max - x_min) / self.x_tick_step) + 1))  # 最大20ステップに制限
+                xticks = ','.join(str(round(x_min + i * self.x_tick_step, 8)) for i in range(steps))
+        
+        if ytick_values:
+            yticks = ','.join(str(round(tick, 8)) for tick in ytick_values)
+        else:
+            # ゼロ除算を防ぐ
+            if abs(y_max - y_min) < 1e-10 or self.y_tick_step < 1e-10:
+                yticks = str(round(y_min, 8))
+            else:
+                steps = max(1, min(20, int((y_max - y_min) / self.y_tick_step) + 1))  # 最大20ステップに制限
+                yticks = ','.join(str(round(y_min + i * self.y_tick_step, 8)) for i in range(steps))
+        
+        axis_options.append(f"xtick={{{xticks}}}")
+        axis_options.append(f"ytick={{{yticks}}}")
+        
+        # グリッドの設定
+        if self.global_settings['grid']:
+            axis_options.append("grid=major")
+        
+        # 凡例の設定
+        if self.global_settings['show_legend']:
+            axis_options.append(f"legend pos={self.global_settings['legend_pos']}")
+        
+        # axis環境の開始
+        latex.append("    \\begin{axis}[")
+        for i, option in enumerate(axis_options):
+            if i == len(axis_options) - 1:
+                latex.append(f"      {option}")
+            else:
+                latex.append(f"      {option},")
+        latex.append("    ]")
         
         # 各データセットをプロット
         for i, dataset in enumerate(self.datasets):
-            self.add_dataset_to_latex(latex, dataset, i)
+            if dataset.get('data_x') and dataset.get('data_y'):
+                self.add_dataset_to_latex(latex, dataset, i)
         
-        # 理論曲線
-        if self.theory_check.isChecked() and self.theory_formula_entry.text():
-            self.add_theory_curve_to_latex(latex, None, 0)
+        # axis環境の終了
+        latex.append("    \\end{axis}")
+        latex.append("  \\end{tikzpicture}")
         
-        # 特殊ポイント
-        for point in self.special_points:
-            latex.append(f"\\node[circle,fill=red,inner sep=2pt] at (axis cs:{point['x']},{point['y']}) {{}};")
-            latex.append(f"\\node[above right] at (axis cs:{point['x']},{point['y']}) {{{point['label']}}};")
+        # キャプションとラベル
+        latex.append(f"  \\caption{{{self.global_settings['caption']}}}")
+        latex.append(f"  \\label{{{self.global_settings['label']}}}")
         
-        # アノテーション
-        for ann in self.annotations:
-            latex.append(f"\\node at (axis cs:{ann['x']},{ann['y']}) {{{ann['text']}}};")
-        
-        latex.append("\\end{axis}")
-        latex.append("\\end{tikzpicture}")
+        # 図の終了
+        latex.append("\\end{figure}")
         
         return "\n".join(latex)
 
@@ -1776,79 +2640,65 @@ TikZ/pgfplotsで使用可能な数学関数:
         """データセットをLaTeXコードに追加"""
         # 座標データの生成
         coordinates = []
-        for x, y in zip(dataset['x_data'], dataset['y_data']):
+        data_x = dataset.get('data_x', [])
+        data_y = dataset.get('data_y', [])
+        
+        for x, y in zip(data_x, data_y):
             coordinates.append(f"({x},{y})")
         coords_str = " ".join(coordinates)
         
         # プロットオプション
         options = []
         
-        if dataset.get('color'):
-            color = dataset['color']
-            if isinstance(color, QColor):
-                color = self.color_to_tikz_rgb(color)
-            options.append(f"color={color}")
+        # 色の設定
+        color = dataset.get('color', QColor('blue'))
+        if isinstance(color, QColor):
+            color_str = self.color_to_tikz_rgb(color)
+            if color_str != 'blue':  # デフォルト色でない場合のみ追加
+                options.append(color_str)
         
-        if dataset.get('plot_type') == 'line':
-            pass  # デフォルトで線が引かれる
-        elif dataset.get('plot_type') == 'scatter':
+        # プロットタイプの設定
+        plot_type = dataset.get('plot_type', 'line')
+        if plot_type == 'scatter':
             options.append("only marks")
-        elif dataset.get('plot_type') == 'both':
+        elif plot_type == 'line':
+            pass  # デフォルトで線が引かれる
+        elif plot_type == 'line+scatter':
             pass  # 線とマーカー両方
+        elif plot_type == 'bar':
+            options.append("ybar")
         
-        if dataset.get('marker_style'):
-            marker = dataset['marker_style']
+        # マーカーの設定
+        marker = dataset.get('marker_style', '*')
+        if marker and plot_type in ['scatter', 'line+scatter']:
             options.append(f"mark={marker}")
         
-        if dataset.get('marker_size'):
-            size = dataset['marker_size']
-            options.append(f"mark size={size}pt")
+        # マーカーサイズの設定
+        marker_size = dataset.get('marker_size', 2.0)
+        if marker and plot_type in ['scatter', 'line+scatter']:
+            options.append(f"mark size={marker_size}pt")
         
-        if dataset.get('line_width'):
-            width = dataset['line_width']
-            options.append(f"line width={width}pt")
+        # 線の太さの設定
+        line_width = dataset.get('line_width', 1.0)
+        if plot_type in ['line', 'line+scatter']:
+            options.append(f"line width={line_width}pt")
         
         options_str = ", ".join(options) if options else ""
         
         # addplotコマンド
         if options_str:
-            latex.append(f"\\addplot[{options_str}] coordinates {{{coords_str}}};")
+            latex.append(f"      \\addplot[{options_str}] coordinates {{{coords_str}}};")
         else:
-            latex.append(f"\\addplot coordinates {{{coords_str}}};")
+            latex.append(f"      \\addplot coordinates {{{coords_str}}};")
         
         # 凡例
-        if dataset.get('show_legend', True):
-            legend_label = dataset.get('legend_label', dataset['name'])
-            latex.append(f"\\addlegendentry{{{legend_label}}}")
-
-    def add_theory_curve_to_latex(self, latex, dataset, index):
-        """理論曲線をLaTeXコードに追加"""
-        formula = self.theory_formula_entry.text()
-        range_min = float(self.theory_range_min.text())
-        range_max = float(self.theory_range_max.text())
-        samples = self.theory_samples.value()
-        
-        # 色設定
-        color_style = self.theory_color_btn.styleSheet()
-        if "background-color:" in color_style:
-            color = color_style.split("background-color:")[1].split(";")[0].strip()
-        else:
-            color = "red"
-        
-        options = [f"color={color}", f"samples={samples}", f"domain={range_min}:{range_max}"]
-        options_str = ", ".join(options)
-        
-        # パラメータ置換
-        formula_with_params = formula
-        for param in self.param_values:
-            formula_with_params = formula_with_params.replace(param['name'], str(param['value']))
-        
-        latex.append(f"\\addplot[{options_str}] {{{formula_with_params}}};")
-        latex.append("\\addlegendentry{Theory}")
+        if dataset.get('show_legend', True) and self.global_settings['show_legend']:
+            legend_label = dataset.get('legend_label', dataset.get('name', f'Dataset {index+1}'))
+            latex.append(f"      \\addlegendentry{{{legend_label}}}")
 
     def copy_to_clipboard(self):
         """結果をクリップボードにコピー"""
-        tikz_code = self.result_text.toPlainText()
+        tikz_code = self.resultText.toPlainText()
         if tikz_code:
             clipboard = QApplication.clipboard()
             clipboard.setText(tikz_code)
