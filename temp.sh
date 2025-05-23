@@ -1,8 +1,10 @@
 #!/bin/bash
 
-echo "TexcellentConverter dev mode running"
+name="tizk.py"
 
-python src/tizk.py
+echo "TexcellentConverter ${name} running"
+
+python src/${name}
 
 if [ $? -eq 0 ]; then
     echo "正常に終了"
