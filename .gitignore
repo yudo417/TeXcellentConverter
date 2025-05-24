@@ -1,47 +1,36 @@
-# Build artifacts
 build/
 dist/
 
-# PyInstaller spec file (if applicable)
 *.ico
 *.spec
 
-# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Virtual environment
 .venv/
 venv/
 ENV/
 env/
 
-# バックアップファイル
 *.bak
 *.bak?
 *.backup
 
-# エディタの一時ファイル
 .vscode/
 .idea/
 *.swp
 *~
 .DS_Store
 
-# ログファイル
 *.log
 
-# ローカル設定ファイル
 local_settings.py
 config.local.py
 
-# 環境変数ファイル
 .env
 .env.local
-
-# キャッシュディレクトリ
 .pytest_cache/
 .coverage
 htmlcov/

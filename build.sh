@@ -2,7 +2,7 @@
 
 echo "TexcellentConverter dev mode running"
 
-python src/app.py
+python src/app_new.py
 
 if [ $? -eq 0 ]; then
     echo "正常に終了"
