@@ -27,12 +27,11 @@ class TexcellentConverterApp(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle('TexcellentConverter - Excel & TikZ to LaTeX Converter')
-        # 元のtizk.pyと同じウィンドウ設定
+        self.setWindowTitle('TeXcellentConverter')
         screen = QApplication.primaryScreen().geometry()
         max_width = int(screen.width() * 0.95)
         max_height = int(screen.height() * 0.95)
-        initial_height = int(screen.height() * 0.9)
+        initial_height = int(screen.height() * 0.8)
         initial_width = int(screen.width() * 0.4)
         self.resize(min(initial_width, max_width), min(initial_height, max_height))
         self.setMinimumSize(600, 600)
