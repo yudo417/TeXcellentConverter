@@ -22,10 +22,11 @@ class TikZPlotConverter(QMainWindow):
         super().__init__()
         
         # データと状態の初期化
-        self.datasets = []  # 複数のデータセットを格納するリスト
-        self.current_dataset_index = -1  # 現在選択されているデータセットのインデックス
+        self.datasets = []  
+        """データセット格納"""
+        self.current_dataset_index = -1
+        """現在選択されているデータセットのインデックス"""
         
-        # グラフ全体の設定
         self.global_settings = {
             'x_label': 'x軸',
             'y_label': 'y軸',
@@ -43,17 +44,15 @@ class TikZPlotConverter(QMainWindow):
             'position': 'htbp',
             'scale_type': 'normal'  # normal, logx, logy, loglog のいずれか
         }
+        """グラフ全体の設定"""
         
-        # UIを初期化
         self.initUI()
         
-        # 初期データセットを追加（UIの初期化後に呼び出す）
+        # 初期データセットを追加
         QTimer.singleShot(0, lambda: self.add_dataset("データセット1"))
         
-    # QColorオブジェクトをTikZ互換のRGB形式に変換するヘルパー関数
     def color_to_tikz_rgb(self, color):
-        """QColorオブジェクトをTikZ互換のRGB形式に変換する"""
-        # red, green, blueの一般的な色名はそのまま使用
+        """QColorオブジェクトをTikZ互換のRGB形式に変換"""
         if color == QColor('red'):
             return 'red'
         elif color == QColor('green'):
@@ -86,7 +85,6 @@ class TikZPlotConverter(QMainWindow):
     def initUI(self):
         self.setWindowTitle('TikZPlot Converter')
         
-        # 画面サイズを取得
         screen = QApplication.primaryScreen().geometry()
         max_width = int(screen.width() * 0.95)
         max_height = int(screen.height() * 0.95)
@@ -96,23 +94,21 @@ class TikZPlotConverter(QMainWindow):
         self.setMinimumSize(600, 600)
         self.move(50, 50)
         
-        # メインウィジェットとレイアウト
         mainWidget = QWidget()
         mainLayout = QVBoxLayout()
         
-        # 上下に分割するスプリッター
         splitter = QSplitter(Qt.Vertical)
         
         # --- 上部：設定部分 ---
+        #* ======================settingWidget========================= 
         settingsWidget = QWidget()
-        settingsLayout = QVBoxLayout(settingsWidget)
+        settingsLayout = QVBoxLayout()
+        settingsWidget.setLayout(settingsLayout)
         
-        # 注意書き用のレイアウト
         infoLayout = QVBoxLayout()
         
-        # 注意書き用のラベル - 赤色テキスト
         infoLabel = QLabel("注意: このグラフを使用するには、LaTeXドキュメントのプリアンブルに以下を追加してください:")
-        infoLabel.setStyleSheet("color: #cc0000; font-weight: bold;") # 赤色のテキスト、太字
+        infoLabel.setStyleSheet("color: #cc0000; font-weight: bold;") 
         
         # パッケージ名と複コピーボタンの水平レイアウト
         packageLayout = QHBoxLayout()
@@ -146,7 +142,7 @@ class TikZPlotConverter(QMainWindow):
         # データセットリスト
         self.datasetList = QListWidget()
         self.datasetList.currentRowChanged.connect(self.on_dataset_selected)
-        self.datasetList.setMinimumHeight(100)  # 高さを150pxに縮小
+        self.datasetList.setMinimumHeight(100) 
         self.datasetList.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         datasetLayout.addWidget(QLabel("データセット:"))
         datasetLayout.addWidget(self.datasetList)
@@ -167,6 +163,7 @@ class TikZPlotConverter(QMainWindow):
         datasetGroup.setLayout(datasetLayout)
         
         # タブウィジェットの作成
+        #* ======================TabWidget========================= 
         tabWidget = QTabWidget()
         
         # タブ1: データ入力
@@ -207,7 +204,7 @@ class TikZPlotConverter(QMainWindow):
         # 高さを固定化
         dataSourceTypeGroup.setFixedHeight(150)
         
-        # イベントハンドラーの接続
+        # 選択切り替え時
         self.measuredRadio.toggled.connect(self.on_data_source_type_changed)
         self.formulaRadio.toggled.connect(self.on_data_source_type_changed)
         
@@ -218,11 +215,9 @@ class TikZPlotConverter(QMainWindow):
         self.measuredContainer = QWidget()
         measuredLayout = QVBoxLayout(self.measuredContainer)
         
-        # データソース選択
         dataSourceGroup = QGroupBox("データソース")
         dataSourceLayout = QVBoxLayout()
         
-        # CSVファイル選択
         csvLayout = QHBoxLayout()
         self.csvRadio = QRadioButton("CSVファイル:")
         self.fileEntry = QLineEdit()
@@ -232,7 +227,6 @@ class TikZPlotConverter(QMainWindow):
         csvLayout.addWidget(self.fileEntry)
         csvLayout.addWidget(browseButton)
         
-        # Excelファイル選択
         excelLayout = QHBoxLayout()
         self.excelRadio = QRadioButton("Excelファイル:")
         self.excelEntry = QLineEdit()
@@ -242,16 +236,14 @@ class TikZPlotConverter(QMainWindow):
         excelLayout.addWidget(self.excelEntry)
         excelLayout.addWidget(excelBrowseButton)
         
-        # シート選択（Excelの場合）
         sheetLayout = QHBoxLayout()
         sheetLabel = QLabel('シート名:')
-        sheetLabel.setIndent(30)  # インデント追加
+        sheetLabel.setIndent(30)  
         self.sheetCombobox = QComboBox()
         self.sheetCombobox.setEnabled(False)  # 初期状態では無効
         sheetLayout.addWidget(sheetLabel)
         sheetLayout.addWidget(self.sheetCombobox)
         
-        # データ直接入力
         self.manualRadio = QRadioButton("データを直接入力:")
         self.manualRadio.setChecked(True)  # 初期状態では直接入力を選択
         
