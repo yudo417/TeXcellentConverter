@@ -20,14 +20,12 @@ class TableLatexTab(QWidget):
         self.initUI()
 
     def set_status_bar(self, status_bar):
-        """Set the status bar for displaying messages"""
+        """status bar"""
         self.statusBar = status_bar
 
     def initUI(self):
-        # メインレイアウト
         mainLayout = QVBoxLayout()
         
-        # 上下に分割するスプリッター
         splitter = QSplitter(Qt.Vertical)
         
         # --- 上部：設定部分 ---
@@ -35,21 +33,16 @@ class TableLatexTab(QWidget):
         settingsLayout = QVBoxLayout()
         settingsWidget.setLayout(settingsLayout)
         
-        # 注意書き用のレイアウト
         infoLayout = QVBoxLayout()
         
-        # 注意書き用のラベル - 赤色テキスト
         infoLabel = QLabel("注意: この表を使用するには、LaTeXドキュメントのプリアンブルに以下を追加してください:")
-        infoLabel.setStyleSheet("color: #cc0000; font-weight: bold;") # 赤色のテキスト、太字
+        infoLabel.setStyleSheet("color: #cc0000; font-weight: bold;") 
         
-        # パッケージ名と複コピーボタンの水平レイアウト
         packageLayout = QHBoxLayout()
         
-        # パッケージ名用のラベル - 普通の色
         packageLabel = QLabel("\\usepackage{multirow}")
-        packageLabel.setStyleSheet("font-family: monospace;") # 等幅フォント
+        packageLabel.setStyleSheet("font-family: monospace;") 
         
-        # パッケージ名をコピーするボタン
         copyPackageButton = QPushButton("コピー")
         copyPackageButton.setFixedWidth(60)
         def copy_package():
@@ -59,16 +52,13 @@ class TableLatexTab(QWidget):
                 self.statusBar.showMessage("パッケージ名をコピーしました", 3000)
         copyPackageButton.clicked.connect(copy_package)
         
-        # パッケージレイアウトに追加
         packageLayout.addWidget(packageLabel)
         packageLayout.addWidget(copyPackageButton)
         packageLayout.addStretch()
         
-        # 注意レイアウトに追加
         infoLayout.addWidget(infoLabel)
         infoLayout.addLayout(packageLayout)
         
-        # Excelファイル選択
         fileLayout = QHBoxLayout()
         fileLabel = QLabel('Excelファイル:')
         self.fileEntry = QLineEdit()
@@ -78,20 +68,17 @@ class TableLatexTab(QWidget):
         fileLayout.addWidget(self.fileEntry)
         fileLayout.addWidget(browseButton)
         
-        # シート選択
         sheetLayout = QHBoxLayout()
         sheetLabel = QLabel('シート名:')
         self.sheetCombobox = QComboBox()
         sheetLayout.addWidget(sheetLabel)
         sheetLayout.addWidget(self.sheetCombobox)
         
-        # セル範囲
         rangeLayout = QHBoxLayout()
         rangeLabel = QLabel('セル範囲:')
         self.rangeEntry = QLineEdit()
-        self.rangeEntry.setPlaceholderText('例: A1:E6')  # プレースホルダーテキスト追加
+        self.rangeEntry.setPlaceholderText('例: A1:E6')  
 
-        # ヘルプボタンを追加
         rangeHelpButton = QPushButton('?')
         rangeHelpButton.setFixedSize(20, 20)
         rangeHelpButton.setStyleSheet('border-radius: 10px; background-color: #007AFF; color: white;')
@@ -107,7 +94,6 @@ class TableLatexTab(QWidget):
         rangeLayout.addWidget(self.rangeEntry)
         rangeLayout.addWidget(rangeHelpButton)
         
-        # オプション
         optionsGroup = QGroupBox("オプション")
         optionsLayout = QGridLayout()
         
@@ -123,7 +109,7 @@ class TableLatexTab(QWidget):
         
         positionLabel = QLabel('表の位置:')
         self.positionCombo = QComboBox()
-        self.positionCombo.addItems(['h', 'htbp', 't', 'b', 'p', 'H'])
+        self.positionCombo.addItems(['H', 'htbp', 't', 'b', 'p', 'h'])
         optionsLayout.addWidget(positionLabel, 2, 0)
         optionsLayout.addWidget(self.positionCombo, 2, 1)
         
@@ -137,12 +123,10 @@ class TableLatexTab(QWidget):
         
         optionsGroup.setLayout(optionsLayout)
         
-        # 変換ボタン
         convertButton = QPushButton('LaTeXに変換')
         convertButton.clicked.connect(self.convert_to_latex)
         convertButton.setStyleSheet('background-color: #4CAF50; color: white; font-size: 14px; padding: 10px;')
         
-        # 設定部分のレイアウトに追加
         settingsLayout.addLayout(infoLayout)
         settingsLayout.addLayout(fileLayout)
         settingsLayout.addLayout(sheetLayout)
@@ -168,12 +152,10 @@ class TableLatexTab(QWidget):
         resultLayout.addWidget(self.resultText)
         resultLayout.addWidget(copyButton)
         
-        # スプリッターに追加
         splitter.addWidget(settingsWidget)
         splitter.addWidget(resultWidget)
-        splitter.setSizes([300, 300])  # 初期サイズ比率
+        splitter.setSizes([300, 300])  
         
-        # メインレイアウトに追加
         mainLayout.addWidget(splitter)
         
         # メインウィジェット設定
@@ -204,7 +186,6 @@ class TableLatexTab(QWidget):
             QMessageBox.critical(self, "エラー", "有効なExcelファイルを選択してください")
             return
 
-        # 選択データの回収
         sheet_name = self.sheetCombobox.currentText()
         cell_range = self.rangeEntry.text()
         caption = self.captionEntry.text()
@@ -219,10 +200,8 @@ class TableLatexTab(QWidget):
                 show_value, add_borders
             )
             if latex_code:  # エラー発生時は空文字列が返る
-                # 注意書きコメントを削除（GUIに表示しているので）
                 latex_lines = latex_code.split('\n')
                 filtered_lines = [line for line in latex_lines if not (line.startswith('% 注意:') or line.startswith('% \\usepackage'))]
-                # 空行が連続している場合は1つにする
                 if filtered_lines and filtered_lines[0] == '':
                     filtered_lines.pop(0)
                 
@@ -253,6 +232,7 @@ class TableLatexTab(QWidget):
             wb = load_workbook(excel_file, data_only=show_value)
             ws = wb[sheet_name]
         except Exception as e:
+            QMessageBox.critical(self, "エラー", f"Excelファイルの読み込みに失敗しました: {e}")
             return ""
 
         if cell_range:
@@ -267,11 +247,12 @@ class TableLatexTab(QWidget):
                 min_row, max_row = start_row, end_row
                 min_col, max_col = start_col, end_col
             except Exception as e:
+                QMessageBox.warning(self, "警告", f"範囲の形式が正しくありません: {cell_range}\nエラー: {e}\n表にしたい範囲の左上のセルと右下のセルを指定してください.\n例: A1:E6")
                 return ""
         else:
+            QMessageBox.warning(self, "警告", "セル範囲を指定してください")
             return ""
 
-        # 結合セルの処理
         merged_cells_map = {}
         merged_cells_data = []
         for merged_range in ws.merged_cells.ranges:
