@@ -24,7 +24,7 @@ TeXcellentConverterのインストール方法を説明します．
 2. ダウンロードしたZIPファイルを任意の場所に解凍してください．
 3. 解凍した``TexcellentConverter.app``をダブルクリックすると起動できます．
 
-## 使い方
+## 使用方法
 
 ### 1. アプリの起動
 解凍したフォルダから「TexcellentConverter.exe」（Windowsの場合）または「TexcellentConverter.app」（macOSの場合）をダブルクリックして起動します．
