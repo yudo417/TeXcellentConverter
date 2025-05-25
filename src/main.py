@@ -17,7 +17,7 @@ class ExcelToLatexConverter(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle('TabuTeX Converter')
+        self.setWindowTitle('TeXcellentConverter')
         self.setGeometry(100, 100, 900, 600)
 
         # メインウィジェットとレイアウト
