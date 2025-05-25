@@ -254,7 +254,7 @@ class TableLatexTab(QWidget):
             return ""
 
         merged_cells_map = {}
-        merged_cells_data = []
+        merged_cells_data = [] # 結合セルのデータ
         for merged_range in ws.merged_cells.ranges:
             min_r_m, max_r_m = merged_range.min_row, merged_range.max_row
             min_c_m, max_c_m = merged_range.min_col, merged_range.max_col
@@ -266,14 +266,14 @@ class TableLatexTab(QWidget):
                 eff_max_c = min(max_c_m, max_col)
 
                 cell_value = ws.cell(row=merged_range.min_row, column=merged_range.min_col).value
-                if cell_value is None: 
-                    cell_value = ""
-                elif isinstance(cell_value, (int, float)) and cell_value == int(cell_value): 
-                    cell_value = int(cell_value)
-                cell_value = self.escape_latex_special_chars(str(cell_value))
+                if cell_value is None: cell_value = ""
+                elif isinstance(cell_value, (int, float)) and cell_value == int(cell_value): cell_value = int(cell_value)
+                cell_value = str(cell_value)
+                for char in ['&', '%', '$', '#', '_', '{', '}', '~', '^', '\\']:
+                    if char in cell_value: cell_value = cell_value.replace(char, '\\' + char)
 
                 data = {
-                    'min_row': eff_min_r, 'max_row': eff_max_r,
+                    'min_row': eff_min_r, 'max_row': eff_max_r, # セル範囲とmerge範囲の重なり
                     'min_col': eff_min_c, 'max_col': eff_max_c,
                     'rowspan': eff_max_r - eff_min_r + 1,
                     'colspan': eff_max_c - eff_min_c + 1,
@@ -284,40 +284,43 @@ class TableLatexTab(QWidget):
                     'origin_max_col': merged_range.max_col,
                 }
                 merged_cells_data.append(data)
-                merged_cells_map[(merged_range.min_row, merged_range.min_col)] = data
+                merged_cells_map[(merged_range.min_row, merged_range.min_col)] = data # 絶座 -> 結合セルのデータ
+
 
         # セルステータスと値の初期化
         num_rows = max_row - min_row + 1
         num_cols = max_col - min_col + 1
-        cell_status = [[0] * num_cols for _ in range(num_rows)]
+        cell_status = [[0] * num_cols for _ in range(num_rows)] # 相対座標のステータス(0:通常, 1:結合左上, -1:結合続き)
         cell_values = [[''] * num_cols for _ in range(num_rows)]
-        cell_origin = {}
+        cell_origin = {} # (rel_r, rel_c) -> (origin_abs_r, origin_abs_c) of merged cell
 
-        # 結合セルのステータス設定
+            # status -1含め全てにorigin_r, origin_cを設定
         for data in merged_cells_data:
             origin_r, origin_c = data['origin_min_row'], data['origin_min_col']
+            # Iterate through the *original* merge range to correctly identify status
             for r_abs in range(data['origin_min_row'], data['origin_max_row'] + 1):
                  for c_abs in range(data['origin_min_col'], data['origin_max_col'] + 1):
-                     if min_row <= r_abs <= max_row and min_col <= c_abs <= max_col:
-                         rel_r, rel_c = r_abs - min_row, c_abs - min_col
+                     if min_row <= r_abs <= max_row and min_col <= c_abs <= max_col: # 範囲内であれば
+                         rel_r, rel_c = r_abs - min_row, c_abs - min_col # 左上から見て何行目，何列目か（今後相対座標と呼ぶ）
                          if r_abs == origin_r and c_abs == origin_c:
                              cell_status[rel_r][rel_c] = 1 
                          elif cell_status[rel_r][rel_c] == 0:
                              cell_status[rel_r][rel_c] = -1
-                         cell_origin[(rel_r, rel_c)] = (origin_r, origin_c)
+                         cell_origin[(rel_r, rel_c)] = (origin_r, origin_c) #　相対座標->origin座標のマッピング
 
-        # セル値の抽出
+
+        # status 0, 1のセルの値を抽出
         for r_idx in range(num_rows):
             for c_idx in range(num_cols):
-                if cell_status[r_idx][c_idx] >= 0:
+                if cell_status[r_idx][c_idx] >= 0: # 通常セル or 結合左上
                     cell = ws.cell(row=r_idx + min_row, column=c_idx + min_col)
                     value = cell.value
-                    if value is None: 
-                        value = ""
-                    elif isinstance(value, (int, float)) and value == int(value): 
-                        value = int(value)
-                    value = self.escape_latex_special_chars(str(value))
-                    cell_values[r_idx][c_idx] = value
+                    if value is None: value = ""
+                    elif isinstance(value, (int, float)) and value == int(value): value = int(value) # valueErrorをinstanceで避ける
+                    value = str(value)
+                    for char in ['&', '%', '$', '#', '_', '{', '}', '~', '^', '\\']:
+                        if char in value: value = value.replace(char, '\\' + char)
+                    cell_values[r_idx][c_idx] = value # 相対座標の値
 
         # LaTeX表の生成
         latex = []
@@ -335,39 +338,43 @@ class TableLatexTab(QWidget):
 
         # 各行のLaTeXコード生成
         for r in range(num_rows):
-            cells_in_row = []
+            cells_in_row = [] #cline,hline含め1行ずつ処理
             col = 0
             while col < num_cols:
-                if cell_status[r][col] == 1:  # 結合セルの左上
-                    origin_r_abs, origin_c_abs = cell_origin.get((r, col), (r + min_row, col + min_col))
-                    cell_info = merged_cells_map.get((origin_r_abs, origin_c_abs))
+                if cell_status[r][col] == 1: # 結合セルの左上
+                    origin_r_abs, origin_c_abs = cell_origin.get((r, col), (r + min_row, col + min_col)) # 相座 -> 絶座(防御のためのgetであり通常は呼び出されないはず……
+                    cell_info = merged_cells_map.get((origin_r_abs, origin_c_abs)) # 絶座 -> 結合セルのデータ
 
                     if cell_info:
                         value = cell_info['value']
+                        # Calculate effective span based on *original* merge range adjusted to selection bounds
                         eff_rowspan = min(cell_info['origin_max_row'], max_row) - (r + min_row) + 1
                         eff_colspan = min(cell_info['origin_max_col'], max_col) - (col + min_col) + 1
                         border_str = "{|c|}" if add_borders else "{c}"
 
                         row_cmd = f"\\multirow{{{eff_rowspan}}}{{*}}" if eff_rowspan > 1 else ""
-                        col_cmd_start = f"\\multicolumn{{{eff_colspan}}}{border_str}" if eff_colspan > 1 else ""
+                        col_cmd_start = f"\\multicolumn{{{eff_colspan}}}{border_str}" if eff_colspan > 1 else "" #ex) \multicolumn{3}{|c|}
 
-                        content = f"{row_cmd}{{{value}}}" if row_cmd else value
+                        content = f"{row_cmd}{{{value}}}" if row_cmd else value #ex) \multirow{3}{*}{値}
                         full_cmd = f"{col_cmd_start}{{{content}}}" if col_cmd_start else content
                         cells_in_row.append(full_cmd)
 
-                        col += eff_colspan
-                    else:
+                        col += eff_colspan # スパン分列カウントを進める
+                    else: # Map error
                         cells_in_row.append(cell_values[r][col])
                         col += 1
-                elif cell_status[r][col] == -1:  # 結合セルの他の部分
+                elif cell_status[r][col] == -1: # 結合セルの他の部分
                     origin_r_abs, origin_c_abs = cell_origin.get((r, col), (None, None))
-                    cell_info = merged_cells_map.get((origin_r_abs, origin_c_abs))
+                    cell_info = merged_cells_map.get((origin_r_abs, origin_c_abs)) # status -1でもoriginなので参照可
 
                     if cell_info:
+                        # 現座標がorigin_cか
                         is_segment_start_col = (col + min_col == cell_info['min_col']) 
+                        # 現座標とlast_col含むセルのスパン
                         segment_colspan = min(cell_info['max_col'], max_col) - (col + min_col) + 1
 
                         if is_segment_start_col:
+                            # 末colじゃなければ
                             if segment_colspan > 1:
                                 border_str = "{|c|}" if add_borders else "{c}"
                                 cells_in_row.append(f"\\multicolumn{{{segment_colspan}}}{border_str}{{}}")
@@ -377,26 +384,27 @@ class TableLatexTab(QWidget):
                                 col += 1
                         else:
                             col += 1
-                    else:
+                    else: # Map error
                         cells_in_row.append("")
                         col += 1
-                else:  # 通常のセル
+                else: # 通常のセル(status 0)
                     cells_in_row.append(cell_values[r][col])
                     col += 1
 
-            row_str = f"      {' & '.join(cells_in_row)} \\\\"
+            row_str = f"      {' & '.join(cells_in_row)} \\\\" # 一行分のLaTeXコード最終
 
-            # 罫線処理
+            # \cline，\hline処理
             line_command = ""
             if add_borders:
+                # 末行
                 if r == num_rows - 1: 
                     line_command = "\\hline"
                 else:
                     needs_hline = True
                     for c_next in range(num_cols):
-                        if cell_status[r + 1][c_next] == -1:
+                        if cell_status[r + 1][c_next] == -1: # どっかにstatus -1があるか
                             origin_r_abs, origin_c_abs = cell_origin.get((r + 1, c_next), (None, None))
-                            if origin_r_abs is not None and origin_r_abs <= r + min_row:
+                            if origin_r_abs is not None and origin_r_abs <= r + min_row: # 結合セルの最終行の場合を弾く
                                 needs_hline = False
                                 break
 
@@ -413,16 +421,17 @@ class TableLatexTab(QWidget):
                                 if origin_r_abs is not None and origin_r_abs <= r + min_row:
                                     is_continuation_below = True
 
-                            if not is_continuation_below:
+                            if not is_continuation_below: # 下線を引いて良い
                                 if current_cline_start == -1:
-                                    current_cline_start = c + 1
-                            else:
+                                    current_cline_start = c + 1 # 初回なので下線スタート列
+                            else: #下線を引いてはいけない
                                 if current_cline_start != -1:
-                                    clines.append(f"\\cline{{{current_cline_start}-{c}}}")
-                                    current_cline_start = -1
+                                    clines.append(f"\\cline{{{current_cline_start}-{c}}}") # 現在の列まで（LaTeX換算では列は1から始まる）
+                                    current_cline_start = -1 # 次の下線スタート列のためにリセット
 
+                        # 末列まで下線ひいてはいけない
                         if current_cline_start != -1:
-                            clines.append(f"\\cline{{{current_cline_start}-{num_cols}}}")
+                            clines.append(f"\\cline{{{current_cline_start}-{num_cols}}}") # End at last col (1-based)
 
                         if clines:
                             line_command = " ".join(clines)
@@ -431,8 +440,9 @@ class TableLatexTab(QWidget):
                 row_str += f" {line_command}"
 
             latex.append(row_str)
+            # --- 罫線処理終了 ---
 
-        # 表の終了
+        # 表の終了 (最後のhlineはループ内で処理される)
         latex.append("    \\end{tabular}")
         latex.append("\\end{table}")
 
