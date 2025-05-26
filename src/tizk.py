@@ -858,25 +858,23 @@ class TikZPlotConverter(QMainWindow):
         
         plotTab.setLayout(plotTabLayout)
         
-        # タブ4: 特殊点・注釈
+        #* ======================特殊点・注釈タブ============================================ 
         annotationTab = QWidget()
         annotationTabLayout = QVBoxLayout()
         
-        # 特殊点グループ
+        #　特殊点グループ
         specialPointsGroup = QGroupBox("特殊点")
         specialPointsLayout = QVBoxLayout()
         
         self.specialPointsCheck = QCheckBox('特殊点を表示')
         specialPointsLayout.addWidget(self.specialPointsCheck)
         
-        # 特殊点テーブル
-        self.specialPointsTable = QTableWidget(0, 4)  # 行数, 列数 (X, Y, 色, 座標表示)
+        self.specialPointsTable = QTableWidget(0, 4)  
         self.specialPointsTable.setHorizontalHeaderLabels(['X', 'Y', '色', '座標表示'])
         self.specialPointsTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.specialPointsTable.setEnabled(False)
         specialPointsLayout.addWidget(self.specialPointsTable)
         
-        # 特殊点操作ボタン
         spButtonLayout = QHBoxLayout()
         addSpButton = QPushButton('特殊点を追加')
         addSpButton.clicked.connect(self.add_special_point)
@@ -884,12 +882,13 @@ class TikZPlotConverter(QMainWindow):
         removeSpButton.clicked.connect(self.remove_special_point)
         assignToDatasetBtn = QPushButton('データセットに割り当て')
         assignToDatasetBtn.clicked.connect(self.assign_special_points_to_dataset)
+        assignToDatasetBtn.setStyleSheet('background-color: #007BFF; border-radius: 3px; padding-top: 1px; padding-bottom: 1px;')
         spButtonLayout.addWidget(addSpButton)
         spButtonLayout.addWidget(removeSpButton)
         spButtonLayout.addWidget(assignToDatasetBtn)
         specialPointsLayout.addLayout(spButtonLayout)
         
-        # イベント接続
+        #　特殊点Widgetオンオフ連動
         self.specialPointsCheck.toggled.connect(lambda checked: [
             self.specialPointsTable.setEnabled(checked),
             addSpButton.setEnabled(checked),
@@ -906,8 +905,7 @@ class TikZPlotConverter(QMainWindow):
         self.annotationsCheck = QCheckBox('注釈を表示')
         annotationsLayout.addWidget(self.annotationsCheck)
         
-        # 注釈テーブル
-        self.annotationsTable = QTableWidget(0, 5)  # 行数, 列数 (X, Y, テキスト, 色, 位置)
+        self.annotationsTable = QTableWidget(0, 5) 
         self.annotationsTable.setHorizontalHeaderLabels(['X', 'Y', 'テキスト', '色', '位置'])
         self.annotationsTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.annotationsTable.setEnabled(False)
@@ -921,12 +919,13 @@ class TikZPlotConverter(QMainWindow):
         removeAnnButton.clicked.connect(self.remove_annotation)
         assignAnnToDatasetBtn = QPushButton('データセットに割り当て')
         assignAnnToDatasetBtn.clicked.connect(self.assign_annotations_to_dataset)
+        assignAnnToDatasetBtn.setStyleSheet('background-color: #007BFF; border-radius: 3px; padding-top: 1px; padding-bottom: 1px;')
         annButtonLayout.addWidget(addAnnButton)
         annButtonLayout.addWidget(removeAnnButton)
         annButtonLayout.addWidget(assignAnnToDatasetBtn)
         annotationsLayout.addLayout(annButtonLayout)
         
-        # イベント接続
+        # 特異点Widgetオンオフ連動
         self.annotationsCheck.toggled.connect(lambda checked: [
             self.annotationsTable.setEnabled(checked),
             addAnnButton.setEnabled(checked),
