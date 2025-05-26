@@ -945,7 +945,7 @@ class TikZPlotConverter(QMainWindow):
         tabWidget.addTab(plotTab, "グラフ設定")
         tabWidget.addTab(annotationTab, "特殊点・注釈設定")
         
-        # --- グラフ設定タブの値が変わったら即保存 ---
+        # 現在のデータセットの値を変更したときに*などに*現在のデータセットの値を保存
         self.lineWidthSpin.valueChanged.connect(self.update_current_dataset)
         self.markerCombo.currentIndexChanged.connect(self.update_current_dataset)
         self.markerSizeSpin.valueChanged.connect(self.update_current_dataset)
@@ -958,15 +958,13 @@ class TikZPlotConverter(QMainWindow):
         # タブ切り替え時にも保存
         tabWidget.currentChanged.connect(lambda _: self.update_current_dataset())
         
-        # 設定部分のレイアウトに追加
+        #* ======================Tikz_plot_Layout============================================ 
         settingsLayout.addLayout(infoLayout)
         settingsLayout.addWidget(datasetGroup)
         settingsLayout.addWidget(tabWidget)
 
-        # データテーブルの高さを減らす
         self.dataTable.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         
-        # LaTeXコードに変換ボタン
         convertButton = QPushButton("LaTeXコードに変換")
         convertButton.clicked.connect(self.convert_to_tikz)
         convertButton.setStyleSheet('background-color: #4CAF50; color: white; font-size: 14px; padding: 10px;')
@@ -984,40 +982,31 @@ class TikZPlotConverter(QMainWindow):
         self.resultText.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # 縦方向も拡大可能に
         
         copyButton = QPushButton("クリップボードにコピー")
+        copyButton.setStyleSheet("background-color: #007BFF; color: white; font-size: 16px; padding: 12px; font-weight: 900; border-radius: 8px; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);")
         copyButton.clicked.connect(self.copy_to_clipboard)
         
         resultLayout.addWidget(resultLabel)
         resultLayout.addWidget(self.resultText)
         resultLayout.addWidget(copyButton)
         
-        # スプリッターに追加
+        #* ======================main_Container============================================ 
         splitter.addWidget(settingsWidget)
         splitter.addWidget(resultWidget)
-        splitter.setSizes([600, 200])  # 初期サイズ比率を調整
+        splitter.setSizes([600, 200])  
         
-        # メインレイアウトに追加
         mainLayout.addWidget(splitter)
         
-        # ステータスバー
         self.statusBar = QStatusBar()
         self.setStatusBar(self.statusBar)
         
-        # メインウィジェット設定
         mainWidget.setLayout(mainLayout)
-        # QScrollAreaでラップ
+
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(mainWidget)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.setCentralWidget(scroll)
-        
-        # スクロールヒントラベルの上に大きな下向き矢印を表示
-        # arrowLabel = QLabel('⬇️')
-        # arrowLabel.setAlignment(Qt.AlignHCenter)
-        # arrowLabel.setStyleSheet('font-size: 32px; color: #d32f2f; margin-bottom: 0px;')
-        # arrowLabel.setFixedHeight(40)
-        # mainLayout.addWidget(arrowLabel)
 
         scrollHint = QLabel('画面に収まらない場合はスクロールバーで全体を表示できます')
         scrollHint.setStyleSheet('background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fffbe6, stop:1 #ffe082); color: #d32f2f; font-size: 13px; font-weight: bold; border: 1px solid #ffe082; border-radius: 4px; padding: 6px;')
