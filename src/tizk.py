@@ -263,12 +263,14 @@ class TikZPlotConverter(QMainWindow):
         
         # データテーブル操作ボタン
         tableButtonLayout = QHBoxLayout()
-        addRowButton = QPushButton('行を追加')
-        addRowButton.clicked.connect(self.add_table_row)
-        removeRowButton = QPushButton('選択行を削除')
-        removeRowButton.clicked.connect(self.remove_table_row)
-        tableButtonLayout.addWidget(addRowButton)
-        tableButtonLayout.addWidget(removeRowButton)
+        self.addRowButton = QPushButton('行を追加')
+        self.addRowButton.clicked.connect(self.add_table_row)
+        self.removeRowButton = QPushButton('選択行を削除')
+        self.removeRowButton.clicked.connect(self.remove_table_row)
+        self.addRowButton.setEnabled(False)
+        self.removeRowButton.setEnabled(False)
+        tableButtonLayout.addWidget(self.addRowButton)
+        tableButtonLayout.addWidget(self.removeRowButton)
         
         # データソースレイアウトに追加
         dataSourceLayout.addLayout(csvLayout)
@@ -336,7 +338,7 @@ class TikZPlotConverter(QMainWindow):
         actionNoteLabel.setWordWrap(True)
         dataActionLayout.addWidget(actionNoteLabel)
         
-        # ボタンのテキストはどの入力方法でも統一
+        # ホバーテキスト
         self.loadDataButton = QPushButton('データを確定・保存')
         self.loadDataButton.setToolTip('入力したデータを現在のデータセットに保存します')
         self.loadDataButton.clicked.connect(self.load_data)
@@ -1044,7 +1046,7 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"シート名の取得に失敗しました: {str(e)}")
             self.statusBar.showMessage("ファイル読み込みエラー")
     
-    # データソース選択に応じてUIを切り替え
+    # データソースタイプの切り替え
     def toggle_source_fields(self, button=None):
         if self.csvRadio.isChecked():
             self.fileEntry.setEnabled(True)
@@ -1054,6 +1056,8 @@ class TikZPlotConverter(QMainWindow):
             # セル範囲入力欄を有効化
             self.xRangeEntry.setEnabled(True)
             self.yRangeEntry.setEnabled(True)
+            self.addRowButton.setEnabled(False)
+            self.removeRowButton.setEnabled(False)
             # CSVファイル用のツールチップ
             self.loadDataButton.setToolTip("CSVファイルからデータを読み込み、現在のデータセットに保存します")
         elif self.excelRadio.isChecked():
@@ -1064,6 +1068,8 @@ class TikZPlotConverter(QMainWindow):
             # セル範囲入力欄を有効化
             self.xRangeEntry.setEnabled(True)
             self.yRangeEntry.setEnabled(True)
+            self.addRowButton.setEnabled(False)
+            self.removeRowButton.setEnabled(False)
             # Excelファイル用のツールチップ
             self.loadDataButton.setToolTip("Excelファイルからデータを読み込み、現在のデータセットに保存します")
         elif self.manualRadio.isChecked():
@@ -1074,6 +1080,8 @@ class TikZPlotConverter(QMainWindow):
             # セル範囲入力欄を無効化
             self.xRangeEntry.setEnabled(False)
             self.yRangeEntry.setEnabled(False)
+            self.addRowButton.setEnabled(True)
+            self.removeRowButton.setEnabled(True)
             # 手入力データ用のツールチップ
             self.loadDataButton.setToolTip("テーブルに入力したデータを現在のデータセットに保存します")
     
