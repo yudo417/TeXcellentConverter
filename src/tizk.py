@@ -41,7 +41,7 @@ class TikZPlotConverter(QMainWindow):
             'height': 0.6,
             'caption': 'グラフのキャプション',
             'label': 'fig:tikz_plot',
-            'position': 'htbp',
+            'position': 'H', # 初期値
             'scale_type': 'normal'  # normal, logx, logy, loglog のいずれか
         }
         """グラフ全体の設定"""
@@ -645,6 +645,15 @@ class TikZPlotConverter(QMainWindow):
         styleLayout.addWidget(self.showDataPointsCheck, 5, 0, 1, 2)
         
         styleGroup.setLayout(styleLayout)
+
+        legendLabelGroup = QGroupBox("データセット個別設定 - 凡例ラベル")
+        legendLabelLayout = QFormLayout()
+        
+        self.legendLabel = QLineEdit('データ')
+        self.legendLabel.setReadOnly(True)
+        legendLabelLayout.addRow('凡例ラベル(データセット名):', self.legendLabel)
+        
+        legendLabelGroup.setLayout(legendLabelLayout)
         
         #* ======================全体設定============================================ 
         axisGroup = QGroupBox("グラフ全体設定 - 軸")
@@ -703,7 +712,7 @@ class TikZPlotConverter(QMainWindow):
         yRangeLabel = QLabel('Y軸範囲:')
         yRangeLayout = QHBoxLayout()
         self.yMinSpin = QDoubleSpinBox()
-        self.yMinSpin.setRange(-1000, 1000)
+        self.yMinSpin.setRange(-10000, 10000)
         self.yMinSpin.setValue(self.global_settings['y_min'])
         self.yMinSpin.setFixedWidth(100)
         yRangeLayout.addWidget(self.yMinSpin)
@@ -711,14 +720,14 @@ class TikZPlotConverter(QMainWindow):
         yRangeLayout.addWidget(QLabel('〜'))
         yRangeLayout.addStretch()
         self.yMaxSpin = QDoubleSpinBox()
-        self.yMaxSpin.setRange(-1000, 1000)
+        self.yMaxSpin.setRange(-10000, 10000)
         self.yMaxSpin.setValue(self.global_settings['y_max'])
         self.yMaxSpin.setFixedWidth(100)
         yRangeLayout.addWidget(self.yMaxSpin)
         axisLayout.addWidget(yRangeLabel, 3, 0)
         axisLayout.addLayout(yRangeLayout, 3, 1)
 
-        # 目盛り間隔の値を保持する変数を初期化
+        # 目盛り間隔の値の初期化
         self.x_tick_step = 1.0
         self.y_tick_step = 1.0
 
@@ -734,17 +743,16 @@ class TikZPlotConverter(QMainWindow):
         legendPosLabel = QLabel('凡例の位置:')
         self.legendPosCombo = QComboBox()
         self.legendPosCombo.addItems(['左上', '右上', '左下', '右下'])
-        # 内部での対応用のマッピング
+        # なんか英語の表記と実際の位置が一致しないのでしかたなくマッピングしないといけないぽい
         self.legend_pos_mapping = {
             '左上': 'north west',
             '右上': 'north east',
             '左下': 'south west',
             '右下': 'south east'
         }
-        # 逆マッピングで初期値を設定
+        # キーと値の入れ替え
         reverse_mapping = {v: k for k, v in self.legend_pos_mapping.items()}
         current_pos = self.global_settings['legend_pos']
-        # 現在の設定が四隅以外の場合はデフォルトで右上にする
         if current_pos in reverse_mapping:
             self.legendPosCombo.setCurrentText(reverse_mapping[current_pos])
         else:
@@ -767,12 +775,12 @@ class TikZPlotConverter(QMainWindow):
         self.logYScaleRadio = QRadioButton('Y軸対数')
         self.logLogScaleRadio = QRadioButton('両軸対数')
         
+        # グループ設定しているのでオンオフ連動
         self.scaleTypeGroup.addButton(self.normalScaleRadio)
         self.scaleTypeGroup.addButton(self.logXScaleRadio)
         self.scaleTypeGroup.addButton(self.logYScaleRadio)
         self.scaleTypeGroup.addButton(self.logLogScaleRadio)
         
-        # デフォルト設定
         scale_type = self.global_settings.get('scale_type', 'normal')
         if scale_type == 'logx':
             self.logXScaleRadio.setChecked(True)
@@ -831,7 +839,7 @@ class TikZPlotConverter(QMainWindow):
         
         figureGroup.setLayout(figureLayout)
         
-        # プロットタブレイアウトに追加
+        #* 全体設定レイアウト
         plotTabLayout.addWidget(QLabel("【グラフ全体の設定】"))
         plotTabLayout.addWidget(axisGroup)
         plotTabLayout.addWidget(figureGroup)
@@ -842,18 +850,10 @@ class TikZPlotConverter(QMainWindow):
         separator.setFrameShadow(QFrame.Sunken)
         plotTabLayout.addWidget(separator)
         
+        #* 個別設定レイアウト
         plotTabLayout.addWidget(QLabel("【データセット個別の設定】"))
         plotTabLayout.addWidget(plotTypeGroup)
         plotTabLayout.addWidget(styleGroup)
-        
-        # 凡例ラベルだけはデータセット個別の設定として残す
-        legendLabelGroup = QGroupBox("データセット個別設定 - 凡例ラベル")
-        legendLabelLayout = QFormLayout()
-        
-        self.legendLabel = QLineEdit('データ')
-        legendLabelLayout.addRow('凡例ラベル:', self.legendLabel)
-        
-        legendLabelGroup.setLayout(legendLabelLayout)
         plotTabLayout.addWidget(legendLabelGroup)
         
         plotTab.setLayout(plotTabLayout)
