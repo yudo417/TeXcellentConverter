@@ -166,7 +166,7 @@ class TikZPlotConverter(QMainWindow):
         #* ======================TabWidget========================= 
         tabWidget = QTabWidget()
         
-        # タブ1: データ入力
+        #* ======================データ入力タブ========================= 
         dataTab = QWidget()
         dataTabLayout = QVBoxLayout()
         
@@ -211,9 +211,11 @@ class TikZPlotConverter(QMainWindow):
         dataSourceTypeGroup.setLayout(dataSourceTypeLayout)
         dataTabLayout.addWidget(dataSourceTypeGroup)
         
-        # データソースコンテナ（実測値）
+        #* ======================実測値========================= 
         self.measuredContainer = QWidget()
+        """実測データ入力用のコンテナ"""
         measuredLayout = QVBoxLayout(self.measuredContainer)
+        """実測値固有レイアウト"""
         
         dataSourceGroup = QGroupBox("データソース")
         dataSourceLayout = QVBoxLayout()
@@ -319,11 +321,11 @@ class TikZPlotConverter(QMainWindow):
         columnLayout.addWidget(yRangeLabel, 3, 0)
         columnLayout.addWidget(self.yRangeEntry, 3, 1, 1, 2)
         
-        columnHelpLabel = QLabel('※ セル範囲はA1形式で指定してください\n'
-                               '※ 例: 同じ行なら「A2:E2」と「A3:E3」、同じ列なら「A2:A10」と「B2:B10」')
+        columnHelpLabel = QLabel('※ セル範囲は「始点:終点」の形式で指定してください。\n　　例: 「A2:E2」は A2セルから E2セルまで、「A2:A10」は A2セルから A10セルまで')
         columnHelpLabel.setStyleSheet('color: gray; font-style: italic;')
         columnHelpLabel.setWordWrap(True)
         columnLayout.addWidget(columnHelpLabel, 4, 0, 1, 3)
+
         
         # 列選択グループのレイアウトを設定
         columnGroup.setLayout(columnLayout)
@@ -350,11 +352,13 @@ class TikZPlotConverter(QMainWindow):
         # 実測値コンテナに追加
         measuredLayout.addWidget(dataSourceGroup)
         measuredLayout.addWidget(columnGroup)
-        measuredLayout.addWidget(dataActionGroup)  # 新しいグループを追加
+        measuredLayout.addWidget(dataActionGroup)  #データ確定
         
-        # データソースコンテナ（数式）
+        #* ======================数式============================================ 
         self.formulaContainer = QWidget()
+        """数式固有コンテナ"""
         formulaLayout = QVBoxLayout(self.formulaContainer)
+        """数式固有レイアウト"""
         
         # 数式フォームグループ
         formulaFormGroup = QGroupBox("数式入力")
@@ -373,11 +377,11 @@ class TikZPlotConverter(QMainWindow):
         domainLayout = QHBoxLayout()
         domainLabel = QLabel('x軸範囲:')
         self.domainMinSpin = QDoubleSpinBox()
-        self.domainMinSpin.setRange(-1000, 1000)
+        self.domainMinSpin.setRange(-10000, 10000)
         self.domainMinSpin.setValue(0)
         self.domainMaxSpin = QDoubleSpinBox()
-        self.domainMaxSpin.setRange(-1000, 1000)
-        self.domainMaxSpin.setValue(10)
+        self.domainMaxSpin.setRange(-10000, 10000)
+        self.domainMaxSpin.setValue(1)
         domainLayout.addWidget(domainLabel)
         domainLayout.addWidget(self.domainMinSpin)
         domainLayout.addWidget(QLabel('〜'))
@@ -386,14 +390,18 @@ class TikZPlotConverter(QMainWindow):
         
         # サンプル数
         samplesLayout = QHBoxLayout()
-        samplesLabel = QLabel('サンプル数:')
+        samplesLabel = QLabel('プロットの計算数:')
         self.samplesSpin = QSpinBox()
         self.samplesSpin.setRange(10, 1000)
         self.samplesSpin.setValue(200)
         samplesLayout.addWidget(samplesLabel)
         samplesLayout.addWidget(self.samplesSpin)
         formulaFormLayout.addLayout(samplesLayout)
-        
+
+        samplesSupplementLabel = QLabel('＊計算数は実行速度に影響します\n単純な関数であれば50~200程度を推奨\n複雑な関数であれば200~1000程度を推奨')
+        samplesSupplementLabel.setStyleSheet("color: gray; font-style: italic; padding-left: 20px; min-height: 50px;")
+        formulaFormLayout.addWidget(samplesSupplementLabel)
+
         # 数式説明
         formulaInfoLabel = QLabel(
             '※ <span style="color:black;">掛け算は必ず <b><span style="color:red;">*</span></b> を明示してください（例: 2*x, (x+1)*y）</span><br>'
@@ -421,15 +429,15 @@ class TikZPlotConverter(QMainWindow):
         # 接線のx座標
         tangentXLabel = QLabel('接線のx座標:')
         self.tangentXSpin = QDoubleSpinBox()
-        self.tangentXSpin.setRange(-1000, 1000)
-        self.tangentXSpin.setValue(5)  # デフォルト値
+        self.tangentXSpin.setRange(-10000, 10000)
+        self.tangentXSpin.setValue(1)  # デフォルト値
         formulaOptionsLayout.addWidget(tangentXLabel, 1, 0)
         formulaOptionsLayout.addWidget(self.tangentXSpin, 1, 1)
         
         # 接線の長さ
-        tangentLengthLabel = QLabel('接線の長さ:')
+        tangentLengthLabel = QLabel('接線の長さ(0.1から設定可能):')
         self.tangentLengthSpin = QDoubleSpinBox()
-        self.tangentLengthSpin.setRange(0.1, 20.0)
+        self.tangentLengthSpin.setRange(0.1, 10000)
         self.tangentLengthSpin.setValue(2.0)  # デフォルト値
         formulaOptionsLayout.addWidget(tangentLengthLabel, 2, 0)
         formulaOptionsLayout.addWidget(self.tangentLengthSpin, 2, 1)
@@ -437,8 +445,8 @@ class TikZPlotConverter(QMainWindow):
         # 接線の色
         tangentColorLabel = QLabel('接線の色:')
         self.tangentColorButton = QPushButton()
-        self.tangentColorButton.setStyleSheet('background-color: purple;')
-        self.tangentColor = QColor('purple')
+        self.tangentColorButton.setStyleSheet('background-color: red;')
+        self.tangentColor = QColor('red')
         self.tangentColorButton.clicked.connect(self.select_tangent_color)
         formulaOptionsLayout.addWidget(tangentColorLabel, 3, 0)
         formulaOptionsLayout.addWidget(self.tangentColorButton, 3, 1)
@@ -522,7 +530,6 @@ class TikZPlotConverter(QMainWindow):
             self.tikzFunctionsTable.setItem(i, 0, QTableWidgetItem(func))
             self.tikzFunctionsTable.setItem(i, 1, QTableWidgetItem(desc))
             
-        # テーブルの高さを調整（全ての行を表示）
         table_height = self.tikzFunctionsTable.horizontalHeader().height()
         for i in range(len(tikz_functions)):
             table_height += self.tikzFunctionsTable.rowHeight(i)
@@ -541,17 +548,14 @@ class TikZPlotConverter(QMainWindow):
         tikzGuideGroup.setLayout(tikzGuideLayout)
         formulaLayout.addWidget(tikzGuideGroup)
         
-        # データ確定ボタン（数式入力モード用）
         formulaDataActionGroup = QGroupBox("データ確定")
         formulaDataActionLayout = QVBoxLayout()
         
-        # 注意書きラベル
         formulaActionNoteLabel = QLabel("※ 数式に基づくグラフを生成するには、下のボタンを押して数式データを保存してください")
         formulaActionNoteLabel.setStyleSheet("color: #cc0000; font-weight: bold;")
         formulaActionNoteLabel.setWordWrap(True)
         formulaDataActionLayout.addWidget(formulaActionNoteLabel)
         
-        # 数式データ確定ボタン
         self.formulaDataButton = QPushButton('数式データを確定・保存')
         self.formulaDataButton.setToolTip('入力した数式に基づいてデータを生成し、現在のデータセットに保存します')
         self.formulaDataButton.clicked.connect(self.apply_formula)
@@ -561,7 +565,7 @@ class TikZPlotConverter(QMainWindow):
         formulaDataActionGroup.setLayout(formulaDataActionLayout)
         formulaLayout.addWidget(formulaDataActionGroup)
         
-        # 初期状態ではコンテナの表示/非表示を設定
+        # 初期状態では実測値データコンテナを表示
         dataTabLayout.addWidget(self.measuredContainer)
         dataTabLayout.addWidget(self.formulaContainer)
         self.measuredContainer.setVisible(True)
@@ -570,11 +574,11 @@ class TikZPlotConverter(QMainWindow):
         # タブに設定
         dataTab.setLayout(dataTabLayout)
         
-        # タブ2: グラフ設定
+        #* ======================グラフ設定タブ======================================= 
         plotTab = QWidget()
         plotTabLayout = QVBoxLayout()
         
-        # グラフタイプの選択
+        #* ======================個別設定============================================ 
         plotTypeGroup = QGroupBox("データセット個別設定 - グラフタイプ")
         plotTypeLayout = QHBoxLayout()
         
@@ -642,7 +646,7 @@ class TikZPlotConverter(QMainWindow):
         
         styleGroup.setLayout(styleLayout)
         
-        # 軸設定
+        #* ======================全体設定============================================ 
         axisGroup = QGroupBox("グラフ全体設定 - 軸")
         axisLayout = QGridLayout()
         
@@ -655,8 +659,8 @@ class TikZPlotConverter(QMainWindow):
         # X軸目盛り間隔
         xTickStepLabel = QLabel('X軸目盛り間隔:')
         self.xTickStepSpin = QDoubleSpinBox()
-        self.xTickStepSpin.setRange(0.01, 1000)
-        self.xTickStepSpin.setSingleStep(0.1)
+        self.xTickStepSpin.setRange(0.01, 10000)
+        self.xTickStepSpin.setSingleStep(1.0)
         self.xTickStepSpin.setValue(1.0)
         axisLayout.addWidget(xTickStepLabel, 0, 2)
         axisLayout.addWidget(self.xTickStepSpin, 0, 3)
@@ -670,8 +674,8 @@ class TikZPlotConverter(QMainWindow):
         # Y軸目盛り間隔
         yTickStepLabel = QLabel('Y軸目盛り間隔:')
         self.yTickStepSpin = QDoubleSpinBox()
-        self.yTickStepSpin.setRange(0.01, 1000)
-        self.yTickStepSpin.setSingleStep(0.1)
+        self.yTickStepSpin.setRange(0.01, 10000)
+        self.yTickStepSpin.setSingleStep(1.0)
         self.yTickStepSpin.setValue(1.0)
         axisLayout.addWidget(yTickStepLabel, 1, 2)
         axisLayout.addWidget(self.yTickStepSpin, 1, 3)
@@ -680,13 +684,17 @@ class TikZPlotConverter(QMainWindow):
         xRangeLabel = QLabel('X軸範囲:')
         xRangeLayout = QHBoxLayout()
         self.xMinSpin = QDoubleSpinBox()
-        self.xMinSpin.setRange(-1000, 1000)
+        self.xMinSpin.setRange(-10000, 10000)
         self.xMinSpin.setValue(self.global_settings['x_min'])
-        self.xMaxSpin = QDoubleSpinBox()
-        self.xMaxSpin.setRange(-1000, 1000)
-        self.xMaxSpin.setValue(self.global_settings['x_max'])
+        self.xMinSpin.setFixedWidth(100)
         xRangeLayout.addWidget(self.xMinSpin)
+        xRangeLayout.addStretch()
         xRangeLayout.addWidget(QLabel('〜'))
+        xRangeLayout.addStretch() 
+        self.xMaxSpin = QDoubleSpinBox()
+        self.xMaxSpin.setRange(-10000, 10000)
+        self.xMaxSpin.setValue(self.global_settings['x_max'])
+        self.xMaxSpin.setFixedWidth(100)
         xRangeLayout.addWidget(self.xMaxSpin)
         axisLayout.addWidget(xRangeLabel, 2, 0)
         axisLayout.addLayout(xRangeLayout, 2, 1)
@@ -697,11 +705,15 @@ class TikZPlotConverter(QMainWindow):
         self.yMinSpin = QDoubleSpinBox()
         self.yMinSpin.setRange(-1000, 1000)
         self.yMinSpin.setValue(self.global_settings['y_min'])
+        self.yMinSpin.setFixedWidth(100)
+        yRangeLayout.addWidget(self.yMinSpin)
+        yRangeLayout.addStretch()
+        yRangeLayout.addWidget(QLabel('〜'))
+        yRangeLayout.addStretch()
         self.yMaxSpin = QDoubleSpinBox()
         self.yMaxSpin.setRange(-1000, 1000)
         self.yMaxSpin.setValue(self.global_settings['y_max'])
-        yRangeLayout.addWidget(self.yMinSpin)
-        yRangeLayout.addWidget(QLabel('〜'))
+        self.yMaxSpin.setFixedWidth(100)
         yRangeLayout.addWidget(self.yMaxSpin)
         axisLayout.addWidget(yRangeLabel, 3, 0)
         axisLayout.addLayout(yRangeLayout, 3, 1)
@@ -929,7 +941,7 @@ class TikZPlotConverter(QMainWindow):
         annotationTabLayout.addWidget(annotationsGroup)
         annotationTab.setLayout(annotationTabLayout)
         
-        # タブ追加
+        #* ======================タブ追加============================================ 
         tabWidget.addTab(dataTab, "データ入力")
         tabWidget.addTab(plotTab, "グラフ設定")
         tabWidget.addTab(annotationTab, "特殊点・注釈設定")
