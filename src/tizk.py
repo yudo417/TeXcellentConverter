@@ -23,9 +23,9 @@ class TikZPlotConverter(QMainWindow):
         
         # データと状態の初期化
         self.datasets = []  
-        """データセット格納"""
+        """全データセット格納"""
         self.current_dataset_index = -1
-        """現在選択されているデータセットのインデックス"""
+        """現在選択されているデータセットのインデックス（初期値-1)"""
         
         self.global_settings = {
             'x_label': 'x軸',
@@ -44,7 +44,17 @@ class TikZPlotConverter(QMainWindow):
             'position': 'H', # 初期値
             'scale_type': 'normal'  # normal, logx, logy, loglog のいずれか
         }
-        """グラフ全体の設定"""
+        """
+        グラフ全体の設定\n
+        x_labe：x軸ラベル | y_label：y軸ラベル\n
+        x_min：x軸の最小値 | x_max：x軸の最大値\n
+        y_min：y軸の最小値 | y_max：y軸の最大値\n
+        grid：グリッド表示\n
+        show_legend：凡例表示Bool | legend_pos：凡例の位置\n
+        width：グラフの幅 | height：グラフの高さ\n
+        caption：グラフのキャプション | label：グラフのラベル |position：グラフの位置(H)\n
+        scale_type：軸の目盛りタイプ(対数メモリとか)
+        """
         
         self.initUI()
         
@@ -1939,7 +1949,7 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"データセット削除中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     def update_ui_for_no_datasets(self):
-        """データセットがない場合にUIをリセット/クリアする"""
+        """データセットない時（防御)"""
         # 例: 関連する入力フィールドをクリアまたは無効化
         self.legendLabel.setText("")
         # 他のUI要素も必要に応じてリセット
@@ -1990,22 +2000,21 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット名の変更中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
-    def on_dataset_selected(self, row):
+    def on_dataset_selected(self, row):#TODO
+        """行選択時，rowは選択した行のindexを放り込む"""
         try:
             # 以前のデータセットの状態を保存（存在する場合）
             old_index = self.current_dataset_index
             if old_index >= 0 and old_index < len(self.datasets):
                 self.update_current_dataset()
-            if row < 0 or row >= len(self.datasets):
+            if row < 0 or row >= len(self.datasets):  #　防御
                 if not self.datasets:
                     self.current_dataset_index = -1
                     self.update_ui_for_no_datasets()
                 return
-            # 現在のインデックスを更新
             self.current_dataset_index = row
-            # UIを更新（この中でデータテーブルも更新される）
             dataset = self.datasets[row]
-            # --- ここでUIのみを更新し、保存処理は呼ばない ---
+            #!  UIのみの更新、保存処理は呼ばない 
             self.update_ui_from_dataset(dataset)
             self.statusBar.showMessage(f"データセット '{dataset['name']}' を選択しました", 3000)
         except Exception as e:
