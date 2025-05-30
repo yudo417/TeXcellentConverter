@@ -23,7 +23,35 @@ class TikZPlotConverter(QMainWindow):
         
         # データと状態の初期化
         self.datasets = []  
-        """全データセット格納"""
+        """
+        全データセット格納
+        ### 格納予定セット
+            dataset = {
+                'name': final_name, # Always a string
+                'data_source_type': 'measured',  # 'measured' または 'formula'
+                'data_x': [],
+                'data_y': [],
+                'color': QColor('blue'),  # QColorオブジェクトを新規作成
+                'line_width': 1.0,
+                'marker_style': '*',
+                'marker_size': 2.0,
+                'plot_type': "line",
+                'legend_label': final_name, # Always a string, initialized with name
+                'show_legend': True,
+                'equation': '',
+                'domain_min': 0,
+                'domain_max': 10,
+                'samples': 200,
+                'special_points': [],  # [(x, y, color, show_coords), ...]
+                'annotations': [],     # [(x, y, text, color, pos), ...]
+                ### ファイル読み込み関連の設定
+                'file_path': '',
+                'file_type': 'csv',  # 'csv' or 'excel' or 'manual'
+                'sheet_name': '',
+                'x_column': '',
+                'y_column': ''
+            }
+        """
         self.current_dataset_index = -1
         """現在選択されているデータセットのインデックス（初期値-1)"""
         
@@ -402,7 +430,7 @@ class TikZPlotConverter(QMainWindow):
         samplesLayout = QHBoxLayout()
         samplesLabel = QLabel('プロットの計算数:')
         self.samplesSpin = QSpinBox()
-        self.samplesSpin.setRange(10, 1000)
+        self.samplesSpin.setRange(1, 10000)
         self.samplesSpin.setValue(200)
         samplesLayout.addWidget(samplesLabel)
         samplesLayout.addWidget(self.samplesSpin)
@@ -2022,20 +2050,19 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"データセット選択処理中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     def update_current_dataset(self):
+        """old_indexの"""
         try:
             if self.current_dataset_index < 0 or not self.datasets or self.current_dataset_index >= len(self.datasets):
                 return
             
-            # 現在のデータセットを取得
+            #代入されるのは辞書形式
             dataset = self.datasets[self.current_dataset_index]
             
-            # 色の設定（1回のみ）
+            # 色の設定（初回1回のみ）
             if not isinstance(self.currentColor, QColor):
                 self.currentColor = QColor(self.currentColor)
-            # QColorオブジェクトのコピーを作成して代入
+
             dataset['color'] = QColor(self.currentColor)
-            
-            # 基本設定の更新
             dataset['line_width'] = self.lineWidthSpin.value()
             dataset['marker_style'] = self.markerCombo.currentText()
             dataset['marker_size'] = self.markerSizeSpin.value()
@@ -2052,7 +2079,6 @@ class TikZPlotConverter(QMainWindow):
             else:
                 dataset['plot_type'] = "bar"
             
-            # データソースタイプの設定（実測/数式）
             if hasattr(self, 'measuredRadio') and hasattr(self, 'formulaRadio'):
                 dataset['data_source_type'] = 'measured' if self.measuredRadio.isChecked() else 'formula'
                 
@@ -2068,11 +2094,8 @@ class TikZPlotConverter(QMainWindow):
                     else:
                         dataset['file_type'] = 'manual'
                     
-                    # セル範囲の保存
                     dataset['x_range'] = self.xRangeEntry.text().strip()
-                    dataset['y_range'] = self.yRangeEntry.text().strip()
-                    
-                    # 手入力データの保存
+                    dataset['y_range'] = self.yRangeEntry.text().strip()                    
                     if (
                         hasattr(self, 'tabWidget')
                         and self.tabWidget.currentIndex() == 0  # データ入力タブ
@@ -2088,11 +2111,8 @@ class TikZPlotConverter(QMainWindow):
                                     data_y.append(float(y_item.text()))
                                 except ValueError:
                                     pass
-                        # リストのコピーを作成して代入
                         dataset['data_x'] = data_x.copy()
                         dataset['data_y'] = data_y.copy()
-                
-                # 数式データの場合
                 else:
                     dataset['equation'] = self.equationEntry.text()
                     dataset['domain_min'] = self.domainMinSpin.value()
