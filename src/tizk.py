@@ -1085,7 +1085,7 @@ class TikZPlotConverter(QMainWindow):
             self.statusBar.showMessage("ファイル読み込みエラー")
     
     # データソースタイプの切り替え
-    def toggle_source_fields(self, button=None):
+    def toggle_source_fields(self, button=None):# TODO
         if self.csvRadio.isChecked():
             self.fileEntry.setEnabled(True)
             self.excelEntry.setEnabled(False)
@@ -2042,15 +2042,15 @@ class TikZPlotConverter(QMainWindow):
                 return
             self.current_dataset_index = row
             dataset = self.datasets[row]
-            #!  UIのみの更新、保存処理は呼ばない 
+            #!  UIのみの更新、保存処理は呼ばない（保存処理と分離）
             self.update_ui_from_dataset(dataset)
             self.statusBar.showMessage(f"データセット '{dataset['name']}' を選択しました", 3000)
         except Exception as e:
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット選択処理中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
-    def update_current_dataset(self):
-        """old_indexの"""
+    def update_current_dataset(self):# TODO
+        """現在のデータセット値を保存(selfの値をdatasetに)"""
         try:
             if self.current_dataset_index < 0 or not self.datasets or self.current_dataset_index >= len(self.datasets):
                 return
@@ -2122,24 +2122,23 @@ class TikZPlotConverter(QMainWindow):
                     dataset['tangent_x'] = self.tangentXSpin.value()
                     dataset['tangent_length'] = self.tangentLengthSpin.value()
                     
-                    # 色情報を深いコピーで保存
                     if hasattr(self, 'tangentColor'):
                         dataset['tangent_color'] = QColor(self.tangentColor)
                         
-                        # ボタンのスタイルを更新
                         if hasattr(self, 'tangentColorButton'):
                             self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
                     
-                    # 線スタイル
                     if hasattr(self, 'tangentStyleCombo'):
+                        dataset['tangent_style'] = self.tangentStyleCombo.currentText()  # 永続化のために保存
                         tangent_style = dataset.get('tangent_style', '実線')
                         index = self.tangentStyleCombo.findText(tangent_style)
                         if index >= 0:
                             self.tangentStyleCombo.setCurrentIndex(index)
                     
-                    # 接線方程式
                     if hasattr(self, 'showTangentEquationCheck'):
+                        dataset['show_tangent_equation'] = self.showTangentEquationCheck.isChecked()  # 永続化のために保存
                         self.showTangentEquationCheck.setChecked(dataset.get('show_tangent_equation', False))
+                        #pythonは基本参照なので気にしなくておけ(Swift基本触ってるから頭バグるﾝｺﾞ〜泣)
             
             # デバッグ情報
             print(f"データセット '{dataset.get('name')}' が更新されました")
@@ -2148,46 +2147,35 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
-    def update_ui_from_dataset(self, dataset):
-        """現在のデータセットに基づいてUIを更新する"""
+    def update_ui_from_dataset(self, dataset):# TODO
+        """新しい選択行を保存時点でのデータセットに基づいてUIを更新する（apply_fomula,on_dataset_selected）"""
         try:
-            # 一時的にUIコンポーネントから発生するシグナルを切断
-            # これにより他のデータセットに影響を与えるのを防ぐ
             self.block_signals_temporarily(True)
             
-            # データソースタイプの設定
             data_source_type = dataset.get('data_source_type', 'measured')
             
-            # データソースタイプ表示ラベルを更新
             self.dataSourceTypeDisplayLabel.setText("実測データ" if data_source_type == 'measured' else "数式データ")
             
-            # 色の設定（共通項目）- 独自のコピーを作成
             color = dataset.get('color', QColor('blue'))
             if not isinstance(color, QColor):
                 color = QColor(color)
-            self.currentColor = QColor(color)  # 新しいQColorオブジェクトを作成
+            self.currentColor = QColor(color)  
             self.colorButton.setStyleSheet(f'background-color: {self.currentColor.name()};')
             
-            # 線の太さ
             self.lineWidthSpin.setValue(dataset.get('line_width', 1.0))
             
-            # マーカースタイル
             marker_style = str(dataset.get('marker_style', '*'))
             marker_index = self.markerCombo.findText(marker_style)
             if marker_index >= 0:
                 self.markerCombo.setCurrentIndex(marker_index)
             
-            # マーカーサイズ
-            self.markerSizeSpin.setValue(dataset.get('marker_size', 3.0))
-            
-            # 凡例表示
+            self.markerSizeSpin.setValue(dataset.get('marker_size', 2.0))
+            self.gridCheck.setChecked(dataset.get('grid',True))
             self.legendCheck.setChecked(dataset.get('show_legend', True))
             
-            # 凡例ラベル
             legend_text = str(dataset.get('legend_label', dataset.get('name', '')))
             self.legendLabel.setText(legend_text)
             
-            # プロットタイプ
             plot_type = str(dataset.get('plot_type', 'line'))
             if plot_type == "line": 
                 self.lineRadio.setChecked(True)
@@ -2198,7 +2186,6 @@ class TikZPlotConverter(QMainWindow):
             else: 
                 self.barRadio.setChecked(True)
                 
-            # データソースタイプラジオボタンの更新
             if data_source_type == 'measured':
                 if not self.measuredRadio.isChecked():
                     self.measuredRadio.setChecked(True)
@@ -2206,17 +2193,13 @@ class TikZPlotConverter(QMainWindow):
                 if not self.formulaRadio.isChecked():
                     self.formulaRadio.setChecked(True)
             
-            # データソースタイプに応じた詳細設定の更新
             if data_source_type == 'measured':
-                # 実測値の場合
                 file_path = dataset.get('file_path', '')
                 file_type = dataset.get('file_type', 'csv')
                 
-                # セル範囲の設定
                 self.xRangeEntry.setText(dataset.get('x_range', ''))
                 self.yRangeEntry.setText(dataset.get('y_range', ''))
                 
-                # ファイルタイプに応じた設定
                 if file_type == 'csv':
                     self.csvRadio.setChecked(True)
                     self.fileEntry.setText(file_path)
@@ -2224,7 +2207,6 @@ class TikZPlotConverter(QMainWindow):
                     self.excelRadio.setChecked(True)
                     self.excelEntry.setText(file_path)
                     
-                    # シート名を設定
                     sheet_name = dataset.get('sheet_name', '')
                     if sheet_name:
                         index = self.sheetCombobox.findText(sheet_name)
@@ -2233,66 +2215,54 @@ class TikZPlotConverter(QMainWindow):
                 elif file_type == 'manual':
                     self.manualRadio.setChecked(True)
                 
-                # UIの有効/無効状態を更新
                 self.toggle_source_fields()
                 
-                # データテーブルを更新
                 self.dataTable.setRowCount(0)
                 if dataset.get('data_x') and len(dataset.get('data_x')) > 0:
                     self.update_data_table_from_dataset(dataset)
             else:
-                # 数式モードの場合
-                # 数式設定を更新
                 self.equationEntry.setText(dataset.get('equation', 'x^2'))
                 self.domainMinSpin.setValue(dataset.get('domain_min', 0))
                 self.domainMaxSpin.setValue(dataset.get('domain_max', 10))
                 self.samplesSpin.setValue(dataset.get('samples', 200))
             
-                # 接線設定の更新
                 if hasattr(self, 'showTangentCheck'):
                     self.showTangentCheck.setChecked(dataset.get('show_tangent', False))
                 
                 if hasattr(self, 'tangentXSpin'):
-                    self.tangentXSpin.setValue(dataset.get('tangent_x', 5))
+                    self.tangentXSpin.setValue(dataset.get('tangent_x', 1))
                 
                 if hasattr(self, 'tangentLengthSpin'):
                     self.tangentLengthSpin.setValue(dataset.get('tangent_length', 2))
                 
-                # 接線の色設定
                 if hasattr(self, 'tangentColorButton'):
-                    tangent_color = dataset.get('tangent_color', QColor('purple'))
-                    self.tangentColor = QColor(tangent_color)  # 新しいQColorオブジェクトを作成
+                    tangent_color = dataset.get('tangent_color', QColor('red'))
+                    self.tangentColor = QColor(tangent_color) 
                     self.tangentColorButton.setStyleSheet(f'background-color: {self.tangentColor.name()};')
                 
-                # 接線スタイル
                 if hasattr(self, 'tangentStyleCombo'):
                     tangent_style = dataset.get('tangent_style', '実線')
                     index = self.tangentStyleCombo.findText(tangent_style)
                     if index >= 0:
                         self.tangentStyleCombo.setCurrentIndex(index)
                 
-                # 接線方程式表示
                 if hasattr(self, 'showTangentEquationCheck'):
                     self.showTangentEquationCheck.setChecked(dataset.get('show_tangent_equation', False))
             
-            # UIベースのデータソースタイプの更新
             self.update_ui_based_on_data_source_type()
             
-            # シグナル接続を復元
             self.block_signals_temporarily(False)
             
-            # デバッグ情報
             print(f"データセット '{dataset.get('name')}' からUIを更新しました")
             
         except Exception as e:
-            # シグナル接続を確実に復元
             self.block_signals_temporarily(False)
             import traceback
             QMessageBox.critical(self, "エラー", f"UI更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
-    def block_signals_temporarily(self, block):
-        """UI要素からのシグナルを一時的にブロック/ブロック解除する"""
-        # グラフ設定関連のUI要素
+    def block_signals_temporarily(self, block):# TODO
+        """値の更新による挙動を防ぐ"""
+        # 個別設定
         ui_elements = [
             self.lineWidthSpin,
             self.markerCombo,
@@ -2305,13 +2275,11 @@ class TikZPlotConverter(QMainWindow):
             self.legendLabel
         ]
         
-        # データソースタイプ関連（存在する場合）
         if hasattr(self, 'measuredRadio'):
             ui_elements.append(self.measuredRadio)
         if hasattr(self, 'formulaRadio'):
             ui_elements.append(self.formulaRadio)
             
-        # 数式関連（存在する場合）
         if hasattr(self, 'equationEntry'):
             ui_elements.append(self.equationEntry)
         if hasattr(self, 'domainMinSpin'):
@@ -2327,39 +2295,32 @@ class TikZPlotConverter(QMainWindow):
         for element in ui_elements:
             element.blockSignals(block)
     
-    def update_ui_based_on_data_source_type(self):
-        """データソースタイプに基づいてUIの表示/非表示を更新する"""
+    def update_ui_based_on_data_source_type(self):# TODO
+        """データソースタイプに基づいて手入力，数式入力のUI表示更新"""
         if not hasattr(self, 'measuredRadio') or not hasattr(self, 'formulaRadio'):
-            return  # UIがまだ初期化されていない場合
+            return 
             
-        # 測定値モードの場合
         if self.measuredRadio.isChecked():
-            # 測定値関連のUIを表示
             self.csvRadio.setEnabled(True)
             self.excelRadio.setEnabled(True)
             self.fileEntry.setEnabled(self.csvRadio.isChecked())
             self.excelEntry.setEnabled(self.excelRadio.isChecked())
             self.sheetCombobox.setEnabled(self.excelRadio.isChecked())
             
-            # CSVとExcelの場合でセル範囲の有効/無効を切り替え
             is_csv_or_excel = self.csvRadio.isChecked() or self.excelRadio.isChecked()
             
-            # セル範囲はCSVとExcel両方で有効
             self.xRangeEntry.setEnabled(is_csv_or_excel)
             self.yRangeEntry.setEnabled(is_csv_or_excel)
             
             self.manualRadio.setEnabled(True)
             self.dataTable.setEnabled(self.manualRadio.isChecked())
             
-            # 数式関連のUIを非表示または無効化
             self.equationEntry.setEnabled(False)
             self.domainMinSpin.setEnabled(False)
             self.domainMaxSpin.setEnabled(False)
             self.samplesSpin.setEnabled(False)
             
-        # 数式モードの場合
         else:
-            # 測定値関連のUIを非表示または無効化
             self.csvRadio.setEnabled(False)
             self.excelRadio.setEnabled(False)
             self.fileEntry.setEnabled(False)
@@ -2370,26 +2331,22 @@ class TikZPlotConverter(QMainWindow):
             self.manualRadio.setEnabled(False)
             self.dataTable.setEnabled(False)
             
-            # 数式関連のUIを表示
             self.equationEntry.setEnabled(True)
             self.domainMinSpin.setEnabled(True)
             self.domainMaxSpin.setEnabled(True)
             self.samplesSpin.setEnabled(True)
     
-    def update_data_table_from_dataset(self, dataset):
+    def update_data_table_from_dataset(self, dataset):# TODO
         """データテーブルにデータセットの内容を反映する"""
         try:
-            # テーブルをクリア
             self.dataTable.setRowCount(0)
             
-            # データがない場合は何もしない
             if not dataset.get('data_x') or not dataset.get('data_y'):
                 return
                 
             data_x = dataset.get('data_x', [])
             data_y = dataset.get('data_y', [])
             
-            # 空のリストの場合も処理せずに終了
             if not data_x or not data_y:
                 return
             
@@ -2752,7 +2709,7 @@ class TikZPlotConverter(QMainWindow):
             # 数式の場合は理論曲線として描画
             equation = dataset.get('equation', 'x^2')
             # TikZ互換の数式に変換
-            tikz_equation = self.format_equation_for_tikz(equation)
+            tikz_equation = equation
             domain_min = dataset.get('domain_min', 0)
             domain_max = dataset.get('domain_max', 10)
             samples = dataset.get('samples', 200)
@@ -3257,9 +3214,8 @@ class TikZPlotConverter(QMainWindow):
         # UIの要素の有効/無効を更新
         self.update_ui_based_on_data_source_type()
 
-    def apply_formula(self):
+    def apply_formula(self):# TODO
         """数式を適用してデータを生成する"""
-        # 入力値を保存
         self.update_current_dataset()
         if self.current_dataset_index < 0:
             QMessageBox.warning(self, "警告", "数式を適用するデータセットを選択してください")
@@ -3271,12 +3227,10 @@ class TikZPlotConverter(QMainWindow):
             return
             
         try:
-            # 数式、ドメイン、サンプル数を取得
             domain_min = self.domainMinSpin.value()
             domain_max = self.domainMaxSpin.value()
             samples = self.samplesSpin.value()
             
-            # データセットを更新
             dataset = self.datasets[self.current_dataset_index]
             dataset['data_source_type'] = 'formula'
             dataset['equation'] = equation
@@ -3284,7 +3238,6 @@ class TikZPlotConverter(QMainWindow):
             dataset['domain_max'] = domain_max
             dataset['samples'] = samples
             
-            # 接線設定も更新
             dataset['show_tangent'] = self.showTangentCheck.isChecked()
             dataset['tangent_x'] = self.tangentXSpin.value()
             dataset['tangent_length'] = self.tangentLengthSpin.value()
@@ -3292,18 +3245,15 @@ class TikZPlotConverter(QMainWindow):
             dataset['tangent_style'] = self.tangentStyleCombo.currentText()
             dataset['show_tangent_equation'] = self.showTangentEquationCheck.isChecked()
             
-            # X値（ドメイン）の生成
+            # xの範囲を分割
             x_values = np.linspace(domain_min, domain_max, samples).tolist()
             dataset['data_x'] = x_values
             
-            # 実際の値はTikZコード生成時に計算されるため、空のリストを設定
+            # 実際の値はTikZコード生成時に計算されるため空
             dataset['data_y'] = []
             
-            # 数式をPythonで評価して試験的にY値を計算（範囲外チェック用）
             python_formula = equation.replace('^', '**')
-            python_formula = self.format_equation_for_tikz(python_formula)
             
-            # グラフ表示範囲を取得
             y_min = self.global_settings['y_min']
             y_max = self.global_settings['y_max']
             
@@ -3313,22 +3263,20 @@ class TikZPlotConverter(QMainWindow):
             
             for test_x in test_points:
                 try:
+                    # math以外の組み込み関数を封じる
                     test_y = eval(python_formula.replace('x', str(test_x)), {"__builtins__": {}}, {"math": math})
                     if test_y < y_min or test_y > y_max:
                         out_of_range_points.append((test_x, test_y))
                 except Exception as e:
-                    # 評価エラーは無視（実際のプロット時に処理される）
                     pass
             
-            # 範囲外の点があれば警告
             if out_of_range_points:
                 point_info = ", ".join([f"(x={x:.2f}, y={y:.2f})" for x, y in out_of_range_points])
                 QMessageBox.warning(self, "表示範囲外の値", 
-                    f"計算された一部の点がグラフ表示範囲外です: {point_info}\n\n"
+                    f"計算された一部の点がグラフ表示範囲外です: {point_info}など\n\n"
                     f"グラフ表示範囲: Y軸 [{y_min}, {y_max}]\n\n"
-                    "グラフの一部が表示されない可能性があります。Y軸の範囲を調整することを検討してください。")
+                    "グラフの一部が表示されない可能性があります。X軸，Y軸の範囲を調整することを検討してください。")
             
-            # データセットの変更後にUI更新
             self.update_ui_from_dataset(dataset)
             self.statusBar.showMessage("数式データを適用しました", 3000)
             
@@ -3341,11 +3289,6 @@ class TikZPlotConverter(QMainWindow):
     def update_column_names(self, file_path):
         try:
             df = pd.read_csv(file_path)
-            # 列選択コンボボックスは削除されたため、このメソッドは不要になりました
-            # self.xColCombo.clear()
-            # self.yColCombo.clear()
-            # self.xColCombo.addItems(df.columns)
-            # self.yColCombo.addItems(df.columns)
             self.statusBar.showMessage(f"CSVファイルを読み込みました: {len(df.columns)}列")
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"CSVファイルの読み込みに失敗しました: {str(e)}")
@@ -3467,42 +3410,6 @@ class TikZPlotConverter(QMainWindow):
             self.tangentColorButton.setStyleSheet(f'background-color: {color.name()};')
             self.statusBar.showMessage("接線の色を設定しました", 2000)
 
-
-    # まず、クラスのトップレベルに数式を変換するヘルパーメソッドを追加
-    def format_equation_for_tikz(self, equation):
-        # 自動補間をやめて、入力そのまま返す
-        return equation
-
-    def insert_formula_preset(self, formula):
-        """数式プリセットをクリックしたときに呼ばれる関数"""
-        try:
-            # 現在のカーソル位置に数式を挿入するか現在の内容を置き換える
-            current_text = self.equationEntry.text()
-            if current_text.strip() == "":
-                # テキストが空の場合は単純に設定
-                self.equationEntry.setText(formula)
-            else:
-                # 確認ダイアログを表示
-                reply = QMessageBox.question(
-                    self, 
-                    "数式の挿入", 
-                    f"現在の数式を\n「{formula}」\nに置き換えますか？\n\n「いいえ」を選択すると現在の数式に追加します。",
-                    QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
-                )
-                
-                if reply == QMessageBox.Yes:
-                    # 内容を置き換え
-                    self.equationEntry.setText(formula)
-                elif reply == QMessageBox.No:
-                    # 現在のテキストの末尾に追加
-                    self.equationEntry.setText(f"{current_text} + {formula}")
-                # Cancelの場合は何もしない
-            
-            # フォーカスを数式入力欄に戻す
-            self.equationEntry.setFocus()
-            
-        except Exception as e:
-            QMessageBox.critical(self, "エラー", f"数式の挿入中にエラーが発生しました: {str(e)}")
 
     def insert_function_from_table(self, row, column):
         """関数テーブルの関数をダブルクリックして挿入"""
