@@ -1054,8 +1054,7 @@ class TikZPlotConverter(QMainWindow):
         # 初期状態のデータソース選択を反映
         self.toggle_source_fields()
     
-    # CSVファイル選択ダイアログ
-    def browse_csv_file(self):
+    def browse_csv_file(self):# TODO
         file_path, _ = QFileDialog.getOpenFileName(
             self, "CSVファイルを選択", "", "CSV Files (*.csv);;All Files (*)")
         if file_path:
@@ -1063,8 +1062,7 @@ class TikZPlotConverter(QMainWindow):
             self.csvRadio.setChecked(True)
             self.toggle_source_fields()
     
-    # Excelファイル選択ダイアログ
-    def browse_excel_file(self):
+    def browse_excel_file(self):# TODO
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Excelファイルを選択", "", "Excel Files (*.xlsx *.xls);;All Files (*)")
         if file_path:
@@ -1074,7 +1072,7 @@ class TikZPlotConverter(QMainWindow):
             self.update_sheet_names(file_path)
     
     # シート名の更新（Excelファイル用）
-    def update_sheet_names(self, file_path):
+    def update_sheet_names(self, file_path):# TODO
         try:
             xls = pd.ExcelFile(file_path)
             self.sheetCombobox.clear()
@@ -1125,7 +1123,7 @@ class TikZPlotConverter(QMainWindow):
     
     # データを読み込む
     def load_data(self):
-        """選択されたデータソースからデータを読み込む"""
+        """データ入力タブ保存ボタン"""
         try:
             if self.current_dataset_index < 0:
                 QMessageBox.warning(self, "警告", "データを読み込むデータセットを選択してください")
@@ -1134,47 +1132,43 @@ class TikZPlotConverter(QMainWindow):
             data_x = []
             data_y = []
             
-            # セル範囲の取得
             x_range = self.xRangeEntry.text().strip()
             y_range = self.yRangeEntry.text().strip()
             
             if self.csvRadio.isChecked():
-                # CSVファイル選択時のチェックと処理
                 file_path = self.fileEntry.text()
                 if not file_path or not os.path.exists(file_path):
                     QMessageBox.warning(self, "警告", "有効なCSVファイルを選択してください")
                     return
                 
-                # セル範囲のチェック
                 if not x_range or not y_range:
                     QMessageBox.warning(self, "警告", "X軸とY軸のセル範囲を指定してください")
                     return
                 
                 # CSVファイルの読み込み処理（以下略）...
                 try:
-                    # まずUTF-8で試す
+                    # UTF-8
                     df = pd.read_csv(file_path, encoding='utf-8', sep=None, engine='python')
                 except UnicodeDecodeError:
                     try:
-                        # 次にShift-JISで試す
+                        # Shift-JIS
                         df = pd.read_csv(file_path, encoding='shift_jis', sep=None, engine='python')
                     except UnicodeDecodeError:
                         try:
-                            # 次にCP932（Windows日本語）で試す
+                            # CP932
                             df = pd.read_csv(file_path, encoding='cp932', sep=None, engine='python')
                         except UnicodeDecodeError:
                             try:
-                                # 次にEUC-JPで試す
+                                # EUC-JP
                                 df = pd.read_csv(file_path, encoding='euc_jp', sep=None, engine='python')
                             except UnicodeDecodeError:
-                                # それでも失敗する場合はエラーメッセージを表示
+                                # その他のエラー
                                 QMessageBox.warning(self, "エンコーディングエラー", 
                                                   "CSVファイルのエンコーディングを自動判別できませんでした。\n"
                                                   "ファイルが破損しているか、サポートされていないエンコーディングの可能性があります。\n"
                                                   "UTF-8、Shift-JIS、CP932、EUC-JPのいずれかで保存し直してください。")
                                 return
                 except Exception as e:
-                    # その他のエラーが発生した場合
                     QMessageBox.warning(self, "CSVファイル読み込みエラー", 
                                       f"CSVファイルの読み込み中にエラーが発生しました: {str(e)}\n"
                                       "ファイル形式を確認してください。")
@@ -1186,15 +1180,12 @@ class TikZPlotConverter(QMainWindow):
                 except Exception as e:
                     error_msg = str(e)
                     if "セル範囲" in error_msg:
-                        # セル範囲関連のエラー
                         QMessageBox.warning(self, "セル範囲エラー", f"{error_msg}\n\n正しいセル範囲の例:\n- X軸「A2:A10」Y軸「B2:B10」（同じ行数の異なる列）\n- X軸「A2:E2」Y軸「A3:E3」（同じ列数の異なる行）")
                     else:
-                        # その他のエラー
                         QMessageBox.warning(self, "警告", f"CSVセル範囲からのデータ抽出中にエラーが発生しました: {error_msg}")
                     return
                 
             elif self.excelRadio.isChecked():
-                # Excelファイル選択時のチェックと処理
                 file_path = self.excelEntry.text()
                 if not file_path or not os.path.exists(file_path):
                     QMessageBox.warning(self, "警告", "有効なExcelファイルを選択してください")
@@ -1205,29 +1196,25 @@ class TikZPlotConverter(QMainWindow):
                     QMessageBox.warning(self, "警告", "シート名を選択してください")
                     return
                 
-                # セル範囲のチェック
                 if not x_range or not y_range:
                     QMessageBox.warning(self, "警告", "X軸とY軸のセル範囲を指定してください")
                     return
                 
                 try:
-                    # A1:A10形式のセル範囲を直接Excelから読み込む
                     result = self.extract_data_from_excel_range(file_path, sheet_name, x_range, y_range)
                     
-                    # 戻り値が警告メッセージを含むかチェック
+                    # 警告文があるかどうか
                     if len(result) == 3:
                         data_x, data_y, warnings = result
                         if warnings:
-                            # 警告メッセージがリストやタプルの場合、文字列に変換
                             safe_warnings = []
                             for warning in warnings:
                                 if isinstance(warning, (list, tuple)):
                                     safe_warnings.append(str(warning))
                                 else:
                                     safe_warnings.append(str(warning))
-                            
                             QMessageBox.information(self, "データ読み込み情報", 
-                                              "データは正常に読み込まれました。参考情報:\n- " + 
+                                              "データは正常に読み込まれました。\n参考情報:\n- " + 
                                               "\n- ".join(safe_warnings))
                     else:
                         data_x, data_y = result
@@ -1242,7 +1229,6 @@ class TikZPlotConverter(QMainWindow):
                     return
                 
             elif self.manualRadio.isChecked():
-                # 手入力データの場合
                 for row in range(self.dataTable.rowCount()):
                     x_item = self.dataTable.item(row, 0)
                     y_item = self.dataTable.item(row, 1)
@@ -1296,64 +1282,62 @@ class TikZPlotConverter(QMainWindow):
             self.statusBar.showMessage("データ読み込みエラー")
     
     def extract_data_from_range(self, df, x_range, y_range):
-        """データフレームからセル範囲のデータを抽出する"""
+        """dfは形式指定で読み込んだ中身"""
         import pandas as pd
         
         def parse_range(range_str):
-            # A1:A10 のような形式を解析
+            """S行idx, S列idx, E行idx, E列idx"""
             try:
-                # : で分割
                 parts = range_str.split(':')
                 if len(parts) != 2:
                     raise ValueError(f"セル範囲の形式が正しくありません: {range_str} (例: A1:A10)")
                 
                 start_cell, end_cell = parts
                 
-                # 列と行を分解（A1 -> 列='A', 行='1'）
                 start_col = ''.join(c for c in start_cell if c.isalpha())
-                start_row = int(''.join(c for c in start_cell if c.isdigit())) - 1  # 0-indexedに変換
+                start_row_idx = int(''.join(c for c in start_cell if c.isdigit())) - 1 
                 
                 end_col = ''.join(c for c in end_cell if c.isalpha())
-                end_row = int(''.join(c for c in end_cell if c.isdigit())) - 1  # 0-indexedに変換
+                end_row_idx = int(''.join(c for c in end_cell if c.isdigit())) - 1  
                 
-                # 列をインデックスに変換
                 def col_to_index(col_str):
+                    """
+                    #* 26進数
+                    UnicodeのA-Zを0-25に変換\n
+                    BAの場合は 2 * 26^1 + 1 * 26^0 = 53\n
+                    indexなので-1\n
+                    """
                     index = 0
                     for i, char in enumerate(reversed(col_str)):
                         index += (ord(char.upper()) - ord('A') + 1) * (26 ** i)
-                    return index - 1  # 0-indexedに変換
+                    return index - 1  
                 
                 start_col_idx = col_to_index(start_col)
                 end_col_idx = col_to_index(end_col)
                 
-                return (start_row, start_col_idx, end_row, end_col_idx)
+                return (start_row_idx, start_col_idx, end_row_idx, end_col_idx)
             except Exception as e:
                 raise ValueError(f"セル範囲の解析中にエラーが発生しました ({range_str}): {str(e)}")
         
         try:
-            # セル範囲解析
             x_start_row, x_start_col, x_end_row, x_end_col = parse_range(x_range)
             y_start_row, y_start_col, y_end_row, y_end_col = parse_range(y_range)
             
-            # データの取り出し
             data_x = []
             data_y = []
             warnings = []
             
-            # X軸データの取得方法を判断
-            x_is_row = (x_start_row == x_end_row)  # 同じ行なら行方向（横）
-            x_is_column = (x_start_col == x_end_col)  # 同じ列なら列方向（縦）
+            x_is_row = (x_start_row == x_end_row)  # 横方向
+            x_is_column = (x_start_col == x_end_col)  # 縦方向
             
-            # Y軸データの取得方法を判断
-            y_is_row = (y_start_row == y_end_row)  # 同じ行なら行方向（横）
-            y_is_column = (y_start_col == y_end_col)  # 同じ列なら列方向（縦）
+            y_is_row = (y_start_row == y_end_row)  # 横方向
+            y_is_column = (y_start_col == y_end_col)  # 縦方向
             
-            # X軸データの取り出し
             if not (x_is_row or x_is_column):
                 raise ValueError("X軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
             
             if x_is_row:
-                # 横方向の範囲（同じ行の複数セル）
+                # 横方向
                 for col in range(x_start_col, x_end_col + 1):
                     if col < len(df.columns):
                         val = df.iloc[x_start_row, col]
@@ -1361,7 +1345,7 @@ class TikZPlotConverter(QMainWindow):
                     else:
                         warnings.append(f"指定されたX軸の列インデックス {col} はデータフレームの範囲外です")
             else:
-                # 縦方向の範囲（同じ列の複数行）
+                # 縦方向
                 for row in range(x_start_row, x_end_row + 1):
                     if row < len(df):
                         val = df.iloc[row, x_start_col]
@@ -1369,12 +1353,11 @@ class TikZPlotConverter(QMainWindow):
                     else:
                         warnings.append(f"指定されたX軸の行インデックス {row} はデータフレームの範囲外です")
             
-            # Y軸データの取り出し
             if not (y_is_row or y_is_column):
                 raise ValueError("Y軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
             
             if y_is_row:
-                # 横方向の範囲（同じ行の複数セル）
+                # 横方向
                 for col in range(y_start_col, y_end_col + 1):
                     if col < len(df.columns):
                         val = df.iloc[y_start_row, col]
@@ -1382,7 +1365,7 @@ class TikZPlotConverter(QMainWindow):
                     else:
                         warnings.append(f"指定されたY軸の列インデックス {col} はデータフレームの範囲外です")
             else:
-                # 縦方向の範囲（同じ列の複数行）
+                # 縦方向
                 for row in range(y_start_row, y_end_row + 1):
                     if row < len(df):
                         val = df.iloc[row, y_start_col]
@@ -1390,23 +1373,19 @@ class TikZPlotConverter(QMainWindow):
                     else:
                         warnings.append(f"指定されたY軸の行インデックス {row} はデータフレームの範囲外です")
             
-            # X軸とY軸の方向が異なる場合の処理
             if (x_is_row and y_is_column) or (x_is_column and y_is_row):
-                # 方向が異なる場合は、データの長さが一致しない可能性が高い
-                warnings.append(f"データの向きの情報: X軸は{'横方向（行に沿って）' if x_is_row else '縦方向（列に沿って）'}、Y軸は{'横方向（行に沿って）' if y_is_row else '縦方向（列に沿って）'}です。これは問題ありません。")
+                # 縦横異なるとデータ数が一致しない可能性あり
+                warnings.append(f"データの向きの情報:\n X軸は{'横方向（行に沿って）' if x_is_row else '縦方向（列に沿って）'}、Y軸は{'横方向（行に沿って）' if y_is_row else '縦方向（列に沿って）'}です．これは問題ありません．\n")
                 
-                # デバッグ情報を追加
-                x_debug = f"X軸データ({len(data_x)}個): {str(data_x[:5])}{'...' if len(data_x) > 5 else ''}"
-                y_debug = f"Y軸データ({len(data_y)}個): {str(data_y[:5])}{'...' if len(data_y) > 5 else ''}"
-                warnings.append(x_debug)
-                warnings.append(y_debug)
+                # x_debug = f"X軸データ({len(data_x)}個): {str(data_x[:5])}{'...' if len(data_x) > 5 else ''}"
+                # y_debug = f"Y軸データ({len(data_y)}個): {str(data_y[:5])}{'...' if len(data_y) > 5 else ''}"
+                # warnings.append(x_debug)
+                # warnings.append(y_debug)
                 
-                # データの数が合わない場合の特別なペアリングアルゴリズム
                 if len(data_x) != len(data_y):
                     warnings.append(f"X軸({len(data_x)}個)とY軸({len(data_y)}個)のデータ数が一致しません")
                     
                     if len(data_x) < len(data_y):
-                        # X軸データが少ない場合、Y軸データを先頭から必要な分だけ使用
                         data_y = data_y[:len(data_x)]
                         warnings.append(f"Y軸データを先頭から{len(data_x)}個使用します")
                     else:
@@ -1449,18 +1428,20 @@ class TikZPlotConverter(QMainWindow):
             # エラーを再スロー
             raise e
     
-    def extract_data_from_excel_range(self, file_path, sheet_name, x_range, y_range):
-        """Excelファイルから直接セル範囲のデータを抽出する"""
+    def extract_data_from_excel_range(self, file_path, sheet_name, x_range, y_range):# TODO
+        """
+        - Excelファイルから直接セル範囲のデータを抽出する\n
+        - 有効なx,yが返る\n
+        - イレギュラーがない場合戻り値2，警告がある場合戻り値3\n
+        """
         import openpyxl
         import math
         
-        # ワークブックとシートを読み込む
         try:
             print(f"Excel読み込み試行: {file_path}, シート: {sheet_name}, X範囲: {x_range}, Y範囲: {y_range}")
             wb = openpyxl.load_workbook(file_path, data_only=True)
             sheet = wb[sheet_name]
             
-            # セル範囲からデータを取得
             try:
                 x_cells = list(sheet[x_range])
                 print(f"X軸セル範囲読み込み成功: {len(x_cells)}行")
@@ -1479,37 +1460,30 @@ class TikZPlotConverter(QMainWindow):
             data_y = []
             warnings = []
             
-            # X軸データの取得方法を判断
-            x_is_row = len(x_cells) == 1  # 1行の場合は行方向（横）
-            x_is_column = all(len(row) == 1 for row in x_cells)  # 全ての行が1列の場合は列方向（縦）
+            #* 行ごとの配列なので1であれば1行で列方向(左右)
+            x_is_row = len(x_cells) == 1 
+            #*　全ての行の要素数が1であれば行方向(上下)
+            x_is_column = all(len(row) == 1 for row in x_cells)  
+            y_is_row = len(y_cells) == 1  
+            y_is_column = all(len(row) == 1 for row in y_cells) 
             
-            # Y軸データの取得方法を判断
-            y_is_row = len(y_cells) == 1  # 1行の場合は行方向（横）
-            y_is_column = all(len(row) == 1 for row in y_cells)  # 全ての行が1列の場合は列方向（縦）
-            
-            # X軸データの抽出
             if not (x_is_row or x_is_column):
-                raise ValueError("X軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
+                raise ValueError("X軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります\n")
             
             if x_is_row:
-                # 横方向の範囲（1行の複数セル）
                 data_x = [cell.value for cell in x_cells[0]]
             else:
-                # 縦方向の範囲（1列の複数セル）
                 data_x = [row[0].value for row in x_cells]
             
-            # Y軸データの抽出
+            # yも同様
             if not (y_is_row or y_is_column):
-                raise ValueError("Y軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります")
+                raise ValueError("Y軸のセル範囲は、1行の複数セルまたは1列の複数セルである必要があります\n")
             
             if y_is_row:
-                # 横方向の範囲（1行の複数セル）
                 data_y = [cell.value for cell in y_cells[0]]
             else:
-                # 縦方向の範囲（1列の複数セル）
                 data_y = [row[0].value for row in y_cells]
             
-            # セルデータを安全に文字列化する関数
             def safe_str_value(value):
                 if value is None:
                     return "None"
@@ -1518,43 +1492,35 @@ class TikZPlotConverter(QMainWindow):
                 else:
                     return str(value)
             
-            # 最初の数個のデータのサンプルを収集
             x_samples = [safe_str_value(x) for x in data_x[:3]]
             y_samples = [safe_str_value(y) for y in data_y[:3]]
             
-            # データ型情報を取得
             x_types = set(type(x).__name__ for x in data_x if x is not None)
             y_types = set(type(y).__name__ for y in data_y if y is not None)
             
-            # 複合型や意外な型があればその情報を追加
-            x_type_info = ", ".join(x_types) if x_types else "None"
-            y_type_info = ", ".join(y_types) if y_types else "None"
+            # x_type_info = ", ".join(x_types) if x_types else "None"
+            # y_type_info = ", ".join(y_types) if y_types else "None"
             
-            # X軸とY軸の方向が異なる場合の処理
             if (x_is_row and y_is_column) or (x_is_column and y_is_row):
-                # 方向が異なる場合は、データの長さが一致しない可能性が高い
-                # この場合は短い方に合わせる必要があるかもしれないが、
-                # ユーザーに警告を表示することでより適切な対応を促す
-                warnings.append(f"データの向きの情報: X軸は{'横方向（行に沿って）' if x_is_row else '縦方向（列に沿って）'}、Y軸は{'横方向（行に沿って）' if y_is_row else '縦方向（列に沿って）'}です。これは問題ありません。")
+                # 行列不一致
+                warnings.append(f"データの向きの情報: X軸は{'横方向（行に沿って）' if x_is_row else '縦方向（列に沿って）'}、Y軸は{'横方向（行に沿って）' if y_is_row else '縦方向（列に沿って）'}です。これは問題ありません。\n")
                 
-                # デバッグ情報の安全な追加
-                warnings.append(f"X軸データタイプ: {x_type_info}, サンプル: {', '.join(x_samples)}")
-                warnings.append(f"Y軸データタイプ: {y_type_info}, サンプル: {', '.join(y_samples)}")
+                # warnings.append(f"X軸データタイプ: {x_type_info}, サンプル: {', '.join(x_samples)}\n")
+                # warnings.append(f"Y軸データタイプ: {y_type_info}, サンプル: {', '.join(y_samples)}\n")
                 
-                # データの数が合わない場合の特別なペアリングアルゴリズム
+                # x,y軸個数不一致
                 if len(data_x) != len(data_y):
-                    warnings.append(f"X軸({len(data_x)}個)とY軸({len(data_y)}個)のデータ数を自動的に調整しました。")
+                    warnings.append(f"X軸({len(data_x) - 1}個)とY軸({len(data_y) - 1}個)のデータ数を自動的に調整しました。\n")
                     
                     if len(data_x) < len(data_y):
-                        # X軸データが少ない場合、Y軸データを先頭から必要な分だけ使用
                         data_y = data_y[:len(data_x)]
-                        warnings.append(f"Y軸データは先頭から{len(data_x)}個を使用します。")
+                        warnings.append(f"Y軸データは先頭から{len(data_x) - 1}個を使用します。\n")
                     else:
-                        # Y軸データが少ない場合、X軸データを先頭から必要な分だけ使用
                         data_x = data_x[:len(data_y)]
-                        warnings.append(f"X軸データは先頭から{len(data_y)}個を使用します。")
+                        warnings.append(f"X軸データは先頭から{len(data_y) - 1}個を使用します。\n")
+
+            #* ===================processed_data_x=============================
             
-            # 複合データ型（リスト、配列など）や文字列の処理
             processed_data_x = []
             for x in data_x:
                 try:
@@ -1562,22 +1528,18 @@ class TikZPlotConverter(QMainWindow):
                         # Noneは欠損値として扱う
                         processed_data_x.append(float('nan'))
                     elif isinstance(x, (int, float)):
-                        # 数値はそのまま使用
                         processed_data_x.append(float(x))
                     elif isinstance(x, str):
-                        # 文字列は数値変換を試みる
-                        x = x.strip().replace(',', '')  # カンマを除去
+                        x = x.strip().replace(',', '')  
                         if x:
                             try:
                                 processed_data_x.append(float(x))
                             except ValueError:
-                                # 数値に変換できない文字列は欠損値
                                 processed_data_x.append(float('nan'))
-                                warnings.append(f"数値に変換できない文字列「{x}」を欠損値として処理しました")
+                                warnings.append(f"数値に変換できない文字列「{x}」を欠損値として処理しました\n")
                         else:
                             processed_data_x.append(float('nan'))
-                    elif isinstance(x, (list, tuple)):
-                        # リストやタプルの場合、最初の要素を使用（配列関数の結果など）
+                    elif isinstance(x, (list, tuple)):# ROW関数等使われた時用
                         if len(x) > 0:
                             first_item = x[0]
                             if first_item is None:
@@ -1596,35 +1558,36 @@ class TikZPlotConverter(QMainWindow):
                         else:
                             processed_data_x.append(float('nan'))
                     else:
-                        # その他の型はテキスト変換を試みる
                         try:
                             processed_data_x.append(float(str(x)))
                         except:
                             processed_data_x.append(float('nan'))
                             warnings.append(f"未対応のデータ型: {type(x).__name__}")
                 except Exception as e:
-                    # 例外が発生した場合は欠損値として処理
                     processed_data_x.append(float('nan'))
                     warnings.append(f"データ処理中にエラー: {str(e)}")
+
+            #* ===================processed_data_y=============================
             
             processed_data_y = []
             for y in data_y:
                 try:
                     if y is None:
+                        # Noneは欠損値として扱う
                         processed_data_y.append(float('nan'))
                     elif isinstance(y, (int, float)):
                         processed_data_y.append(float(y))
                     elif isinstance(y, str):
-                        y = y.strip().replace(',', '')
+                        y = y.strip().replace(',', '')  
                         if y:
                             try:
                                 processed_data_y.append(float(y))
                             except ValueError:
                                 processed_data_y.append(float('nan'))
-                                warnings.append(f"数値に変換できない文字列「{y}」を欠損値として処理しました")
+                                warnings.append(f"数値に変換できない文字列「{y}」を欠損値として処理しました\n")
                         else:
                             processed_data_y.append(float('nan'))
-                    elif isinstance(y, (list, tuple)):
+                    elif isinstance(y, (list, tuple)):# ROW関数等使われた時用
                         if len(y) > 0:
                             first_item = y[0]
                             if first_item is None:
@@ -1651,41 +1614,36 @@ class TikZPlotConverter(QMainWindow):
                 except Exception as e:
                     processed_data_y.append(float('nan'))
                     warnings.append(f"データ処理中にエラー: {str(e)}")
+
             
-            # 処理済みデータに置き換え
             data_x = processed_data_x
             data_y = processed_data_y
             
-            # データの長さを同じにする
             min_len = min(len(data_x), len(data_y))
             if min_len == 0:
-                raise ValueError("有効なデータがありません。セル範囲を確認してください。")
+                raise ValueError("有効なデータがありません。セル範囲を確認してください。\n")
                 
             if len(data_x) > min_len:
                 data_x = data_x[:min_len]
-                warnings.append(f"データ数を調整しました: X軸のデータを{min_len}個に揃えました。")
+                warnings.append(f"データ数を調整しました: X軸のデータを{min_len}個に揃えました。\n")
             elif len(data_y) > min_len:
                 data_y = data_y[:min_len]
-                warnings.append(f"データ数を調整しました: Y軸のデータを{min_len}個に揃えました。")
+                warnings.append(f"データ数を調整しました: Y軸のデータを{min_len}個に揃えました。\n")
             
-            # 無効なデータを除去
-            valid_indices = [i for i, (x, y) in enumerate(zip(data_x, data_y)) 
-                            if not (math.isnan(x) or math.isnan(y))]
+            valid_indices = [i for i, (x, y) in enumerate(zip(data_x, data_y)) if not (math.isnan(x) or math.isnan(y))]
             
             if not valid_indices:
-                raise ValueError("有効なデータポイントがありません。セル範囲に数値データが含まれているか確認してください。")
+                raise ValueError("有効なデータポイントがありません。セル範囲に数値データが含まれているか確認してください。\n")
                 
             if len(valid_indices) < min_len:
-                warnings.append(f"数値に変換できないデータが{min_len - len(valid_indices)}個あったため無視されました")
+                warnings.append(f"数値に変換できないデータが{min_len - len(valid_indices)}個あったため無視されました\n")
                 
             data_x = [data_x[i] for i in valid_indices]
             data_y = [data_y[i] for i in valid_indices]
             
-            # 警告があれば表示のためログに追加
             for warning in warnings:
                 print(f"警告: {warning}")
             
-            # 警告がある場合はそれを返り値に含める
             return data_x, data_y, warnings if warnings else (data_x, data_y)
             
         except Exception as e:
