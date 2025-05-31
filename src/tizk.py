@@ -1053,6 +1053,8 @@ class TikZPlotConverter(QMainWindow):
         
         # 初期状態のデータソース選択を反映
         self.toggle_source_fields()
+
+    #* ======================処理============================================ 
     
     def browse_csv_file(self):# TODO
         file_path, _ = QFileDialog.getOpenFileName(
@@ -1071,7 +1073,6 @@ class TikZPlotConverter(QMainWindow):
             self.toggle_source_fields()
             self.update_sheet_names(file_path)
     
-    # シート名の更新（Excelファイル用）
     def update_sheet_names(self, file_path):# TODO
         try:
             xls = pd.ExcelFile(file_path)
@@ -1082,7 +1083,6 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"シート名の取得に失敗しました: {str(e)}")
             self.statusBar.showMessage("ファイル読み込みエラー")
     
-    # データソースタイプの切り替え
     def toggle_source_fields(self, button=None):# TODO
         if self.csvRadio.isChecked():
             self.fileEntry.setEnabled(True)
@@ -1121,9 +1121,11 @@ class TikZPlotConverter(QMainWindow):
             # 手入力データ用のツールチップ
             self.loadDataButton.setToolTip("テーブルに入力したデータを現在のデータセットに保存します")
     
-    # データを読み込む
-    def load_data(self):
-        """データ入力タブ保存ボタン"""
+    def load_data(self):# TODO
+        """
+        現在のデータセットから実測値データ入力タブ保存ボタン\n
+        この場でdatasetsにdata_x, data_yを追加するので戻り値なし
+        """
         try:
             if self.current_dataset_index < 0:
                 QMessageBox.warning(self, "警告", "データを読み込むデータセットを選択してください")
@@ -1176,7 +1178,23 @@ class TikZPlotConverter(QMainWindow):
                 
                 try:
                     # A1:A10形式のセル範囲を解析してデータを取得
-                    data_x, data_y = self.extract_data_from_range(df, x_range, y_range)
+                    result = self.extract_data_from_range(df, x_range, y_range)
+                    
+                    # 警告文があるかどうか
+                    if len(result) == 3:
+                        data_x, data_y, warnings = result
+                        if warnings:
+                            safe_warnings = []
+                            for warning in warnings:
+                                if isinstance(warning, (list, tuple)):
+                                    safe_warnings.append(str(warning))
+                                else:
+                                    safe_warnings.append(str(warning))
+                            QMessageBox.information(self, "データ読み込み情報", 
+                                              "データは正常に読み込まれました。\n参考情報:\n- " + 
+                                              "\n- ".join(safe_warnings))
+                    else:
+                        data_x, data_y = result
                 except Exception as e:
                     error_msg = str(e)
                     if "セル範囲" in error_msg:
@@ -1240,17 +1258,15 @@ class TikZPlotConverter(QMainWindow):
                             data_x.append(x_val)
                             data_y.append(y_val)
                         except ValueError:
-                            pass  # 数値に変換できない場合はスキップ
+                            pass  
                 
                 if not data_x:
                     QMessageBox.warning(self, "警告", "有効なデータポイントがありません")
                     return
             else:
-                # データソースが選択されていない場合
                 QMessageBox.warning(self, "警告", "データソース（CSV/Excel/手入力）を選択してください")
                 return
             
-            # データの長さチェック
             if len(data_x) != len(data_y):
                 QMessageBox.warning(self, "警告", f"X軸とY軸のデータ長が一致しません (X: {len(data_x)}, Y: {len(data_y)})")
                 return
@@ -1259,16 +1275,13 @@ class TikZPlotConverter(QMainWindow):
                 QMessageBox.warning(self, "警告", "有効なデータがありません")
                 return
                 
-            # 現在のデータセットにデータを設定
             self.datasets[self.current_dataset_index]['data_x'] = data_x
             self.datasets[self.current_dataset_index]['data_y'] = data_y
             
-            # セル範囲の保存（CSVとExcelの場合のみ）
             if self.csvRadio.isChecked() or self.excelRadio.isChecked():
                 self.datasets[self.current_dataset_index]['x_range'] = x_range
                 self.datasets[self.current_dataset_index]['y_range'] = y_range
             
-            # データテーブルを更新（手動入力モードの場合）
             if self.manualRadio.isChecked():
                 self.update_data_table_from_dataset(self.datasets[self.current_dataset_index])
             
@@ -1281,8 +1294,13 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"データ読み込み中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
             self.statusBar.showMessage("データ読み込みエラー")
     
-    def extract_data_from_range(self, df, x_range, y_range):
-        """dfは形式指定で読み込んだ中身"""
+    def extract_data_from_range(self, df, x_range, y_range):# TODO
+        """
+        -> data_x, data_y, warnings\n
+        - csvファイルから直接セル範囲のデータを抽出する\n
+        - 有効なx,yが返る\n
+        - イレギュラーがない場合戻り値2，警告がある場合戻り値3\n
+        """
         import pandas as pd
         
         def parse_range(range_str):
@@ -1382,18 +1400,16 @@ class TikZPlotConverter(QMainWindow):
                 # warnings.append(x_debug)
                 # warnings.append(y_debug)
                 
-                if len(data_x) != len(data_y):
-                    warnings.append(f"X軸({len(data_x)}個)とY軸({len(data_y)}個)のデータ数が一致しません")
-                    
-                    if len(data_x) < len(data_y):
-                        data_y = data_y[:len(data_x)]
-                        warnings.append(f"Y軸データを先頭から{len(data_x)}個使用します")
-                    else:
-                        # Y軸データが少ない場合、X軸データを先頭から必要な分だけ使用
-                        data_x = data_x[:len(data_y)]
-                        warnings.append(f"X軸データを先頭から{len(data_y)}個使用します")
+            if len(data_x) != len(data_y):
+                warnings.append(f"X軸({len(data_x)}個)とY軸({len(data_y)}個)のデータ数が一致しません")
+                
+                if len(data_x) < len(data_y):
+                    data_y = data_y[:len(data_x)]
+                    warnings.append(f"Y軸データを先頭から{len(data_x)}個使用します")
+                else:
+                    data_x = data_x[:len(data_y)]
+                    warnings.append(f"X軸データを先頭から{len(data_y)}個使用します")
             
-            # データの長さを同じにする
             min_len = min(len(data_x), len(data_y))
             if min_len == 0:
                 raise ValueError("有効なデータがありません。セル範囲を確認してください。")
@@ -1405,11 +1421,10 @@ class TikZPlotConverter(QMainWindow):
                 warnings.append(f"データ数を調整しました: Y軸のデータを{min_len}個に揃えました。")
                 data_y = data_y[:min_len]
             
-            # NaNを処理
+            #! pd使わずinstanceでやろうとするとなんかバグる…？
             data_x = pd.Series(data_x).apply(lambda x: float('nan') if pd.isna(x) else float(x)).tolist()
             data_y = pd.Series(data_y).apply(lambda y: float('nan') if pd.isna(y) else float(y)).tolist()
             
-            # 無効なデータを除去
             valid_indices = [i for i, (x, y) in enumerate(zip(data_x, data_y)) 
                             if not (math.isnan(x) or math.isnan(y))]
             
@@ -1422,14 +1437,13 @@ class TikZPlotConverter(QMainWindow):
             data_x = [data_x[i] for i in valid_indices]
             data_y = [data_y[i] for i in valid_indices]
             
-            # 警告がある場合はそれを返り値に含める
             return (data_x, data_y, warnings) if warnings else (data_x, data_y)
         except Exception as e:
-            # エラーを再スロー
             raise e
     
     def extract_data_from_excel_range(self, file_path, sheet_name, x_range, y_range):# TODO
         """
+        -> data_x, data_y, warnings\n
         - Excelファイルから直接セル範囲のデータを抽出する\n
         - 有効なx,yが返る\n
         - イレギュラーがない場合戻り値2，警告がある場合戻り値3\n
