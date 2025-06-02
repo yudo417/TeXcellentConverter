@@ -1666,21 +1666,17 @@ class TikZPlotConverter(QMainWindow):
             print(traceback.format_exc())
             raise ValueError(f"Excelセル範囲からのデータ抽出中にエラーが発生しました: {str(e)}")
     
-    # 特殊点を追加
-    def add_special_point(self):
+    def add_special_point(self):# TODO
         row_position = self.specialPointsTable.rowCount()
         self.specialPointsTable.insertRow(row_position)
         
-        # デフォルト値の設定
         x_item = QTableWidgetItem("0.0")
         y_item = QTableWidgetItem("0.0")
         
-        # 色選択コンボボックス
         color_combo = QComboBox()
         color_combo.addItems(['red', 'blue', 'green', 'black', 'purple', 'orange', 'brown', 'gray'])
         color_combo.setCurrentText("red")
         
-        # 座標表示コンボボックス（チェックボックスから変更）
         coord_display_combo = QComboBox()
         coord_display_combo.addItems([
             'なし', 
@@ -1698,28 +1694,23 @@ class TikZPlotConverter(QMainWindow):
         self.specialPointsTable.setCellWidget(row_position, 2, color_combo)
         self.specialPointsTable.setCellWidget(row_position, 3, coord_display_combo)
     
-    # 特殊点を削除
-    def remove_special_point(self):
+    def remove_special_point(self):# TODO
         selected_rows = set(index.row() for index in self.specialPointsTable.selectedIndexes())
-        for row in sorted(selected_rows, reverse=True):
+        for row in sorted(selected_rows, reverse=True):# 後ろから削除
             self.specialPointsTable.removeRow(row)
     
-    # 注釈を追加
-    def add_annotation(self):
+    def add_annotation(self):# TODO
         row_position = self.annotationsTable.rowCount()
         self.annotationsTable.insertRow(row_position)
         
-        # デフォルト値の設定
         x_item = QTableWidgetItem("0.0")
         y_item = QTableWidgetItem("0.0")
         text_item = QTableWidgetItem("注釈テキスト")
         
-        # 色選択コンボボックス
         color_combo = QComboBox()
         color_combo.addItems(['black', 'red', 'blue', 'green', 'purple', 'orange', 'brown', 'gray'])
         color_combo.setCurrentText("black")
         
-        # 位置選択コンボボックス - より直感的な表現に変更
         pos_combo = QComboBox()
         pos_combo.addItems(['上', '右上', '右', '右下', '下', '左下', '左', '左上'])
         pos_combo.setCurrentText("右上")
@@ -1730,67 +1721,42 @@ class TikZPlotConverter(QMainWindow):
         self.annotationsTable.setCellWidget(row_position, 3, color_combo)
         self.annotationsTable.setCellWidget(row_position, 4, pos_combo)
     
-    # 注釈を削除
-    def remove_annotation(self):
+    def remove_annotation(self):# TODO
         selected_rows = set(index.row() for index in self.annotationsTable.selectedIndexes())
         for row in sorted(selected_rows, reverse=True):
             self.annotationsTable.removeRow(row)
     
-    # パラメータ値を追加
-    def add_param_value(self):
-        param_name = self.paramNameEntry.text() or "a"
-        min_val = self.paramMinSpin.value()
-        max_val = self.paramMaxSpin.value()
-        step = self.paramStepSpin.value()
-        
-        values = np.arange(min_val, max_val + step/2, step).tolist()
-        
-        for val in values:
-            item_text = f"{param_name} = {val:.4g}"
-            if item_text not in [self.sweepCurvesList.item(i).text() for i in range(self.sweepCurvesList.count())]:
-                self.sweepCurvesList.addItem(item_text)
-    
-    # パラメータ値を削除
-    def remove_param_value(self):
-        for item in self.sweepCurvesList.selectedItems():
-            self.sweepCurvesList.takeItem(self.sweepCurvesList.row(item))
-    
-    # LaTeXコードをクリップボードにコピー
-    def copy_to_clipboard(self):
+    def copy_to_clipboard(self):#*　latex_code
         latex_code = self.resultText.toPlainText()
         if latex_code:
             clipboard = QApplication.clipboard()
             clipboard.setText(latex_code)
             self.statusBar.showMessage("LaTeXコードをクリップボードにコピーしました", 3000)  # 3秒間表示
 
-    def update_global_settings(self):
-        """UIからグラフ全体の設定を更新する"""
+    def update_global_settings(self):# TODO
+        """
+        グラフの全体設定の更新\n
+        LaTeX変換時に発火
+        """
         try:
-            # 軸ラベル
             self.global_settings['x_label'] = self.xLabelEntry.text()
             self.global_settings['y_label'] = self.yLabelEntry.text()
             
-            # 軸範囲
             self.global_settings['x_min'] = self.xMinSpin.value()
             self.global_settings['x_max'] = self.xMaxSpin.value()
             self.global_settings['y_min'] = self.yMinSpin.value()
             self.global_settings['y_max'] = self.yMaxSpin.value()
             
-            # グリッド
             self.global_settings['grid'] = self.gridCheck.isChecked()
             
-            # 凡例設定
             self.global_settings['show_legend'] = self.legendCheck.isChecked()
-            # 日本語表記から内部表現に変換
             legend_pos_jp = self.legendPosCombo.currentText()
-            # 四隅のいずれかであることを確認
             if legend_pos_jp in self.legend_pos_mapping:
                 self.global_settings['legend_pos'] = self.legend_pos_mapping[legend_pos_jp]
             else:
                 # デフォルトは右上
                 self.global_settings['legend_pos'] = 'north east'
             
-            # スケールタイプの設定
             if self.logXScaleRadio.isChecked():
                 self.global_settings['scale_type'] = 'logx'
             elif self.logYScaleRadio.isChecked():
@@ -1800,14 +1766,12 @@ class TikZPlotConverter(QMainWindow):
             else:
                 self.global_settings['scale_type'] = 'normal'
             
-            # 図の設定
             self.global_settings['caption'] = self.captionEntry.text()
             self.global_settings['label'] = self.labelEntry.text()
             self.global_settings['position'] = self.positionCombo.currentText()
             self.global_settings['width'] = self.widthSpin.value()
             self.global_settings['height'] = self.heightSpin.value()
             
-            # 目盛り間隔も反映
             self.x_tick_step = self.xTickStepSpin.value()
             self.y_tick_step = self.yTickStepSpin.value()
             
@@ -1815,26 +1779,20 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"グラフ全体設定の更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
 
-    def convert_to_tikz(self):
-        # データセットが空かチェック
+    def convert_to_tikz(self):# TODO
+        # データセットsが空か
         if not self.datasets or all(not dataset.get('data_x') for dataset in self.datasets):
             QMessageBox.warning(self, "警告", "データが読み込まれていません。先にデータを読み込んでください。")
             return
         
         try:
-            # グラフ全体の設定を更新
             self.update_global_settings()
             
-            # 各データセットを処理
             latex_code = self.generate_tikz_code_multi_datasets()
             
             self.resultText.setPlainText(latex_code)
             self.statusBar.showMessage("TikZコードが生成されました")
-            
-            # ポップアップを削除
-            # QMessageBox.information(self, "TikZコード生成完了", 
-            #                      "TikZコードが生成されました。クリップボードにコピーボタンを押して利用できます。")
-            
+                        
         except Exception as e:
             import traceback
             QMessageBox.critical(self, "エラー", f"変換中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
@@ -1844,14 +1802,14 @@ class TikZPlotConverter(QMainWindow):
     def add_dataset(self, name_arg=None):
         """新しいデータセットを追加する"""
         try:
-            # 既存のデータセットの状態を保存（存在する場合）
+            # 現在のデータセットの状態を保存
             if self.current_dataset_index >= 0 and self.current_dataset_index < len(self.datasets):
                 self.update_current_dataset()
                 
             final_name = ""
+            # ボタンからの追加のみ
             if name_arg is None:
                 dataset_count = self.datasetList.count() + 1
-                # QInputDialog.getText returns (text: str, ok: bool)
                 text_from_dialog, ok = QInputDialog.getText(self, "データセット名", "新しいデータセット名を入力してください:",
                                                           QLineEdit.Normal, f"データセット{dataset_count}")
                 if not ok or not text_from_dialog.strip(): # Ensure name is not empty or just whitespace
@@ -2332,30 +2290,22 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"データテーブル更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
+    #* 重要
     def generate_tikz_code_multi_datasets(self):
-        """複数のデータセットを含むTikZコードを生成する"""
-        # LaTeXコード生成
+        """最終的なTikZコードを生成する"""
         latex = []
         
-        # 図の開始
         latex.append("\\begin{figure}[" + self.global_settings['position'] + "]")
         latex.append("  \\centering")
-        
-        # 図の幅と高さ設定
         width = self.global_settings['width']
         height = self.global_settings['height']
-        
-        # TikZ図の開始
         latex.append("  \\begin{tikzpicture}")
-        
-        # 軸設定
+        #軸の設定
         x_min = self.global_settings['x_min']
         x_max = self.global_settings['x_max']
         y_min = self.global_settings['y_min']
         y_max = self.global_settings['y_max']
         
-        # 軸の範囲チェックと補正
-        # データの実際の最小値と最大値を計算
         all_x_values = []
         all_y_values = []
         for dataset in self.datasets:
@@ -2369,7 +2319,7 @@ class TikZPlotConverter(QMainWindow):
             data_y_min = min(all_y_values)
             data_y_max = max(all_y_values)
             
-            # データポイントが1つしかない場合や、min/maxが同じ場合の処理
+            # データ数1
             if abs(data_x_max - data_x_min) < 1e-10:
                 data_x_min -= 0.5 if abs(data_x_min) > 1 else 0.1
                 data_x_max += 0.5 if abs(data_x_max) > 1 else 0.1
@@ -2378,7 +2328,7 @@ class TikZPlotConverter(QMainWindow):
                 data_y_min -= 0.5 if abs(data_y_min) > 1 else 0.1
                 data_y_max += 0.5 if abs(data_y_max) > 1 else 0.1
             
-            # 軸の範囲がデータの範囲を含んでいるか確認し、必要に応じて調整
+            # 軸の範囲を越える時の調整(10%余裕持たせる)
             if x_min > data_x_min or x_min == 0:
                 x_min = data_x_min - abs(data_x_min) * 0.1 - 0.1
             if x_max < data_x_max or x_max == 0:
@@ -2388,7 +2338,7 @@ class TikZPlotConverter(QMainWindow):
             if y_max < data_y_max or y_max == 0:
                 y_max = data_y_max + abs(data_y_max) * 0.1 + 0.1
             
-            # 小さすぎる値は0に近い値に設定
+            # 小さすぎる値を補正
             if abs(y_min) < 1e-10:
                 y_min = -0.1
             if abs(y_max) < 1e-10:
@@ -2398,7 +2348,6 @@ class TikZPlotConverter(QMainWindow):
             if abs(x_max) < 1e-10:
                 x_max = 0.1
             
-            # 範囲が同じ値の場合（データが全て同じ値の場合）
             if abs(x_min - x_max) < 1e-10:
                 x_min -= 0.5
                 x_max += 0.5
@@ -2406,7 +2355,7 @@ class TikZPlotConverter(QMainWindow):
                 y_min -= 0.5
                 y_max += 0.5
                 
-            # 範囲が極端に小さい場合も調整
+            # 軸の範囲が小さい時
             if abs(x_max - x_min) < 1e-3:
                 margin = abs(x_min) * 0.2 if abs(x_min) > 1e-10 else 0.1
                 x_min -= margin
@@ -2416,73 +2365,63 @@ class TikZPlotConverter(QMainWindow):
                 y_min -= margin
                 y_max += margin
         
-        # 目盛りの設定
+        # 軸の表示点
         xtick_values = []
         ytick_values = []
+
+        tick_min = math.ceil(x_min / self.x_tick_step) * self.x_tick_step
+        tick_max = math.floor(x_max / self.x_tick_step) * self.x_tick_step
         
-        # X軸の目盛りを設定
-        if self.x_tick_step > 0:
-            tick_min = math.ceil(x_min / self.x_tick_step) * self.x_tick_step
-            tick_max = math.floor(x_max / self.x_tick_step) * self.x_tick_step
-            
-            current = tick_min
-            while current <= tick_max:
-                xtick_values.append(current)
-                current += self.x_tick_step
+        current = tick_min
+        while current <= tick_max:
+            xtick_values.append(current)
+            current += self.x_tick_step
+    
+        tick_min = math.ceil(y_min / self.y_tick_step) * self.y_tick_step
+        tick_max = math.floor(y_max / self.y_tick_step) * self.y_tick_step
         
-        # Y軸の目盛りを設定
-        if self.y_tick_step > 0:
-            tick_min = math.ceil(y_min / self.y_tick_step) * self.y_tick_step
-            tick_max = math.floor(y_max / self.y_tick_step) * self.y_tick_step
-            
-            current = tick_min
-            while current <= tick_max:
-                ytick_values.append(current)
-                current += self.y_tick_step
-        
-        # axis環境の設定
+        current = tick_min
+        while current <= tick_max:
+            ytick_values.append(current)
+            current += self.y_tick_step
+    
         axis_options = []
         axis_options.append(f"width={width}\\textwidth")
         axis_options.append(f"height={height}\\textwidth")
         axis_options.append(f"xlabel={{{self.global_settings['x_label']}}}")
         axis_options.append(f"ylabel={{{self.global_settings['y_label']}}}")
         
+        #　原則起こらない
         if x_min != x_max:
             axis_options.append(f"xmin={x_min}, xmax={x_max}")
         if y_min != y_max:
             axis_options.append(f"ymin={y_min}, ymax={y_max}")
         
-        # スケールタイプに基づく軸の設定
         scale_type = self.global_settings.get('scale_type', 'normal')
-        is_xlog = scale_type == 'logx' or scale_type == 'loglog'
-        is_ylog = scale_type == 'logy' or scale_type == 'loglog'
+        is_xlog = (scale_type == 'logx' or scale_type == 'loglog')
+        is_ylog = (scale_type == 'logy' or scale_type == 'loglog')
         
-        # 対数スケールの場合は、0以下の値がないか確認し、あれば調整する
         if is_xlog and x_min <= 0:
-            # 警告を表示
             self.statusBar.showMessage(f"X軸の対数スケールには正の値のみ有効です。X軸の最小値を0.1に自動調整しました。", 5000)
-            # 既存データの最小値を考慮（ただし正の値のみ）
             if all_x_values:
                 positive_x = [x for x in all_x_values if x > 0]
                 if positive_x:
-                    x_min = min(positive_x) * 0.5  # 少し余裕を持たせる
+                    x_min = min(positive_x) * 0.5  
                 else:
-                    x_min = 0.1  # データに正の値がなければ0.1をデフォルトとする
+                    x_min = 0.1  
             else:
-                x_min = 0.1  # データがなければ0.1をデフォルトとする
+                x_min = 0.1  
         
         if is_ylog and y_min <= 0:
-            # 警告を表示
             self.statusBar.showMessage(f"Y軸の対数スケールには正の値のみ有効です。Y軸の最小値を0.1に自動調整しました。", 5000)
-            # 既存データの最小値を考慮（ただし正の値のみ）
             if all_y_values:
                 positive_y = [y for y in all_y_values if y > 0]
                 if positive_y:
-                    y_min = min(positive_y) * 0.5  # 少し余裕を持たせる
+                    y_min = min(positive_y) * 0.5  
                 else:
-                    y_min = 0.1  # データに正の値がなければ0.1をデフォルトとする
+                    y_min = 0.1  
             else:
-                y_min = 0.1  # データがなければ0.1をデフォルトとする
+                y_min = 0.1  
         
         if is_xlog:
             axis_options.append("xmode=log")
@@ -2491,37 +2430,31 @@ class TikZPlotConverter(QMainWindow):
             axis_options.append("ymode=log")
             axis_options.append("log basis y=10")
         
-        # xtick, ytickを自動生成
         if is_xlog:
-            # 対数目盛りの場合は10のべき乗でメモリを生成
+            # 指数部分
             log_x_min = math.floor(math.log10(max(x_min, 1e-10)))
             log_x_max = math.ceil(math.log10(max(x_max, 1e-10)))
             xticks = ','.join(str(10**i) for i in range(log_x_min, log_x_max + 1))
-            # 補助目盛りを追加
             axis_options.append("xminorticks=true")
         else:
             if xtick_values:
                 xticks = ','.join(str(round(tick, 8)) for tick in xtick_values)
             else:
-                # ゼロ除算を防ぐ
                 if abs(x_max - x_min) < 1e-10 or self.x_tick_step < 1e-10:
                     xticks = str(round(x_min, 8))
                 else:
-                    steps = max(1, min(20, int((x_max - x_min) / self.x_tick_step) + 1))  # 最大20ステップに制限
+                    steps = max(1, min(20, int((x_max - x_min) / self.x_tick_step) + 1))  
                     xticks = ','.join(str(round(x_min + i * self.x_tick_step, 8)) for i in range(steps))
         
         if is_ylog:
-            # 対数目盛りの場合は10のべき乗でメモリを生成
             log_y_min = math.floor(math.log10(max(y_min, 1e-10)))
             log_y_max = math.ceil(math.log10(max(y_max, 1e-10)))
             yticks = ','.join(str(10**i) for i in range(log_y_min, log_y_max + 1))
-            # 補助目盛りを追加
             axis_options.append("yminorticks=true")
         else:
             if ytick_values:
                 yticks = ','.join(str(round(tick, 8)) for tick in ytick_values)
             else:
-                # ゼロ除算を防ぐ
                 if abs(y_max - y_min) < 1e-10 or self.y_tick_step < 1e-10:
                     yticks = str(round(y_min, 8))
                 else:
@@ -2531,45 +2464,41 @@ class TikZPlotConverter(QMainWindow):
         axis_options.append(f"xtick={{{xticks}}}")
         axis_options.append(f"ytick={{{yticks}}}")
         
-        # 目盛りを見やすくする設定を追加
         axis_options.append("tick align=outside")
         axis_options.append("minor tick num=1")
         axis_options.append("tick label style={font=\\small}")
         axis_options.append("every node near coord/.style={font=\\footnotesize}")
-        axis_options.append("clip=true")  # 軸の範囲外のデータを非表示にする
+        axis_options.append("clip=true")  
         
         if self.global_settings['grid']:
             axis_options.append("grid=both")
         
-        # 凡例の表示/非表示と位置の設定
         if self.global_settings.get('show_legend', True):
             axis_options.append(f"legend pos={self.global_settings['legend_pos']}")
         
-        # axis環境の開始
+        #* ========================axis開始====================================
         latex.append(f"        \\begin{{axis}}[")
         latex.append(f"            {','.join(axis_options)}")
         latex.append("        ]")
         
-        # 各データセットのプロット処理
         for i, dataset in enumerate(self.datasets):
             if dataset.get('data_source_type') == 'formula' and not dataset.get('equation'):
-                continue  # 数式が空の場合はスキップ
+                continue  
                 
             if dataset.get('data_source_type') == 'measured' and (not dataset.get('data_x') or not dataset.get('data_y')):
-                continue  # 測定データがない場合はスキップ
+                continue  
             
-            # データセットの設定を取得
+            # 個別設定
             plot_type = dataset.get('plot_type', 'line')
             color = dataset.get('color', QColor('blue')).name()
             line_width = dataset.get('line_width', 1.0)
             marker_style = dataset.get('marker_style', '*')
-            marker_size = dataset.get('marker_size', 3.0)
+            marker_size = dataset.get('marker_size', 2.0)
             
-            # グローバル設定の凡例表示/非表示を優先
             show_legend = self.global_settings.get('show_legend', True) and dataset.get('show_legend', True)
             legend_label = dataset.get('legend_label', dataset.get('name', ''))
             
-            # 対数スケールの場合、データフィルタリングが必要
+            # 対数かつ測定データ
             if (is_xlog or is_ylog) and dataset.get('data_source_type') == 'measured':
                 data_x = dataset.get('data_x', [])
                 data_y = dataset.get('data_y', [])
@@ -2589,17 +2518,14 @@ class TikZPlotConverter(QMainWindow):
                     latex.append(f"        % 警告: {warning_msg}")
                     self.statusBar.showMessage(warning_msg, 5000)
                 
-                # フィルタリングされたデータがない場合
                 if not filtered_data_x:
-                    latex.append(f"        % データセット{i+1}: {dataset.get('name', '')} - 対数スケールに適した点がありません")
+                    latex.append(f"        % データセット名[ {dataset.get('name', '')} ] - 対数スケールに適した点がありません")
                     continue
                 
-                # フィルタリングされたデータで元のデータを置き換えた一時的なデータセットを作成
                 filtered_dataset = dataset.copy()
                 filtered_dataset['data_x'] = filtered_data_x
                 filtered_dataset['data_y'] = filtered_data_y
                 
-                # フィルタリングされたデータセットを処理
                 self.add_dataset_to_latex(latex, filtered_dataset, i, plot_type, color, line_width, 
                                         marker_style, marker_size, show_legend, legend_label)
             else:
@@ -2607,38 +2533,34 @@ class TikZPlotConverter(QMainWindow):
                 self.add_dataset_to_latex(latex, dataset, i, plot_type, color, line_width, 
                                         marker_style, marker_size, show_legend, legend_label)
             
-            # 特殊点の追加
+            #*==========================特殊点の追加===============================
+            #* 特殊点 -> 垂線 -> 注釈
             special_points = dataset.get('special_points', [])
             for point in special_points:
-                x, y, point_color, coord_display = point  # 座標表示の種類を取得
-                latex.append(f"        % 特殊点 (データセット{i+1}: {dataset.get('name', '')})")
+                x, y, point_color, coord_display = point  
+                latex.append(f"        % 特殊点 [ {dataset.get('name', '')} ]")
                 latex.append(f"        \\addplot[only marks, mark=*, {point_color}] coordinates {{")
                 latex.append(f"            ({x}, {y})")
                 latex.append("        };")
                 
-                # 目盛りと重複する値には座標値を表示しないようにする関数を追加
                 def is_tick_value(val, tick_min, tick_max, tick_step, tol=1e-6):
                     if tick_step is None or tick_step <= 0:
                         return False
-                    n = round((val - tick_min) / tick_step)
+                    n = round((val - tick_min) / tick_step) # roundなので整数値になりnとtick_valは同じはず
                     tick_val = tick_min + n * tick_step
                     return abs(val - tick_val) < tol and tick_min <= val <= tick_max
 
-                # X軸への垂線
                 if coord_display.startswith('X座標') or coord_display.startswith('X,Y座標'):
                     latex.append(f"        % X軸への垂線")
                     latex.append(f"        \\draw[{point_color}, dashed] (axis cs:{x},{y}) -- (axis cs:{x},{y_min});")
-                    # X座標値の表示（値も表示が選択されている場合）
                     if '値も表示' in coord_display and not is_tick_value(x, x_min, x_max, self.x_tick_step):
                         formatted_x = '{:g}'.format(x)
                         latex.append(f"        % X座標値を表示")
                         latex.append(f"        \\node[{point_color}, below, yshift=-2pt, font=\\small] at (axis cs:{x},{y_min}) {{{formatted_x}}};")
 
-                # Y軸への垂線
                 if coord_display.startswith('Y座標') or coord_display.startswith('X,Y座標'):
                     latex.append(f"        % Y軸への垂線")
                     latex.append(f"        \\draw[{point_color}, dashed] (axis cs:{x},{y}) -- (axis cs:{x_min},{y});")
-                    # Y座標値の表示（値も表示が選択されている場合）
                     if '値も表示' in coord_display and not is_tick_value(y, y_min, y_max, self.y_tick_step):
                         formatted_y = '{:g}'.format(y)
                         latex.append(f"        % Y座標値を表示")
@@ -2649,27 +2571,28 @@ class TikZPlotConverter(QMainWindow):
             annotations = dataset.get('annotations', [])
             for ann in annotations:
                 x, y, text, color, pos = ann
-                latex.append(f"        % 注釈 (データセット{i+1}: {dataset.get('name', '')})")
+                latex.append(f"        % 注釈 [ {dataset.get('name', '')} ]")
                 latex.append(f"        \\node at (axis cs:{x},{y}) [anchor={pos}, font=\\small, text={color}] {{{text}}};")
         
-        # axis環境の終了
+        # axis終了
         latex.append("        \\end{axis}")
         
-        # tikzpictureの終了
+        # tikzpicture終了
         latex.append("    \\end{tikzpicture}")
         
-        # キャプションとラベル
         latex.append(f"    \\caption{{{self.global_settings['caption']}}}")
         latex.append(f"    \\label{{{self.global_settings['label']}}}")
         
-        # figure環境の終了
         latex.append("\\end{figure}")
         
         return '\n'.join(latex)
     
     def add_dataset_to_latex(self, latex, dataset, index, plot_type, color, line_width, 
                              marker_style, marker_size, show_legend, legend_label):
-        """LaTeXコードにデータセットを追加する"""
+        """
+        LaTeXコードにデータセットを追加する\n
+        latex引数は参照なので戻り値はいらない\n
+        """
         data_source_type = dataset.get('data_source_type', 'measured')
         
         # スケールタイプを取得
@@ -3289,81 +3212,6 @@ class TikZPlotConverter(QMainWindow):
         if color.isValid():
             self.currentColor = color
             self.colorButton.setStyleSheet(f'background-color: {color.name()};')
-    
-    # 理論曲線の色選択ダイアログは削除（パラメータスイープ機能の廃止に伴い）
-    
-    
-    # 特殊点を追加
-    def add_special_point(self):
-        row_position = self.specialPointsTable.rowCount()
-        self.specialPointsTable.insertRow(row_position)
-        
-        # デフォルト値の設定
-        x_item = QTableWidgetItem("0.0")
-        y_item = QTableWidgetItem("0.0")
-        
-        # 色選択コンボボックス
-        color_combo = QComboBox()
-        color_combo.addItems(['red', 'blue', 'green', 'black', 'purple', 'orange', 'brown', 'gray'])
-        color_combo.setCurrentText("red")
-        
-        # 座標表示コンボボックス（チェックボックスから変更）
-        coord_display_combo = QComboBox()
-        coord_display_combo.addItems([
-            'なし', 
-            'X座標のみ（線のみ）', 
-            'X座標のみ（値も表示）', 
-            'Y座標のみ（線のみ）', 
-            'Y座標のみ（値も表示）', 
-            'X,Y座標（線のみ）', 
-            'X,Y座標（値も表示）'
-        ])
-        coord_display_combo.setCurrentText("なし")
-        
-        self.specialPointsTable.setItem(row_position, 0, x_item)
-        self.specialPointsTable.setItem(row_position, 1, y_item)
-        self.specialPointsTable.setCellWidget(row_position, 2, color_combo)
-        self.specialPointsTable.setCellWidget(row_position, 3, coord_display_combo)
-    
-    # 特殊点を削除
-    def remove_special_point(self):
-        selected_rows = set(index.row() for index in self.specialPointsTable.selectedIndexes())
-        for row in sorted(selected_rows, reverse=True):
-            self.specialPointsTable.removeRow(row)
-    
-    # 注釈を追加
-    def add_annotation(self):
-        row_position = self.annotationsTable.rowCount()
-        self.annotationsTable.insertRow(row_position)
-        
-        # デフォルト値の設定
-        x_item = QTableWidgetItem("0.0")
-        y_item = QTableWidgetItem("0.0")
-        text_item = QTableWidgetItem("注釈テキスト")
-        
-        # 色選択コンボボックス
-        color_combo = QComboBox()
-        color_combo.addItems(['black', 'red', 'blue', 'green', 'purple', 'orange', 'brown', 'gray'])
-        color_combo.setCurrentText("black")
-        
-        # 位置選択コンボボックス - より直感的な表現に変更
-        pos_combo = QComboBox()
-        pos_combo.addItems(['上', '右上', '右', '右下', '下', '左下', '左', '左上'])
-        pos_combo.setCurrentText("右上")
-        
-        self.annotationsTable.setItem(row_position, 0, x_item)
-        self.annotationsTable.setItem(row_position, 1, y_item)
-        self.annotationsTable.setItem(row_position, 2, text_item)
-        self.annotationsTable.setCellWidget(row_position, 3, color_combo)
-        self.annotationsTable.setCellWidget(row_position, 4, pos_combo)
-    
-    # 注釈を削除
-    def remove_annotation(self):
-        selected_rows = set(index.row() for index in self.annotationsTable.selectedIndexes())
-        for row in sorted(selected_rows, reverse=True):
-            self.annotationsTable.removeRow(row)
-    
-    # パラメータスイープ関連のメソッドを削除（パラメータスイープ機能の廃止に伴い）
     
     # LaTeXコードをクリップボードにコピー
     def copy_to_clipboard(self):
