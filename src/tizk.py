@@ -1056,7 +1056,7 @@ class TikZPlotConverter(QMainWindow):
 
     #* ======================処理============================================ 
     
-    def browse_csv_file(self):# TODO
+    def browse_csv_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self, "CSVファイルを選択", "", "CSV Files (*.csv);;All Files (*)")
         if file_path:
@@ -1064,7 +1064,7 @@ class TikZPlotConverter(QMainWindow):
             self.csvRadio.setChecked(True)
             self.toggle_source_fields()
     
-    def browse_excel_file(self):# TODO
+    def browse_excel_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Excelファイルを選択", "", "Excel Files (*.xlsx *.xls);;All Files (*)")
         if file_path:
@@ -1073,7 +1073,7 @@ class TikZPlotConverter(QMainWindow):
             self.toggle_source_fields()
             self.update_sheet_names(file_path)
     
-    def update_sheet_names(self, file_path):# TODO
+    def update_sheet_names(self, file_path):
         try:
             xls = pd.ExcelFile(file_path)
             self.sheetCombobox.clear()
@@ -1083,7 +1083,7 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"シート名の取得に失敗しました: {str(e)}")
             self.statusBar.showMessage("ファイル読み込みエラー")
     
-    def toggle_source_fields(self, button=None):# TODO
+    def toggle_source_fields(self, button=None):
         if self.csvRadio.isChecked():
             self.fileEntry.setEnabled(True)
             self.excelEntry.setEnabled(False)
@@ -1121,7 +1121,7 @@ class TikZPlotConverter(QMainWindow):
             # 手入力データ用のツールチップ
             self.loadDataButton.setToolTip("テーブルに入力したデータを現在のデータセットに保存します")
     
-    def load_data(self):# TODO
+    def load_data(self):
         """
         現在のデータセットから実測値データ入力タブ保存ボタン\n
         この場でdatasetsにdata_x, data_yを追加するので戻り値なし
@@ -1294,7 +1294,7 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"データ読み込み中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
             self.statusBar.showMessage("データ読み込みエラー")
     
-    def extract_data_from_range(self, df, x_range, y_range):# TODO
+    def extract_data_from_range(self, df, x_range, y_range):
         """
         -> data_x, data_y, warnings\n
         - csvファイルから直接セル範囲のデータを抽出する\n
@@ -1441,7 +1441,7 @@ class TikZPlotConverter(QMainWindow):
         except Exception as e:
             raise e
     
-    def extract_data_from_excel_range(self, file_path, sheet_name, x_range, y_range):# TODO
+    def extract_data_from_excel_range(self, file_path, sheet_name, x_range, y_range):
         """
         -> data_x, data_y, warnings\n
         - Excelファイルから直接セル範囲のデータを抽出する\n
@@ -1666,7 +1666,7 @@ class TikZPlotConverter(QMainWindow):
             print(traceback.format_exc())
             raise ValueError(f"Excelセル範囲からのデータ抽出中にエラーが発生しました: {str(e)}")
     
-    def add_special_point(self):# TODO
+    def add_special_point(self):
         row_position = self.specialPointsTable.rowCount()
         self.specialPointsTable.insertRow(row_position)
         
@@ -1694,12 +1694,12 @@ class TikZPlotConverter(QMainWindow):
         self.specialPointsTable.setCellWidget(row_position, 2, color_combo)
         self.specialPointsTable.setCellWidget(row_position, 3, coord_display_combo)
     
-    def remove_special_point(self):# TODO
+    def remove_special_point(self):
         selected_rows = set(index.row() for index in self.specialPointsTable.selectedIndexes())
         for row in sorted(selected_rows, reverse=True):# 後ろから削除
             self.specialPointsTable.removeRow(row)
     
-    def add_annotation(self):# TODO
+    def add_annotation(self):
         row_position = self.annotationsTable.rowCount()
         self.annotationsTable.insertRow(row_position)
         
@@ -1721,19 +1721,19 @@ class TikZPlotConverter(QMainWindow):
         self.annotationsTable.setCellWidget(row_position, 3, color_combo)
         self.annotationsTable.setCellWidget(row_position, 4, pos_combo)
     
-    def remove_annotation(self):# TODO
+    def remove_annotation(self):
         selected_rows = set(index.row() for index in self.annotationsTable.selectedIndexes())
         for row in sorted(selected_rows, reverse=True):
             self.annotationsTable.removeRow(row)
     
-    def copy_to_clipboard(self):# TODO
+    def copy_to_clipboard(self):
         latex_code = self.resultText.toPlainText()
         if latex_code:
             clipboard = QApplication.clipboard()
             clipboard.setText(latex_code)
             self.statusBar.showMessage("LaTeXコードをクリップボードにコピーしました", 3000)  # 3秒間表示
 
-    def update_global_settings(self):# TODO
+    def update_global_settings(self):
         """
         グラフの全体設定の更新\n
         LaTeX変換時に発火
@@ -1779,7 +1779,7 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"グラフ全体設定の更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
 
-    def convert_to_tikz(self):# TODO
+    def convert_to_tikz(self):
         # データセットsが空か
         if not self.datasets or all(not dataset.get('data_x') for dataset in self.datasets):
             QMessageBox.warning(self, "警告", "データが読み込まれていません。先にデータを読み込んでください。")
@@ -1798,7 +1798,7 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"変換中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
             self.statusBar.showMessage("変換エラー")
 
-    def add_dataset(self, name_arg=None):# TODO
+    def add_dataset(self, name_arg=None):
         """新しいデータセットを追加する"""
         try:
             # 現在のデータセットの状態を保存
@@ -1865,7 +1865,7 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット追加中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
-    def remove_dataset(self):# TODO
+    def remove_dataset(self):
         """選択されたデータセットを削除する"""
         try:
             if not self.datasets:
@@ -1906,12 +1906,12 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット削除中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
-    def update_ui_for_no_datasets(self):# TODO
+    def update_ui_for_no_datasets(self):
         """データセットない時（防御)"""
         self.legendLabel.setText("")
         pass # Placeholder
     
-    def rename_dataset(self):# TODO
+    def rename_dataset(self):
         """選択されたデータセットの名前を変更する"""
         try:
             if self.current_dataset_index < 0 or not self.datasets:
@@ -1975,7 +1975,7 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット選択処理中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
-    def update_current_dataset(self):# TODO
+    def update_current_dataset(self):
         """現在のデータセット値を保存(selfの値をdataset[self.current_dataset_index]に)"""
         try:
             if self.current_dataset_index < 0 or not self.datasets or self.current_dataset_index >= len(self.datasets):
@@ -2073,7 +2073,7 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
-    def update_ui_from_dataset(self, dataset):# TODO
+    def update_ui_from_dataset(self, dataset):
         """新しい選択行を保存時点でのデータセットに基づいてUIを更新する（apply_fomula,on_dataset_selected）"""
         try:
             self.block_signals_temporarily(True)
@@ -2186,7 +2186,7 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"UI更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
-    def block_signals_temporarily(self, block):# TODO
+    def block_signals_temporarily(self, block):
         """値の更新による挙動を防ぐ"""
         # 個別設定
         ui_elements = [
@@ -2221,7 +2221,7 @@ class TikZPlotConverter(QMainWindow):
         for element in ui_elements:
             element.blockSignals(block)
     
-    def update_ui_based_on_data_source_type(self):# TODO
+    def update_ui_based_on_data_source_type(self):
         """データソースタイプに基づいて手入力，数式入力のUI表示更新"""
         if not hasattr(self, 'measuredRadio') or not hasattr(self, 'formulaRadio'):
             return 
@@ -2262,7 +2262,7 @@ class TikZPlotConverter(QMainWindow):
             self.domainMaxSpin.setEnabled(True)
             self.samplesSpin.setEnabled(True)
     
-    def update_data_table_from_dataset(self, dataset):# TODO
+    def update_data_table_from_dataset(self, dataset):
         """データテーブルにデータセットの内容を反映する"""
         try:
             self.dataTable.setRowCount(0)
@@ -2287,7 +2287,7 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"データテーブル更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     #* 重要
-    def generate_tikz_code_multi_datasets(self):# TODO
+    def generate_tikz_code_multi_datasets(self):
         """最終的なLaTeXコードを生成する"""
         latex = []
         
@@ -2585,7 +2585,7 @@ class TikZPlotConverter(QMainWindow):
         return '\n'.join(latex)
     
     def add_dataset_to_latex(self, latex, dataset, index, plot_type, color, line_width, 
-                             marker_style, marker_size, show_legend, legend_label):# TODO
+                             marker_style, marker_size, show_legend, legend_label):
         """
         LaTeXコードにデータセットを追加する\n
         latex引数は参照なので戻り値はいらない\n
@@ -2839,7 +2839,7 @@ class TikZPlotConverter(QMainWindow):
             if show_legend:
                 latex.append(f"        \\addlegendentry{{{legend_label}}}")
 
-    def assign_special_points_to_dataset(self):# TODO
+    def assign_special_points_to_dataset(self):
         if self.current_dataset_index < 0:
             QMessageBox.warning(self, "警告", "特殊点を割り当てるデータセットを選択してください")
             return
@@ -2867,7 +2867,7 @@ class TikZPlotConverter(QMainWindow):
         QMessageBox.information(self, "成功", 
                               f"データセット '{dataset['name']}' に {len(special_points)} 個の特殊点を割り当てました")
     
-    def assign_annotations_to_dataset(self):# TODO
+    def assign_annotations_to_dataset(self):
         if self.current_dataset_index < 0:
             QMessageBox.warning(self, "警告", "注釈を割り当てるデータセットを選択してください")
             return
@@ -2900,7 +2900,7 @@ class TikZPlotConverter(QMainWindow):
         QMessageBox.information(self, "成功", 
                               f"データセット '{dataset['name']}' に {len(annotations)} 個の注釈を割り当てました")
     
-    def convert_position_to_tikz(self, jp_position):# TODO
+    def convert_position_to_tikz(self, jp_position):
         """日本語の位置表記をTikZの位置表記に変換する\n
         TikZのアンカー指定はなぜか直感と逆になる\n
         例: 「右上」は「左下(south west)」になる\n
@@ -2917,7 +2917,7 @@ class TikZPlotConverter(QMainWindow):
         }
         return position_map.get(jp_position, 'south east')  # デフォルトは左上に表示
 
-    def on_data_source_type_changed(self, checked):# TODO
+    def on_data_source_type_changed(self, checked):
         """データソースタイプが変更されたときに呼ばれる"""
         if not checked:  
             return
@@ -2939,7 +2939,7 @@ class TikZPlotConverter(QMainWindow):
             
         self.update_ui_based_on_data_source_type()
 
-    def apply_formula(self):# TODO
+    def apply_formula(self):
         """数式を適用してデータを生成する"""
         self.update_current_dataset()
         if self.current_dataset_index < 0:
@@ -3010,25 +3010,17 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"数式の適用中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
             self.statusBar.showMessage("数式適用エラー", 3000)
   
-    # データテーブルに行を追加
     def add_table_row(self):
         row_position = self.dataTable.rowCount()
         self.dataTable.insertRow(row_position)
     
-    # データテーブルから選択行を削除
     def remove_table_row(self):
         selected_rows = set(index.row() for index in self.dataTable.selectedIndexes())
         for row in sorted(selected_rows, reverse=True):
             self.dataTable.removeRow(row)
     
-    # データテーブルに列を追加
-    def add_table_column(self):
-        col_position = self.dataTable.columnCount()
-        self.dataTable.insertColumn(col_position)
-        self.dataTable.setHorizontalHeaderItem(col_position, QTableWidgetItem(f"列{col_position+1}"))
-    
-    # 色選択ダイアログ
     def select_color(self):
+        """線の色を選択するダイアログを表示"""
         color = QColorDialog.getColor(self.currentColor, self, "線の色を選択")
         if color.isValid():
             self.currentColor = color
@@ -3039,29 +3031,23 @@ class TikZPlotConverter(QMainWindow):
         color = QColorDialog.getColor(self.tangentColor, self, "接線の色を選択")
         if color.isValid():
             self.tangentColor = color
-            # ボタンの背景色を更新
             self.tangentColorButton.setStyleSheet(f'background-color: {color.name()};')
             self.statusBar.showMessage("接線の色を設定しました", 2000)
 
 
-    def insert_function_from_table(self, row, column):
+    def insert_function_from_table(self, row):
         """関数テーブルの関数をダブルクリックして挿入"""
         try:
-            # 選択された関数を取得（常に0列目の項目を使用）
             function_item = self.tikzFunctionsTable.item(row, 0)
             if function_item:
                 function_text = function_item.text()
                 
-                # 単一の定数（pi, e）の場合は直接挿入
                 if function_text in ["pi", "e"]:
                     self.insert_into_equation(function_text)
                 else:
-                    # 括弧を含む関数の場合、カーソル位置を括弧内に設定するために
-                    # 括弧部分を抽出し、カーソルを括弧内に配置
                     if "(" in function_text and ")" in function_text:
-                        # 括弧内の内容を抽出
                         bracket_content = function_text[function_text.find("(")+1:function_text.find(")")]
-                        # 括弧内にカーソルを配置するため、内容を削除
+                        # ()内の内容を削除
                         insert_text = function_text.replace(bracket_content, "")
                         self.insert_into_equation(insert_text)
                     else:
@@ -3071,104 +3057,30 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"関数の挿入中にエラーが発生しました: {str(e)}")
 
     def insert_into_equation(self, text):
-        """数式入力欄にテキストを挿入"""
+        """
+        数式入力欄にテキストを挿入\n
+        current_posで現用語の右
+        """
         current_text = self.equationEntry.text()
         current_pos = self.equationEntry.cursorPosition()
         
-        # 現在のテキストが空の場合は単純に設定
         if current_text.strip() == "":
             self.equationEntry.setText(text)
-            # 括弧がある場合はカーソルを括弧の中に配置
             if "(" in text and ")" in text:
                 self.equationEntry.setCursorPosition(text.find("(")+1)
         else:
-            # テキストの挿入
+            # 現カーソル位置に挿入
             new_text = current_text[:current_pos] + text + current_text[current_pos:]
             self.equationEntry.setText(new_text)
-            # 括弧がある場合はカーソルを括弧の中に配置
             if "(" in text and ")" in text:
                 new_cursor_pos = current_pos + text.find("(")+1
                 self.equationEntry.setCursorPosition(new_cursor_pos)
             else:
-                # 括弧がない場合は挿入したテキストの後にカーソルを配置
                 self.equationEntry.setCursorPosition(current_pos + len(text))
         
-        # フォーカスを数式入力欄に戻す
         self.equationEntry.setFocus()
 
-    def show_tikz_function_help(self):
-        """TikZ数式の詳細ガイドを表示"""
-        help_text = """
-<h2>TikZ数式の使い方ガイド</h2>
-
-<h3>基本構文</h3>
-<p>TikZでは、数式は以下のように記述します：</p>
-<pre>\\addplot[domain=0:10] {数式};</pre>
-
-<h3>数式の例</h3>
-<ul>
-    <li><b>基本演算:</b> <code>x^2 + 3*x - 5</code></li>
-    <li><b>三角関数:</b> <code>sin(pi*x)</code> （引数はラジアン）</li>
-    <li><b>指数関数:</b> <code>exp(-x^2/2)</code> （正規分布）</li>
-    <li><b>条件分岐:</b> <code>x>0 ? x^2 : -x^2</code> （三項演算子）</li>
-</ul>
-
-<h3>TikZ数式の特徴</h3>
-<ul>
-    <li>変数と定数の積は <code>2*x</code> のように<b>明示的に乗算記号を記述</b>してください</li>
-    <li>べき乗は <code>x^2</code> のように <code>^</code> を使います</li>
-    <li>角度はラジアンで指定します（piを使用: <code>sin(pi/2)</code>）</li>
-    <li>関数は入れ子にできます（<code>sin(cos(x))</code>）</li>
-</ul>
-
-<h3>よく使う関数の組み合わせ</h3>
-<ul>
-    <li><b>正規分布:</b> <code>exp(-((x-5)^2)/(2*2^2))</code></li>
-    <li><b>対数スケール:</b> <code>ln(1+x)</code></li>
-    <li><b>信号処理:</b> <code>sin(2*pi*x)*exp(-x/5)</code>（減衰振動）</li>
-    <li><b>ロジスティック成長:</b> <code>10/(1+exp(-x+5))</code></li>
-</ul>
-
-<h3>注意点</h3>
-<p>TikZの数式はTeX環境で評価されるため、Pythonなど他の言語とは一部記法が異なります。</p>
-<p>特に以下の点に注意してください：</p>
-<ul>
-    <li>数字の後に変数が来る場合は必ず <code>*</code> を使う（<code>2x</code> ではなく <code>2*x</code>）</li>
-    <li>ラジアンと度の変換に注意（<code>sin(90)</code> ではなく <code>sin(pi/2)</code>）</li>
-    <li>関数名は英語表記（<code>tan</code>, <code>exp</code> など）</li>
-</ul>
-    """
-        
-        # 詳細ガイドウィンドウの作成
-        help_dialog = QMessageBox(self)
-        help_dialog.setWindowTitle("TikZ数式詳細ガイド")
-        help_dialog.setTextFormat(Qt.RichText)
-        help_dialog.setText(help_text)
-        help_dialog.setStandardButtons(QMessageBox.Ok)
-        help_dialog.setMinimumWidth(600)
-        help_dialog.exec_()
-
-    def save_manual_data(self):
-        if self.current_dataset_index < 0 or not self.datasets:
-            return
-        if not self.manualRadio.isChecked():
-            return
-        dataset = self.datasets[self.current_dataset_index]
-        data_x, data_y = [], []
-        for row in range(self.dataTable.rowCount()):
-            x_item = self.dataTable.item(row, 0)
-            y_item = self.dataTable.item(row, 1)
-            if x_item and y_item and x_item.text() and y_item.text():
-                try:
-                    data_x.append(float(x_item.text()))
-                    data_y.append(float(y_item.text()))
-                except ValueError:
-                    pass
-        dataset['data_x'] = data_x
-        dataset['data_y'] = data_y
-        self.statusBar.showMessage(f"データセット '{dataset['name']}' の手入力データを保存しました", 3000)
-
-    def create_styled_delete_confirmation(self, title, message, dangerous_action_text="削除"):# TODO
+    def create_styled_delete_confirmation(self, title, message, dangerous_action_text="削除"):
         """スタイル付き削除確認ダイアログを作成（QMessageBox使用）"""
         msgBox = QMessageBox(self)
         msgBox.setWindowTitle(title)
