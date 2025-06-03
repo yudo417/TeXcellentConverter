@@ -1799,7 +1799,7 @@ class TikZPlotConverter(QMainWindow):
             self.statusBar.showMessage("変換エラー")
 
     # データセット管理の関数
-    def add_dataset(self, name_arg=None):
+    def add_dataset(self, name_arg=None):# TODO
         """新しいデータセットを追加する"""
         try:
             # 現在のデータセットの状態を保存
@@ -1821,14 +1821,13 @@ class TikZPlotConverter(QMainWindow):
                     dataset_count = self.datasetList.count() + 1
                     final_name = f"データセット{dataset_count}"
                 else:
-                    final_name = str(name_arg).strip() # Ensure argument is also a string and stripped
+                    final_name = str(name_arg).strip() 
 
-            if not final_name: # Double check if somehow final_name is empty
+            if not final_name: 
                 dataset_count = self.datasetList.count() + 1
                 final_name = f"データセット{dataset_count}"
                 self.statusBar.showMessage("データセット名が空のため、デフォルト名を使用します。", 3000)
 
-            # 明示的に空のデータと初期設定を持つデータセットを作成
             dataset = {
                 'name': final_name, # Always a string
                 'data_source_type': 'measured',  # 'measured' または 'formula'
@@ -1853,11 +1852,10 @@ class TikZPlotConverter(QMainWindow):
                 'sheet_name': '',
                 'x_column': '',
                 'y_column': ''
-                # パラメータスイープ関連の設定を削除
             }
             
             self.datasets.append(dataset)
-            self.datasetList.addItem(final_name) # addItem directly with the guaranteed string
+            self.datasetList.addItem(final_name) 
             
             # 新しく追加したデータセットを選択（これがon_dataset_selectedを呼び出す）
             self.datasetList.setCurrentRow(len(self.datasets) - 1)
@@ -2001,13 +1999,13 @@ class TikZPlotConverter(QMainWindow):
             
             # プロットタイプの設定
             if self.lineRadio.isChecked():
-                dataset['plot_type'] = "line"
+                dataset['plot_type'] = "line" #　線グラフ
             elif self.scatterRadio.isChecked():
-                dataset['plot_type'] = "scatter"
+                dataset['plot_type'] = "scatter" #　散布図
             elif self.lineScatterRadio.isChecked():
-                dataset['plot_type'] = "line_scatter"
+                dataset['plot_type'] = "line_scatter" #　線と点
             else:
-                dataset['plot_type'] = "bar"
+                dataset['plot_type'] = "bar" #　棒グラフ
             
             if hasattr(self, 'measuredRadio') and hasattr(self, 'formulaRadio'):
                 dataset['data_source_type'] = 'measured' if self.measuredRadio.isChecked() else 'formula'
@@ -2526,6 +2524,7 @@ class TikZPlotConverter(QMainWindow):
                 filtered_dataset['data_x'] = filtered_data_x
                 filtered_dataset['data_y'] = filtered_data_y
                 
+                #* データセット
                 self.add_dataset_to_latex(latex, filtered_dataset, i, plot_type, color, line_width, 
                                         marker_style, marker_size, show_legend, legend_label)
             else:
@@ -2588,10 +2587,11 @@ class TikZPlotConverter(QMainWindow):
         return '\n'.join(latex)
     
     def add_dataset_to_latex(self, latex, dataset, index, plot_type, color, line_width, 
-                             marker_style, marker_size, show_legend, legend_label):
+                             marker_style, marker_size, show_legend, legend_label):# TODO
         """
         LaTeXコードにデータセットを追加する\n
         latex引数は参照なので戻り値はいらない\n
+        formulaの場合は途中でreturn
         """
         data_source_type = dataset.get('data_source_type', 'measured')
         
@@ -2655,126 +2655,104 @@ class TikZPlotConverter(QMainWindow):
                 tangent_options.append(tangent_color)  
                 tangent_options.append(f"line width={dataset.get('line_width', 1.5)}pt")
 
-                # コメント行
-                latex.append(f"        % 接線 （データセット{index+1}: {dataset.get('name', '')}）")
+                latex.append(f"        % 接線 [ {dataset.get('name', '')} ]")
                 
-                # まず点をプロット - この部分もPython側で計算して値を直接指定
                 try:
-                    # 数式の文字列置換 'x' を tangent_x に置き換えて評価
                     x_val = tangent_x
-                    formula = dataset.get('equation', 'x^2')  # データセットから式を取得
+                    formula = dataset.get('equation', 'x^2') 
                     
-                    # TikZ式をPython式に変換（^ を ** に置換）
                     python_formula = formula.replace('^', '**')
-                    # 数式形式を整える（乗算記号の追加など）- 改良したヘルパー関数を使用
                     
-                    # グラフの表示範囲を取得
                     y_min = self.global_settings['y_min']
                     y_max = self.global_settings['y_max']
                     
-                    # 式を評価 - 数学関数を使用できるようにmath名前空間も提供
+                    #　math以外を封じる
                     y_val = eval(python_formula.replace('x', str(x_val)), {"__builtins__": {}}, {"math": math})
-                    
-                    # y値が異常に大きくないかチェック - 表示範囲外なら警告
+
                     if y_val < y_min or y_val > y_max:
-                        latex.append(f"        % 警告: 計算されたy値 ({y_val}) がグラフ範囲外です。範囲: [{y_min}, {y_max}]")
-                        self.statusBar.showMessage(f"警告: 点 (x={x_val}) の計算値 (y={y_val}) がグラフ範囲外です", 5000)
-                        # 範囲外の場合でも計算は続行するが、後で表示位置を調整する
+                        latex.append(f"        % 計算されたy値 ({round(y_val,3)}) がグラフ範囲外です．")
+                        self.statusBar.showMessage(f"警告: 点 (x={round(x_val,3)}) の計算値 (y={round(y_val,3)}) がグラフ範囲外です", 5000)
                     
-                    # 点の表示 - 実際の計算値を使用
-                    point_code = f"""        % 接線の点をマーク
+                    # 接点
+                    point_code = f"""        % 接点をマーク
         \\addplot[only marks, mark=*, {tangent_color}, mark size=3] coordinates {{({x_val}, {y_val})}};\n"""
                     latex.append(point_code)
                     
-                    # 数値微分で接線の傾きを計算 - 精度改善
+                    # 中心差分法で傾き計算
                     dx = 0.0001
-                    # 安全な評価のためmathを提供
                     globals_dict = {"__builtins__": {}}
                     locals_dict = {"math": math}
                     
-                    # 左右の点を計算
                     left_x = x_val - dx
                     right_x = x_val + dx
                     
-                    # 左右の点のy値を計算（数式にxを代入）
                     try:
+                        # y_1:左  y_2:右
                         y1 = eval(python_formula.replace('x', str(left_x)), globals_dict, locals_dict)
                         y2 = eval(python_formula.replace('x', str(right_x)), globals_dict, locals_dict)
-                        # 傾きを計算（中心差分法）
                         slope = (y2 - y1) / (2 * dx)
                     except Exception as inner_e:
-                        # 微分計算中のエラーを詳細に記録（デバッグ用）
                         latex.append(f"        % 接線の微分計算でエラー: {str(inner_e)}. 中央差分法を使用できないため、前方差分法を試みます。")
                         # 前方差分法を試みる
                         try:
                             forward_x = x_val + dx
-                            y_current = y_val  # すでに計算済み
+                            y_current = y_val  
                             y_forward = eval(python_formula.replace('x', str(forward_x)), globals_dict, locals_dict)
                             slope = (y_forward - y_current) / dx
                         except Exception as e2:
-                            # それでも失敗した場合はデフォルト値を使用
+                            # 基本的に起こらない
                             latex.append(f"        % 前方差分も失敗。デフォルトの傾き 1 を使用します。エラー: {str(e2)}")
                             slope = 1.0
                             
-                    # 接線の方程式: y = y0 + slope*(x - x0)
-                    # もっとシンプルに y = mx + b の形に変換
-                    slope_rounded = round(slope, 3)
-                    intercept = round(y_val - slope * x_val, 3)
+                    #  y = mx + b 
+                    slope_rounded = round(slope, 3) #傾き項(m)
+                    intercept = round(y_val - slope * x_val, 3) # 切片(b)
                     equation_text = f"y = {slope_rounded}x + {intercept}" if intercept >= 0 else f"y = {slope_rounded}x - {abs(intercept)}"
                     
-                    # デバッグ情報を追加
-                    latex.append(f"        % デバッグ情報: x={x_val}, y={y_val}, 傾き={slope_rounded}, 切片={intercept}")
+                    latex.append(f"        % x={round(x_val,3)}, y={round(y_val,3)}, 傾き={slope_rounded}, 切片={intercept}")
                     
-                    # 接線方程式のチェック - 計算式で元の点を通るか検証
                     test_y = slope_rounded * x_val + intercept
                     if abs(test_y - y_val) > 0.1:  # 許容誤差
                         latex.append(f"        % 警告: 接線方程式が元の点を通りません。式による計算値: {test_y}, 元の点: {y_val}")
                     
-                    # 関数形式での接線の方程式
-                    tangent_equation = f"{y_val} + {slope}*(x - {x_val})"
+                    tangent_equation = f"{round(y_val,3)} + {round(slope,3)}*(x - {round(x_val,3)})"
                     
-                    # 接線を関数形式でプロット
-                    tangent_code = f"""        % 接線を関数形式でプロット
-        \\addplot[{', '.join(tangent_options)}, domain={x_val-tangent_length/2}:{x_val+tangent_length/2}] {{
+                    # 接線のプロット
+                    tangent_code = f"""        % 接線のプロット
+        \\addplot[{', '.join(tangent_options)}, domain={round(x_val-tangent_length/2,3)}:{round(x_val+tangent_length/2,3)}] {{
             {tangent_equation}
         }};\n"""
                     latex.append(tangent_code)
                     
-                    # 接線の式を表示（オプションがオンの場合）
                     if dataset.get('show_tangent_equation', False):
-                        # 式の表示位置を調整（接線の少し上に配置）- 範囲外対応
                         equation_pos_x = x_val
-                        # y値が範囲外の場合、表示位置を調整
+                        # 表示位置を調整
                         if y_val < y_min:
-                            equation_pos_y = y_min + 0.5  # 下限より少し上
+                            equation_pos_y = y_min + 0.5  # 上
                         elif y_val > y_max:
-                            equation_pos_y = y_max - 0.5  # 上限より少し下
+                            equation_pos_y = y_max - 0.5  # 下
                         else:
                             equation_pos_y = y_val + 0.5  # 通常は点の少し上
                         
-                        # 式の表示コード
-                        equation_display = f"""        % 接線の方程式を表示
+                        # 接線ラベル
+                        equation_display = f"""        % 接線の方程式を表示\n        %下の(axis cs:{{x座標の値}}，{{y座標の値}})の値を調整すると接線のラベルの表示位置を調整できます．
         \\node[anchor=south, font=\\small, {tangent_color}] at (axis cs:{equation_pos_x}, {equation_pos_y}) {{{equation_text}}};\n"""
                         latex.append(equation_display)
                     
-                    # 凡例用のエントリ
+                    # 凡例
                     latex.append(f"        \\addlegendimage{{{', '.join(tangent_options)}}};")
                     
                     # 凡例エントリを追加
                     if show_legend:
                         latex.append(f"        \\addlegendentry{{{legend_label}の接線 (x={tangent_x})}}")
                 except Exception as e:
-                    # 詳細なエラー情報を提供
                     error_msg = f"接線の計算でエラーが発生しました。式: {formula}, エラー: {str(e)}"
                     print(error_msg)  # コンソールにも出力
                     self.statusBar.showMessage(f"警告: {error_msg}", 5000)
                     
-                    # エラーが発生した場合は警告コメントを追加
                     latex.append(f"        % {error_msg}")
                     
-                    # 点の表示を試みる - 式の評価ができなければ原点を使用
                     try:
-                        # TikZ式をPython式に変換し、安全に評価
                         python_formula = formula.replace('^', '**')
                         point_y = eval(python_formula.replace('x', str(x_val)), {"__builtins__": {}}, {"math": math})
                         latex.append(f"        \\addplot[only marks, mark=*, {tangent_color}, mark size=3] coordinates {{({tangent_x}, {point_y})}}; % 接線計算エラーだが点は表示")
@@ -2783,92 +2761,83 @@ class TikZPlotConverter(QMainWindow):
                         latex.append(f"        % 点の計算も失敗: {str(point_error)}")
                         latex.append(f"        \\addplot[only marks, mark=*, {tangent_color}, mark size=3] coordinates {{({tangent_x}, 0)}}; % エラーのため原点にプロット")
                     
-                    # 接線の代わりに水平線を表示（目印として）
                     latex.append(f"        \\addplot[{', '.join(tangent_options)}, dashed] coordinates {{({tangent_x-0.5}, 0) ({tangent_x+0.5}, 0)}}; % エラーのため水平線を表示")
                     
-                    # 凡例用のエントリ（エラーが発生していることを示す）
                     latex.append(f"        \\addlegendimage{{{', '.join(tangent_options)}, dashed}};")
                     if show_legend:
                         latex.append(f"        \\addlegendentry{{{legend_label}の接線 (計算エラー)}}")
             
+            # 理論曲線の場合はここで終了し脱出
             return
             
-        # 実測値の場合（以下は既存のコード）
-        # データポイントのフォーマット
+        # 実測値
         coordinates = []
         for x, y in zip(dataset.get('data_x', []), dataset.get('data_y', [])):
-            coordinates.append(f"({x}, {y})")
+            coordinates.append(f"({round(x,3)}, {round(y,3)})")
         
         if not coordinates:
             return
         
-        # QColorオブジェクトをTikZ互換形式に変換
         tikz_color = self.color_to_tikz_rgb(QColor(color))
         
-        # 線グラフまたは線と点の組み合わせの場合の線プロット
+        # 線
         if plot_type == "line" or plot_type == "line_scatter":
-            # 線プロット
             plot_options = []
-            plot_options.append(tikz_color)  # TikZ互換のRGB値
+            plot_options.append(tikz_color)  
             plot_options.append(f"line width={line_width}pt")
             plot_options.append("thick")
             
-            latex.append(f"        % データセット{index+1}: {dataset.get('name', '')} （線）")
+            latex.append(f"        % データセット[ {dataset.get('name', '')} ] （線）")
             latex.append(f"        \\addplot[{', '.join(plot_options)}] coordinates {{")
             
-            # 座標リストを1行に20個ずつ分割
+            # 1行に20個ずつ
             for i in range(0, len(coordinates), 20):
                 chunk = coordinates[i:i+20]
                 latex.append(f"            {' '.join(chunk)}")
             
             latex.append("        };")
             
-            # 凡例エントリを追加
             if show_legend:
                 latex.append(f"        \\addlegendentry{{{legend_label}}}")
         
-        # 散布図または線と点の組み合わせの場合の点プロット
+        # 点
         if plot_type == "scatter" or plot_type == "line_scatter" or self.showDataPointsCheck.isChecked():
-            # 点プロット
             scatter_options = []
             scatter_options.append("only marks")
             scatter_options.append(f"mark={marker_style}")
-            scatter_options.append(tikz_color)  # TikZ互換のRGB値
+            scatter_options.append(tikz_color) 
             scatter_options.append(f"mark size={marker_size}")
             
             latex.append(f"        % データセット{index+1}: {dataset.get('name', '')} （点）")
             latex.append(f"        \\addplot[{', '.join(scatter_options)}] coordinates {{")
             
-            # 座標リストを1行に20個ずつ分割
+            # 1行に20個ずつ
             for i in range(0, len(coordinates), 20):
                 chunk = coordinates[i:i+20]
                 latex.append(f"            {' '.join(chunk)}")
             
             latex.append("        };")
             
-            # 凡例エントリを追加（線と点の組み合わせの場合は表示しない）
-            if show_legend and plot_type == "scatter":
+            if show_legend and plot_type == "scatter": # line_scatterの場合は既出
                 latex.append(f"        \\addlegendentry{{{legend_label}}}")
                 
-        # 棒グラフの場合
+        # 棒グラフ
         if plot_type == "bar":
-            # 棒グラフ
             bar_options = []
             bar_options.append(f"ybar")
-            bar_options.append(tikz_color)  # TikZ互換のRGB値
+            bar_options.append(tikz_color)  
             bar_options.append(f"fill={tikz_color.replace('color = ','')}")  # fill=color = ... ではなく fill=...
             
-            latex.append(f"        % データセット{index+1}: {dataset.get('name', '')} （棒グラフ）")
+            latex.append(f"        % データセット[ {dataset.get('name', '')} ] （棒グラフ）")
             latex.append(f"        \\addplot[{', '.join(bar_options)}] coordinates {{")
             
-            # 座標リストを1行に20個ずつ分割
+            # 1行に20個ずつ
             for i in range(0, len(coordinates), 20):
                 chunk = coordinates[i:i+20]
                 latex.append(f"            {' '.join(chunk)}")
             
             latex.append("        };")
             
-            # 凡例エントリを追加
             if show_legend:
                 latex.append(f"        \\addlegendentry{{{legend_label}}}")
     
@@ -3125,14 +3094,6 @@ class TikZPlotConverter(QMainWindow):
             self.currentColor = color
             self.colorButton.setStyleSheet(f'background-color: {color.name()};')
     
-    # LaTeXコードをクリップボードにコピー
-    def copy_to_clipboard(self):
-        latex_code = self.resultText.toPlainText()
-        if latex_code:
-            clipboard = QApplication.clipboard()
-            clipboard.setText(latex_code)
-            self.statusBar.showMessage("LaTeXコードをクリップボードにコピーしました", 3000)  # 3秒間表示
-
     def select_tangent_color(self):
         """接線の色を選択するダイアログを表示"""
         color = QColorDialog.getColor(self.tangentColor, self, "接線の色を選択")
