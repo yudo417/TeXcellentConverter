@@ -1726,7 +1726,7 @@ class TikZPlotConverter(QMainWindow):
         for row in sorted(selected_rows, reverse=True):
             self.annotationsTable.removeRow(row)
     
-    def copy_to_clipboard(self):#*　latex_code
+    def copy_to_clipboard(self):# TODO
         latex_code = self.resultText.toPlainText()
         if latex_code:
             clipboard = QApplication.clipboard()
@@ -1798,7 +1798,6 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"変換中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
             self.statusBar.showMessage("変換エラー")
 
-    # データセット管理の関数
     def add_dataset(self, name_arg=None):# TODO
         """新しいデータセットを追加する"""
         try:
@@ -1855,6 +1854,7 @@ class TikZPlotConverter(QMainWindow):
             }
             
             self.datasets.append(dataset)
+            # additemはあくまでリストに機能の持たない名前を追加するだけ．UIはindexに基づいて別処理
             self.datasetList.addItem(final_name) 
             
             # 新しく追加したデータセットを選択（これがon_dataset_selectedを呼び出す）
@@ -1865,7 +1865,7 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット追加中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
-    def remove_dataset(self):
+    def remove_dataset(self):# TODO
         """選択されたデータセットを削除する"""
         try:
             if not self.datasets:
@@ -1878,51 +1878,49 @@ class TikZPlotConverter(QMainWindow):
                 return
             
             dataset_name = str(self.datasets[current_row]['name'])
-            reply = QMessageBox.question(self, "確認",
-                                       f"データセット '{dataset_name}' を削除してもよろしいですか？",
-                                       QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             
-            if reply == QMessageBox.Yes:
+            msgBox, delete_button, cancel_button = self.create_styled_delete_confirmation(
+                "確認", 
+                f"データセット '{dataset_name}' を削除してもよろしいですか？\n\nこの操作は元に戻せません。",
+                "削除"
+            )
+            
+            msgBox.exec_()
+            
+            if msgBox.clickedButton() == delete_button:
                 self.datasets.pop(current_row)
                 item = self.datasetList.takeItem(current_row)
                 if item:
-                    del item #明示的に削除
+                    del item 
                 
-                if self.datasets: # 他のデータセットがある場合
+                if self.datasets: 
                     new_index = max(0, min(current_row, len(self.datasets) - 1))
                     self.datasetList.setCurrentRow(new_index)
-                    # on_dataset_selectedが呼ばれるので、current_dataset_indexはそこで更新される
-                else: # データセットがなくなった場合
+                else: 
                     self.current_dataset_index = -1
-                    # 新しいデフォルトデータセットを追加するか、UIをクリア状態にする
-                    # ここではクリア状態にし、ユーザーに手動で追加させるか、あるいは自動で追加する
-                    self.update_ui_for_no_datasets() # UIを空のデータセット状態に更新するヘルパー関数を想定
-                    self.add_dataset("データセット1") # Or add a new default one
+                    self.update_ui_for_no_datasets() 
+                    self.add_dataset("データセット1") 
                 
                 self.statusBar.showMessage(f"データセット '{dataset_name}' を削除しました", 3000)
         except Exception as e:
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット削除中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
-    def update_ui_for_no_datasets(self):
+    def update_ui_for_no_datasets(self):# TODO
         """データセットない時（防御)"""
-        # 例: 関連する入力フィールドをクリアまたは無効化
         self.legendLabel.setText("")
-        # 他のUI要素も必要に応じてリセット
-        # (この関数は具体的にどのようなUI状態が望ましいかによって実装を調整)
         pass # Placeholder
     
-    def rename_dataset(self):
+    def rename_dataset(self):# TODO
         """選択されたデータセットの名前を変更する"""
         try:
             if self.current_dataset_index < 0 or not self.datasets:
                 QMessageBox.warning(self, "警告", "名前を変更するデータセットが選択されていません。")
                 return
             
-            current_row = self.datasetList.currentRow() # currentRowが選択されていれば正しいはず
-            # current_dataset_index と current_row の一貫性を確認
+            current_row = self.datasetList.currentRow() 
             if current_row != self.current_dataset_index:
-                 # 予期せぬ状態。current_dataset_index に合わせるかエラー表示
+                 # 通常起こらない．current_dataset_index に合わせる
                  current_row = self.current_dataset_index
                  self.datasetList.setCurrentRow(current_row)
 
@@ -1931,7 +1929,7 @@ class TikZPlotConverter(QMainWindow):
 
             new_name_text, ok = QInputDialog.getText(self, "データセット名の変更", \
                                                       "新しいデータセット名を入力してください:",
-                                                      QLineEdit.Normal, current_name)
+                                                      QLineEdit.Normal, current_name)# current_nameはデフォルト値
             
             if ok and new_name_text.strip():
                 actual_new_name = new_name_text.strip()
@@ -1940,13 +1938,13 @@ class TikZPlotConverter(QMainWindow):
                     return
 
                 self.datasets[current_row]['name'] = actual_new_name
-                # 凡例ラベルが元の名前と同じだった場合、凡例ラベルも更新
                 if current_legend == current_name:
                     self.datasets[current_row]['legend_label'] = actual_new_name
-                    self.legendLabel.setText(actual_new_name) # UIも即時更新
+                    self.legendLabel.setText(actual_new_name) 
                 
                 item = self.datasetList.item(current_row)
                 if item:
+                    # リストの表示名更新
                     item.setText(actual_new_name)
                 self.statusBar.showMessage(f"データセット名を '{actual_new_name}' に変更しました", 3000)
             elif ok and not new_name_text.strip():
@@ -1978,7 +1976,7 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"データセット選択処理中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     def update_current_dataset(self):# TODO
-        """現在のデータセット値を保存(selfの値をdatasetに)"""
+        """現在のデータセット値を保存(selfの値をdataset[self.current_dataset_index]に)"""
         try:
             if self.current_dataset_index < 0 or not self.datasets or self.current_dataset_index >= len(self.datasets):
                 return
@@ -2840,49 +2838,8 @@ class TikZPlotConverter(QMainWindow):
             
             if show_legend:
                 latex.append(f"        \\addlegendentry{{{legend_label}}}")
-    
-    def add_theory_curve_to_latex(self, latex, dataset, index):
-        """LaTeXコードに理論曲線を追加する"""
-        try:
-            # 理論曲線の設定
-            equation = dataset.get('equation', 'x^2')
-            domain_min = dataset.get('domain_min', 0)
-            domain_max = dataset.get('domain_max', 10)
-            samples = dataset.get('samples', 200)
-            color = dataset.get('color', QColor('green')).name()
-            line_width = dataset.get('line_width', 1.0)
-            show_legend = dataset.get('show_legend', True)
-            legend_label = dataset.get('legend_label', "理論曲線")
-            
-            # 理論曲線のオプション
-            theory_options = []
-            theory_options.append(f"domain={domain_min}:{domain_max}")
-            theory_options.append(f"samples={samples}")
-            theory_options.append("smooth")
-            theory_options.append("thick")
-            theory_options.append(color)
-            theory_options.append(f"line width={line_width}pt")
-            
-            latex.append(f"        % 理論曲線{index+1}: {dataset.get('name', '')}")
-            latex.append(f"        \\addplot[{', '.join(theory_options)}] {{")
-            latex.append(f"            {equation}")
-            latex.append("        };")
-            
-            # 凡例エントリを追加
-            if show_legend:
-                latex.append(f"        \\addlegendentry{{{legend_label}}}")
-        except Exception as e:
-            # エラー発生時はコメントとして記録
-            latex.append(f"        % Error in theory curve {index+1}: {str(e)}")
-            # 安全な代替プロット
-            latex.append(f"        \\addplot[{color}, dashed] coordinates {{")
-            latex.append(f"            ({domain_min}, 0) ({domain_max}, 0)")
-            latex.append("        };")
-            if show_legend:
-                latex.append(f"        \\addlegendentry{{{legend_label} (ERROR)}}")
 
-    # 特殊点をデータセットに割り当て
-    def assign_special_points_to_dataset(self):
+    def assign_special_points_to_dataset(self):# TODO
         if self.current_dataset_index < 0:
             QMessageBox.warning(self, "警告", "特殊点を割り当てるデータセットを選択してください")
             return
@@ -2910,8 +2867,7 @@ class TikZPlotConverter(QMainWindow):
         QMessageBox.information(self, "成功", 
                               f"データセット '{dataset['name']}' に {len(special_points)} 個の特殊点を割り当てました")
     
-    # 注釈をデータセットに割り当て
-    def assign_annotations_to_dataset(self):
+    def assign_annotations_to_dataset(self):# TODO
         if self.current_dataset_index < 0:
             QMessageBox.warning(self, "警告", "注釈を割り当てるデータセットを選択してください")
             return
@@ -2932,7 +2888,6 @@ class TikZPlotConverter(QMainWindow):
                     color_val = color_combo.currentText()
                     pos_val = pos_combo.currentText()
                     
-                    # 日本語位置表記をTikZ形式に変換
                     tikz_pos = self.convert_position_to_tikz(pos_val)
                     
                     annotations.append((x_val, y_val, text_val, color_val, tikz_pos))
@@ -2945,13 +2900,11 @@ class TikZPlotConverter(QMainWindow):
         QMessageBox.information(self, "成功", 
                               f"データセット '{dataset['name']}' に {len(annotations)} 個の注釈を割り当てました")
     
-    # 日本語位置表記をTikZ形式に変換するヘルパーメソッドを追加
-    def convert_position_to_tikz(self, jp_position):
-        """日本語の位置表記をTikZの位置表記に変換する
-        注意: TikZのアンカー指定は直感と逆になる
-        例: 「右上」に表示したい場合は「左下(south west)」をアンカーに指定する
+    def convert_position_to_tikz(self, jp_position):# TODO
+        """日本語の位置表記をTikZの位置表記に変換する\n
+        TikZのアンカー指定はなぜか直感と逆になる\n
+        例: 「右上」は「左下(south west)」になる\n
         """
-        # 直感的な位置とTikZアンカーの対応関係（逆転させる）
         position_map = {
             '上': 'south',      # 下アンカー → 上に表示
             '右上': 'south west', # 左下アンカー → 右上に表示
@@ -2964,30 +2917,26 @@ class TikZPlotConverter(QMainWindow):
         }
         return position_map.get(jp_position, 'south east')  # デフォルトは左上に表示
 
-    def on_data_source_type_changed(self, checked):
+    def on_data_source_type_changed(self, checked):# TODO
         """データソースタイプが変更されたときに呼ばれる"""
-        if not checked:  # イベントはtoggleで発生するため、チェックされたラジオボタンのみ処理
+        if not checked:  
             return
             
-        # 現在のデータセットがあれば状態を保存
         if self.current_dataset_index >= 0:
             self.update_current_dataset()
             
-        # UIの表示/非表示を切り替え
         is_measured = self.measuredRadio.isChecked()
         
         self.measuredContainer.setVisible(is_measured)
         self.formulaContainer.setVisible(not is_measured)
         
-        # 現在のデータセットの状態を更新
         if self.current_dataset_index >= 0:
+            # 選択した新しいindexが放り込まれる(on_dataset_selected参照）
             dataset = self.datasets[self.current_dataset_index]
             dataset['data_source_type'] = 'measured' if is_measured else 'formula'
             
-            # データソースタイプ表示ラベルを更新
             self.dataSourceTypeDisplayLabel.setText("実測データ" if is_measured else "数式データ")
             
-        # UIの要素の有効/無効を更新
         self.update_ui_based_on_data_source_type()
 
     def apply_formula(self):# TODO
@@ -3060,16 +3009,7 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"数式の適用中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
             self.statusBar.showMessage("数式適用エラー", 3000)
-
-    # CSVファイルの列名を更新
-    def update_column_names(self, file_path):
-        try:
-            df = pd.read_csv(file_path)
-            self.statusBar.showMessage(f"CSVファイルを読み込みました: {len(df.columns)}列")
-        except Exception as e:
-            QMessageBox.critical(self, "エラー", f"CSVファイルの読み込みに失敗しました: {str(e)}")
-            self.statusBar.showMessage("ファイル読み込みエラー")
-    
+  
     # データテーブルに行を追加
     def add_table_row(self):
         row_position = self.dataTable.rowCount()
@@ -3227,6 +3167,67 @@ class TikZPlotConverter(QMainWindow):
         dataset['data_x'] = data_x
         dataset['data_y'] = data_y
         self.statusBar.showMessage(f"データセット '{dataset['name']}' の手入力データを保存しました", 3000)
+
+    def create_styled_delete_confirmation(self, title, message, dangerous_action_text="削除"):# TODO
+        """スタイル付き削除確認ダイアログを作成（QMessageBox使用）"""
+        msgBox = QMessageBox(self)
+        msgBox.setWindowTitle(title)
+        msgBox.setText(message)
+        msgBox.setIcon(QMessageBox.Warning)
+        
+        # カスタムボタンを追加
+        delete_button = msgBox.addButton(dangerous_action_text, QMessageBox.YesRole)
+        cancel_button = msgBox.addButton("キャンセル", QMessageBox.NoRole)
+        
+        # 削除ボタンを赤色に設定（破壊的操作）
+        delete_button.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: 2px solid #e74c3c;
+                padding: 10px 20px;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 14px;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+                border-color: #c0392b;
+                transform: translateY(-1px);
+            }
+            QPushButton:pressed {
+                background-color: #a93226;
+                border-color: #a93226;
+            }
+        """)
+        
+        # キャンセルボタンを安全な色に設定
+        cancel_button.setStyleSheet("""
+            QPushButton {
+                background-color: #95a5a6;
+                color: white;
+                border: 2px solid #95a5a6;
+                padding: 10px 20px;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 14px;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background-color: #7f8c8d;
+                border-color: #7f8c8d;
+            }
+            QPushButton:pressed {
+                background-color: #6c7b7d;
+                border-color: #6c7b7d;
+            }
+        """)
+        
+        # デフォルトボタンを安全な選択肢（キャンセル）に設定
+        msgBox.setDefaultButton(cancel_button)
+        
+        return msgBox, delete_button, cancel_button
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
