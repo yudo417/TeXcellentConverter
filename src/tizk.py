@@ -44,6 +44,8 @@ class TikZPlotConverter(QMainWindow):
                 'samples': 200,
                 'special_points': [],  # [(x, y, color, show_coords), ...]
                 'annotations': [],     # [(x, y, text, color, pos), ...]
+                'special_points_enabled': False,  # 特殊点チェックボックスの状態
+                'annotations_enabled': False,    # 注釈チェックボックスの状態
                 ### ファイル読み込み関連の設定
                 'file_path': '',
                 'file_type': 'csv',  # 'csv' or 'excel' or 'manual'
@@ -1845,6 +1847,8 @@ class TikZPlotConverter(QMainWindow):
                 'samples': 200,
                 'special_points': [],  # [(x, y, color, show_coords), ...]
                 'annotations': [],     # [(x, y, text, color, pos), ...]
+                'special_points_enabled': False,  # 特殊点チェックボックスの状態
+                'annotations_enabled': False,    # 注釈チェックボックスの状態
                 # ファイル読み込み関連の設定
                 'file_path': '',
                 'file_type': 'csv',  # 'csv' or 'excel' or 'manual'
@@ -1981,7 +1985,7 @@ class TikZPlotConverter(QMainWindow):
             if self.current_dataset_index < 0 or not self.datasets or self.current_dataset_index >= len(self.datasets):
                 return
             
-            #代入されるのは辞書形式
+            #! 代入されるのは辞書
             dataset = self.datasets[self.current_dataset_index]
             
             # 色の設定（初回1回のみ）
@@ -2004,6 +2008,42 @@ class TikZPlotConverter(QMainWindow):
                 dataset['plot_type'] = "line_scatter" #　線と点
             else:
                 dataset['plot_type'] = "bar" #　棒グラフ
+            
+            # 特殊点
+            special_points_table_data = []
+            for row in range(self.specialPointsTable.rowCount()):
+                x_item = self.specialPointsTable.item(row, 0)
+                y_item = self.specialPointsTable.item(row, 1)
+                color_combo = self.specialPointsTable.cellWidget(row, 2)
+                coord_combo = self.specialPointsTable.cellWidget(row, 3)
+                
+                if x_item and y_item and color_combo and coord_combo:
+                    special_points_table_data.append({
+                        'x': x_item.text(),
+                        'y': y_item.text(),
+                        'color': color_combo.currentText(),
+                        'coord_display': coord_combo.currentText()
+                    })
+            dataset['special_points_table_data'] = special_points_table_data
+            
+            # 注釈
+            annotations_table_data = []
+            for row in range(self.annotationsTable.rowCount()):
+                x_item = self.annotationsTable.item(row, 0)
+                y_item = self.annotationsTable.item(row, 1)
+                text_item = self.annotationsTable.item(row, 2)
+                color_combo = self.annotationsTable.cellWidget(row, 3)
+                pos_combo = self.annotationsTable.cellWidget(row, 4)
+                
+                if x_item and y_item and text_item and color_combo and pos_combo:
+                    annotations_table_data.append({
+                        'x': x_item.text(),
+                        'y': y_item.text(),
+                        'text': text_item.text(),
+                        'color': color_combo.currentText(),
+                        'position': pos_combo.currentText()
+                    })
+            dataset['annotations_table_data'] = annotations_table_data
             
             if hasattr(self, 'measuredRadio') and hasattr(self, 'formulaRadio'):
                 dataset['data_source_type'] = 'measured' if self.measuredRadio.isChecked() else 'formula'
@@ -2068,6 +2108,13 @@ class TikZPlotConverter(QMainWindow):
             
             # デバッグ情報
             print(f"データセット '{dataset.get('name')}' が更新されました")
+            
+            # 特殊点・注釈のチェックボックス状態を保存
+            dataset['special_points_enabled'] = self.specialPointsCheck.isChecked()
+            dataset['annotations_enabled'] = self.annotationsCheck.isChecked()
+            
+            # 特殊点テーブルの保存処理
+            special_points_table_data = []
             
         except Exception as e:
             import traceback
@@ -2176,6 +2223,63 @@ class TikZPlotConverter(QMainWindow):
                     self.showTangentEquationCheck.setChecked(dataset.get('show_tangent_equation', False))
             
             self.update_ui_based_on_data_source_type()
+            
+            self.specialPointsCheck.setChecked(dataset.get('special_points_enabled', False))
+            self.annotationsCheck.setChecked(dataset.get('annotations_enabled', False))
+            
+            # 特殊点
+            self.specialPointsTable.setRowCount(0)
+            special_points_table_data = dataset.get('special_points_table_data', [])
+            for point_data in special_points_table_data:
+                row_position = self.specialPointsTable.rowCount()
+                self.specialPointsTable.insertRow(row_position)
+                
+                x_item = QTableWidgetItem(point_data.get('x', '0.0'))
+                y_item = QTableWidgetItem(point_data.get('y', '0.0'))
+                self.specialPointsTable.setItem(row_position, 0, x_item)
+                self.specialPointsTable.setItem(row_position, 1, y_item)
+                
+                color_combo = QComboBox()
+                color_combo.addItems(['red', 'blue', 'green', 'black', 'purple', 'orange', 'brown', 'gray'])
+                color_combo.setCurrentText(point_data.get('color', 'red'))
+                self.specialPointsTable.setCellWidget(row_position, 2, color_combo)
+                
+                coord_display_combo = QComboBox()
+                coord_display_combo.addItems([
+                    'なし', 
+                    'X座標のみ（線のみ）', 
+                    'X座標のみ（値も表示）', 
+                    'Y座標のみ（線のみ）', 
+                    'Y座標のみ（値も表示）', 
+                    'X,Y座標（線のみ）', 
+                    'X,Y座標（値も表示）'
+                ])
+                coord_display_combo.setCurrentText(point_data.get('coord_display', 'なし'))
+                self.specialPointsTable.setCellWidget(row_position, 3, coord_display_combo)
+            
+            # 注釈
+            self.annotationsTable.setRowCount(0)
+            annotations_table_data = dataset.get('annotations_table_data', [])
+            for ann_data in annotations_table_data:
+                row_position = self.annotationsTable.rowCount()
+                self.annotationsTable.insertRow(row_position)
+                
+                x_item = QTableWidgetItem(ann_data.get('x', '0.0'))
+                y_item = QTableWidgetItem(ann_data.get('y', '0.0'))
+                text_item = QTableWidgetItem(ann_data.get('text', '注釈テキスト'))
+                self.annotationsTable.setItem(row_position, 0, x_item)
+                self.annotationsTable.setItem(row_position, 1, y_item)
+                self.annotationsTable.setItem(row_position, 2, text_item)
+                
+                color_combo = QComboBox()
+                color_combo.addItems(['black', 'red', 'blue', 'green', 'purple', 'orange', 'brown', 'gray'])
+                color_combo.setCurrentText(ann_data.get('color', 'black'))
+                self.annotationsTable.setCellWidget(row_position, 3, color_combo)
+                
+                pos_combo = QComboBox()
+                pos_combo.addItems(['上', '右上', '右', '右下', '下', '左下', '左', '左上'])
+                pos_combo.setCurrentText(ann_data.get('position', '右上'))
+                self.annotationsTable.setCellWidget(row_position, 4, pos_combo)
             
             self.block_signals_temporarily(False)
             
