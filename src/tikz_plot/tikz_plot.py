@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+from pandas import ExcelFile
 import sys
 import math  # 数学関数を使用するためにインポート
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout,
@@ -639,7 +640,6 @@ class TikZPlotTab(QWidget):
     def update_sheet_names(self, file_path):
         """Excelファイルのシート名を更新"""
         try:
-            from pandas import ExcelFile
             xls = ExcelFile(file_path)
             self.sheetCombobox.clear()
             self.sheetCombobox.addItems(xls.sheet_names)

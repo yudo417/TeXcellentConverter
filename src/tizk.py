@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import sys
 import math  # 数学関数を使用するためにインポート
+import traceback
+import openpyxl
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                             QHBoxLayout, QLabel, QLineEdit, QPushButton,
                             QFileDialog, QComboBox, QMessageBox, QTextEdit,
@@ -1287,7 +1289,6 @@ class TikZPlotConverter(QMainWindow):
             self.statusBar.showMessage(f"データセット '{dataset_name}' にデータを読み込みました: {len(data_x)}ポイント")
             
         except Exception as e:
-            import traceback
             QMessageBox.critical(self, "エラー", f"データ読み込み中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
             self.statusBar.showMessage("データ読み込みエラー")
     
@@ -1298,7 +1299,6 @@ class TikZPlotConverter(QMainWindow):
         - 有効なx,yが返る\n
         - イレギュラーがない場合戻り値2，警告がある場合戻り値3\n
         """
-        import pandas as pd
         
         def parse_range(range_str):
             """S行idx, S列idx, E行idx, E列idx"""
@@ -1434,7 +1434,7 @@ class TikZPlotConverter(QMainWindow):
             data_x = [data_x[i] for i in valid_indices]
             data_y = [data_y[i] for i in valid_indices]
             
-            return (data_x, data_y, warnings) if warnings else (data_x, data_y)
+            return data_x, data_y, warnings if warnings else (data_x, data_y)
         except Exception as e:
             raise e
     
@@ -1445,8 +1445,6 @@ class TikZPlotConverter(QMainWindow):
         - 有効なx,yが返る\n
         - イレギュラーがない場合戻り値2，警告がある場合戻り値3\n
         """
-        import openpyxl
-        import math
         
         try:
             wb = openpyxl.load_workbook(file_path, data_only=True)
@@ -1647,12 +1645,10 @@ class TikZPlotConverter(QMainWindow):
             data_x = [data_x[i] for i in valid_indices]
             data_y = [data_y[i] for i in valid_indices]
             
-            for warning in warnings:
             
             return data_x, data_y, warnings if warnings else (data_x, data_y)
             
         except Exception as e:
-            import traceback
             raise ValueError(f"Excelセル範囲からのデータ抽出中にエラーが発生しました: {str(e)}")
     
     def add_special_point(self):
@@ -1765,7 +1761,6 @@ class TikZPlotConverter(QMainWindow):
             self.y_tick_step = self.yTickStepSpin.value()
             
         except Exception as e:
-            import traceback
             QMessageBox.critical(self, "エラー", f"グラフ全体設定の更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
 
     def convert_to_tikz(self):
@@ -1783,7 +1778,6 @@ class TikZPlotConverter(QMainWindow):
             self.statusBar.showMessage("TikZコードが生成されました")
                         
         except Exception as e:
-            import traceback
             QMessageBox.critical(self, "エラー", f"変換中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
             self.statusBar.showMessage("変換エラー")
 
@@ -1853,7 +1847,6 @@ class TikZPlotConverter(QMainWindow):
             self.statusBar.showMessage(f"データセット '{final_name}' を追加しました", 3000)
 
         except Exception as e:
-            import traceback
             QMessageBox.critical(self, "エラー", f"データセット追加中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     def remove_dataset(self):
@@ -1894,7 +1887,6 @@ class TikZPlotConverter(QMainWindow):
                 
                 self.statusBar.showMessage(f"データセット '{dataset_name}' を削除しました", 3000)
         except Exception as e:
-            import traceback
             QMessageBox.critical(self, "エラー", f"データセット削除中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     def update_ui_for_no_datasets(self):
@@ -1942,7 +1934,6 @@ class TikZPlotConverter(QMainWindow):
                  QMessageBox.warning(self, "警告", "データセット名は空にできません。")
 
         except Exception as e:
-            import traceback
             QMessageBox.critical(self, "エラー", f"データセット名の変更中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     def on_dataset_selected(self, row):
@@ -1963,7 +1954,6 @@ class TikZPlotConverter(QMainWindow):
             self.update_ui_from_dataset(dataset)
             self.statusBar.showMessage(f"データセット '{dataset['name']}' を選択しました", 3000)
         except Exception as e:
-            import traceback
             QMessageBox.critical(self, "エラー", f"データセット選択処理中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     def update_current_dataset(self):
@@ -2049,11 +2039,7 @@ class TikZPlotConverter(QMainWindow):
                     
                     dataset['x_range'] = self.xRangeEntry.text().strip()
                     dataset['y_range'] = self.yRangeEntry.text().strip()                    
-                    if (
-                        hasattr(self, 'tabWidget')
-                        and self.tabWidget.currentIndex() == 0  # データ入力タブ
-                        and self.manualRadio.isChecked()
-                    ):
+                    if self.manualRadio.isChecked():
                         data_x, data_y = [], []
                         for row in range(self.dataTable.rowCount()):
                             x_item = self.dataTable.item(row, 0)
@@ -2100,7 +2086,6 @@ class TikZPlotConverter(QMainWindow):
             
             
         except Exception as e:
-            import traceback
             QMessageBox.critical(self, "エラー", f"データセット更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     def update_ui_from_dataset(self, dataset):
@@ -2269,7 +2254,6 @@ class TikZPlotConverter(QMainWindow):
             
         except Exception as e:
             self.block_signals_temporarily(False)
-            import traceback
             QMessageBox.critical(self, "エラー", f"UI更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     def block_signals_temporarily(self, block):
@@ -2369,7 +2353,6 @@ class TikZPlotConverter(QMainWindow):
                 self.dataTable.setItem(i, 1, QTableWidgetItem(str(y)))
                 
         except Exception as e:
-            import traceback
             QMessageBox.critical(self, "エラー", f"データテーブル更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     #* 重要
@@ -3091,7 +3074,6 @@ class TikZPlotConverter(QMainWindow):
             self.statusBar.showMessage("数式データを適用しました", 3000)
             
         except Exception as e:
-            import traceback
             QMessageBox.critical(self, "エラー", f"数式の適用中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
             self.statusBar.showMessage("数式適用エラー", 3000)
   
