@@ -1449,22 +1449,17 @@ class TikZPlotConverter(QMainWindow):
         import math
         
         try:
-            print(f"Excel読み込み試行: {file_path}, シート: {sheet_name}, X範囲: {x_range}, Y範囲: {y_range}")
             wb = openpyxl.load_workbook(file_path, data_only=True)
             sheet = wb[sheet_name]
             
             try:
                 x_cells = list(sheet[x_range])
-                print(f"X軸セル範囲読み込み成功: {len(x_cells)}行")
             except Exception as e:
-                print(f"X軸セル範囲読み込みエラー: {str(e)}")
                 raise ValueError(f"X軸のセル範囲「{x_range}」が無効です: {str(e)}")
                 
             try:
                 y_cells = list(sheet[y_range])
-                print(f"Y軸セル範囲読み込み成功: {len(y_cells)}行")
             except Exception as e:
-                print(f"Y軸セル範囲読み込みエラー: {str(e)}")
                 raise ValueError(f"Y軸のセル範囲「{y_range}」が無効です: {str(e)}")
             
             data_x = []
@@ -1653,14 +1648,11 @@ class TikZPlotConverter(QMainWindow):
             data_y = [data_y[i] for i in valid_indices]
             
             for warning in warnings:
-                print(f"警告: {warning}")
             
             return data_x, data_y, warnings if warnings else (data_x, data_y)
             
         except Exception as e:
             import traceback
-            print(f"Excel読み込みエラー: {str(e)}")
-            print(traceback.format_exc())
             raise ValueError(f"Excelセル範囲からのデータ抽出中にエラーが発生しました: {str(e)}")
     
     def add_special_point(self):
@@ -1953,7 +1945,7 @@ class TikZPlotConverter(QMainWindow):
             import traceback
             QMessageBox.critical(self, "エラー", f"データセット名の変更中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
-    def on_dataset_selected(self, row):#TODO
+    def on_dataset_selected(self, row):
         """行選択時，rowは選択した行のindexを放り込む"""
         try:
             # 以前のデータセットの状態を保存（存在する場合）
@@ -2101,15 +2093,11 @@ class TikZPlotConverter(QMainWindow):
                         self.showTangentEquationCheck.setChecked(dataset.get('show_tangent_equation', False))
                         #pythonは基本参照なので気にしなくておけ(Swift基本触ってるから頭バグるﾝｺﾞ〜泣)
             
-            # デバッグ情報
-            print(f"データセット '{dataset.get('name')}' が更新されました")
             
             # 特殊点・注釈のチェックボックス状態を保存
             dataset['special_points_enabled'] = self.specialPointsCheck.isChecked()
             dataset['annotations_enabled'] = self.annotationsCheck.isChecked()
             
-            # 特殊点テーブルの保存処理
-            special_points_table_data = []
             
         except Exception as e:
             import traceback
@@ -2278,7 +2266,6 @@ class TikZPlotConverter(QMainWindow):
             
             self.block_signals_temporarily(False)
             
-            print(f"データセット '{dataset.get('name')}' からUIを更新しました")
             
         except Exception as e:
             self.block_signals_temporarily(False)
@@ -2844,7 +2831,6 @@ class TikZPlotConverter(QMainWindow):
                         latex.append(f"        \\addlegendentry{{{legend_label}の接線 (x={tangent_x})}}")
                 except Exception as e:
                     error_msg = f"接線の計算でエラーが発生しました。式: {formula}, エラー: {str(e)}"
-                    print(error_msg)  # コンソールにも出力
                     self.statusBar.showMessage(f"警告: {error_msg}", 5000)
                     
                     latex.append(f"        % {error_msg}")
