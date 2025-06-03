@@ -2291,8 +2291,8 @@ class TikZPlotConverter(QMainWindow):
             QMessageBox.critical(self, "エラー", f"データテーブル更新中にエラーが発生しました: {str(e)}\n\n{traceback.format_exc()}")
     
     #* 重要
-    def generate_tikz_code_multi_datasets(self):
-        """最終的なTikZコードを生成する"""
+    def generate_tikz_code_multi_datasets(self):# TODO
+        """最終的なLaTeXコードを生成する"""
         latex = []
         
         latex.append("\\begin{figure}[" + self.global_settings['position'] + "]")
@@ -2595,31 +2595,24 @@ class TikZPlotConverter(QMainWindow):
         """
         data_source_type = dataset.get('data_source_type', 'measured')
         
-        # スケールタイプを取得
         scale_type = self.global_settings.get('scale_type', 'normal')
         is_xlog = scale_type == 'logx' or scale_type == 'loglog'
         is_ylog = scale_type == 'logy' or scale_type == 'loglog'
         
         if data_source_type == 'formula':
-            # 数式の場合は理論曲線として描画
             equation = dataset.get('equation', 'x^2')
-            # TikZ互換の数式に変換
             tikz_equation = equation
             domain_min = dataset.get('domain_min', 0)
             domain_max = dataset.get('domain_max', 10)
             samples = dataset.get('samples', 200)
             
-            # 対数軸の場合は、domain値を調整（0や負の値を除外）
             if is_xlog and domain_min <= 0:
-                # 警告を表示
-                latex.append(f"        % 警告: X軸が対数スケールのため、domain_min値が調整されました")
-                domain_min = max(0.01, domain_min)  # 最小値を正の値に設定
+                latex.append(f"        % 警告: X軸が対数スケールのため、数式のxの範囲が調整されました")
+                domain_min = max(0.01, domain_min)  
             
-            # 数式がない場合はスキップ
             if not equation.strip():
                 return
             
-            # QColorオブジェクトをTikZ互換形式に変換
             tikz_color = self.color_to_tikz_rgb(dataset.get('color', QColor('blue')))
             
             # 理論曲線のオプション
@@ -2628,102 +2621,23 @@ class TikZPlotConverter(QMainWindow):
             theory_options.append(f"samples={samples}")
             theory_options.append("smooth")
             theory_options.append("thick")
-            theory_options.append(tikz_color)  # TikZ互換のRGB値
+            theory_options.append(tikz_color)  
             theory_options.append(f"line width={dataset.get('line_width', 1.0)}pt")
             
-            latex.append(f"        % データセット{index+1}: {dataset.get('name', '')} （数式: {equation}）")
+            latex.append(f"        % データセット[ {dataset.get('name', '')} ] （数式: {equation}）")
             latex.append(f"        \\addplot[{', '.join(theory_options)}] {{")
             latex.append(f"            {tikz_equation}")
             latex.append("        };")
             
-            # 凡例エントリを追加
             if show_legend:
                 latex.append(f"        \\addlegendentry{{{legend_label}}}")
-            
-            # 微分曲線の追加（オプションが有効な場合）
-            if dataset.get('show_derivative', False):
-                # 微分曲線の色をTikZ互換形式に変換
-                deriv_color = self.color_to_tikz_rgb(dataset.get('derivative_color', QColor('red')))
-                
-                # 線のスタイル設定
-                line_style = ""
-                deriv_style = dataset.get('derivative_style', '実線')
-                if deriv_style == '点線':
-                    line_style = "dotted"
-                elif deriv_style == '破線':
-                    line_style = "dashed"
-                elif deriv_style == '一点鎖線':
-                    line_style = "dashdotted"
-                
-                # 微分曲線のオプション
-                deriv_options = []
-                deriv_options.append(f"domain={domain_min}:{domain_max}")
-                deriv_options.append(f"samples={samples}")
-                deriv_options.append("smooth")
-                if line_style:
-                    deriv_options.append(line_style)
-                deriv_options.append(deriv_color)  # TikZ互換のRGB値
-                deriv_options.append(f"line width={dataset.get('line_width', 1.0)}pt")
-                
-                latex.append(f"        % 微分曲線 （データセット{index+1}: {dataset.get('name', '')}）")
-                latex.append(f"        \\addplot[{', '.join(deriv_options)}] {{")
-                # 微分を計算するための数式変換（簡易的な実装）
-                latex.append(f"            derivative({tikz_equation}, x)")
-                latex.append("        };")
-                
-                # 凡例エントリを追加
-                if show_legend:
-                    latex.append(f"        \\addlegendentry{{{legend_label}の微分}}")
-            
-            # 積分曲線の追加（オプションが有効な場合）
-            if dataset.get('show_integral', False):
-                # 積分曲線の色をTikZ互換形式に変換
-                integral_color = self.color_to_tikz_rgb(dataset.get('integral_color', QColor('green')))
-                
-                # 線のスタイル設定
-                line_style = ""
-                integral_style = dataset.get('integral_style', '点線')
-                if integral_style == '点線':
-                    line_style = "dotted"
-                elif integral_style == '破線':
-                    line_style = "dashed"
-                elif integral_style == '一点鎖線':
-                    line_style = "dashdotted"
-                
-                # 積分定数
-                integral_const = dataset.get('integral_const', 0)
-                
-                # 積分曲線のオプション
-                integral_options = []
-                integral_options.append(f"domain={domain_min}:{domain_max}")
-                integral_options.append(f"samples={samples}")
-                integral_options.append("smooth")
-                if line_style:
-                    integral_options.append(line_style)
-                integral_options.append(integral_color)  # TikZ互換のRGB値
-                integral_options.append(f"line width={dataset.get('line_width', 1.0)}pt")
-                
-                latex.append(f"        % 積分曲線 （データセット{index+1}: {dataset.get('name', '')}）")
-                latex.append(f"        \\addplot[{', '.join(integral_options)}] {{")
-                # 積分を計算するための数式変換（簡易的な実装）
-                latex.append(f"            integral({tikz_equation}, x) + {integral_const}")
-                latex.append("        };")
-                
-                # 凡例エントリを追加
-                if show_legend:
-                    latex.append(f"        \\addlegendentry{{{legend_label}の積分}}")
-            
-            # 接線表示部分を完全に書き直し
-            # TikZ コードを完全に書き換え - 接線の明示的な計算
+
             if dataset.get('show_tangent', False):
-                # 接線のx座標と長さ
-                tangent_x = dataset.get('tangent_x', 5)
+                tangent_x = dataset.get('tangent_x', 1)
                 tangent_length = dataset.get('tangent_length', 2)
                 
-                # 接線の色をTikZ互換形式に変換
-                tangent_color = self.color_to_tikz_rgb(dataset.get('tangent_color', QColor('purple')))
+                tangent_color = self.color_to_tikz_rgb(dataset.get('tangent_color', QColor('red')))
                 
-                # 線のスタイル設定
                 line_style = ""
                 tangent_style = dataset.get('tangent_style', '実線')
                 if tangent_style == '点線':
@@ -2733,12 +2647,12 @@ class TikZPlotConverter(QMainWindow):
                 elif tangent_style == '一点鎖線':
                     line_style = "dashdotted"
                 
-                # 接線のオプション
+                #*==========================接線===============================
                 tangent_options = []
                 if line_style:
                     tangent_options.append(line_style)
                 tangent_options.append("thick")
-                tangent_options.append(tangent_color)  # TikZ互換のRGB値
+                tangent_options.append(tangent_color)  
                 tangent_options.append(f"line width={dataset.get('line_width', 1.5)}pt")
 
                 # コメント行
@@ -2753,7 +2667,6 @@ class TikZPlotConverter(QMainWindow):
                     # TikZ式をPython式に変換（^ を ** に置換）
                     python_formula = formula.replace('^', '**')
                     # 数式形式を整える（乗算記号の追加など）- 改良したヘルパー関数を使用
-                    python_formula = self.format_equation_for_tikz(python_formula)
                     
                     # グラフの表示範囲を取得
                     y_min = self.global_settings['y_min']
@@ -2863,7 +2776,6 @@ class TikZPlotConverter(QMainWindow):
                     try:
                         # TikZ式をPython式に変換し、安全に評価
                         python_formula = formula.replace('^', '**')
-                        python_formula = self.format_equation_for_tikz(python_formula)
                         point_y = eval(python_formula.replace('x', str(x_val)), {"__builtins__": {}}, {"math": math})
                         latex.append(f"        \\addplot[only marks, mark=*, {tangent_color}, mark size=3] coordinates {{({tangent_x}, {point_y})}}; % 接線計算エラーだが点は表示")
                     except Exception as point_error:
