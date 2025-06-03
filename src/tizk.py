@@ -679,11 +679,6 @@ class TikZPlotConverter(QMainWindow):
         styleLayout.addWidget(markerSizeLabel, 4, 0)
         styleLayout.addWidget(self.markerSizeSpin, 4, 1)
         
-        # データ点をマークで表示するオプション
-        self.showDataPointsCheck = QCheckBox('データ点をマークで表示（線グラフでも点を表示）')
-        self.showDataPointsCheck.setChecked(False)
-        styleLayout.addWidget(self.showDataPointsCheck, 5, 0, 1, 2)
-        
         styleGroup.setLayout(styleLayout)
 
         legendLabelGroup = QGroupBox("データセット個別設定 - 凡例ラベル")
@@ -2903,7 +2898,7 @@ class TikZPlotConverter(QMainWindow):
                 latex.append(f"        \\addlegendentry{{{legend_label}}}")
         
         # 点
-        if plot_type == "scatter" or plot_type == "line_scatter" or self.showDataPointsCheck.isChecked():
+        if plot_type == "scatter" or plot_type == "line_scatter":
             scatter_options = []
             scatter_options.append("only marks")
             scatter_options.append(f"mark={marker_style}")
