@@ -39,7 +39,6 @@ TeXcellentConverterは、主に以下の2つの機能を提供しています
 - **接線**: 数式グラフの指定点における接線を描画
 - **座標表示**: 特殊点の座標を表示
 
-## 使用方法
 
 ## 💻 システム条件
 
@@ -56,5 +55,12 @@ TeXcellentConverterは、主に以下の2つの機能を提供しています
 ## 💿 インストール方法
 
 [リリースページ](https://github.com/yudo417/TeXcellentConverter/releases)からインストールしてください．
+
+
+
+## 📜 ライセンス
+
+[GNU GENERAL PUBLIC LICENSE Version 3](https://github.com/yudo417/TeXcellentConverter/blob/main/LICENSE) 
+
 
 
