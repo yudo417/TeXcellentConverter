@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "TexcellentConverter dev mode running"
+echo "TeXcellentConverter dev mode running"
 
 python src/app.py
 

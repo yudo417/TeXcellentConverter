@@ -1,83 +1,60 @@
-# TexcellentConverter
+# TeXcellentConverter
 
-TexcellentConverterは、Excel表をLaTeXコードに変換したり、TikZグラフをGUIで作成できるPCアプリです．
+**Excelの表や採集したデータを，表やグラフを生成するLaTeXのコードに変換するソフトです．**
 
-## 特徴
-- Excelファイルから簡単にLaTeX表を生成
-- TikZ形式のグラフをGUIで作成・編集
 
-## スクリーンショット
-![screenshot](screenshots/sample.png)
 
-## インストール方法
-TeXcellentConverterのインストール方法を説明します．
+## 📋 特徴
 
-ここでは，インストールするバージョンを ``{version}`` と表記しています．
+TeXcellentConverterは、主に以下の2つの機能を提供しています
 
-### Windows版
-1. [リリースページ](https://github.com/yudo417/TexcellentConverter/releases)から最新の``TeXcellentConverter-{version}-win-x64.zip``をダウンロードしてください．
-2. ダウンロードしたZIPファイルを任意の場所に解凍してください．
-3. フォルダ内の``TeXcellentConverter-{version}-win-x64.exe``をダブルクリックすると起動できます．
+1. **Excel表のLaTeX変換**
+   - Excelで作成した表をtabular形式のLaTeXコードに変換
 
-### macOS版
-1. [リリースページ](https://github.com/yudo417/TexcellentConverter/releases)から最新の``TeXcellentConverter-{version}-macOS-arm64.zip``をダウンロード
-2. ダウンロードしたZIPファイルを任意の場所に解凍してください．
-3. 解凍した``TexcellentConverter.app``をダブルクリックすると起動できます．
+2. **グラフ生成**
+   - Excel/CSVデータや数式からTikZ形式の美しいグラフを生成
+   - 手入力データにも対応
+
+## 🛠️ 主要機能
+
+### 📊 Excel → LaTeX表変換
+- **結合セル対応**: 複雑な結合セルを含む表も正確に変換
+- **範囲指定**: 必要な部分のみを指定して変換
+- **位置調整**: 「H,h,t,b,p,htbp」から位置指定可能
+
+### 📈 TikZグラフ生成
+#### データ入力方法
+- **実測データ**: CSV/Excelファイルまたは手動入力
+- **数式グラフ**: 数学関数から描画
+- **複数データセット**: 複数のグラフを同時に描画
+
+#### 基本的なグラフ設定
+- **グラフタイプ**: 線グラフ、散布図、線+点、棒グラフから選択可能
+- **軸設定**: 通常の軸から片対数，両対数グラフにも対応
+- **範囲**: 描画範囲を任意に設定可能
+
+#### 高度な機能
+- **特殊点**: 重要なデータポイントをハイライト表示
+- **注釈**: グラフ上にテキストによる説明を追加
+- **接線**: 数式グラフの指定点における接線を描画
+- **座標表示**: 特殊点の座標を表示
 
 ## 使用方法
 
-### 1. アプリの起動
-解凍したフォルダから「TexcellentConverter.exe」（Windowsの場合）または「TexcellentConverter.app」（macOSの場合）をダブルクリックして起動します．
+## 💻 システム条件
 
----
+| プラットフォーム | 対応バージョン 
+|------------------|----------------
+| **Windows** | Windows 10 (64bit) 以降 
+| **macOS** | macOS 13.0 (Ventura) 以降
 
-### 2. Excel表をLaTeXに変換する手順
+> **重要**:
+> - **Windows版**: Windows 10 (64bit) では環境によって動作しない場合がございます．
+> - **macOS版**: Apple シリコン搭載のMacを使用してください．
 
-1. **Excelファイルの選択**  
-　画面上部の「Excelファイル」欄の右にある「参照...」ボタンをクリックし、変換したいExcelファイル（.xlsxまたは.xls）を選択します．
 
-2. **シート名の選択**  
-　ファイルを選択すると、自動的にシート名がプルダウンに表示されます．変換したいシートを選びます．
+## 💿 インストール方法
 
-3. **セル範囲の指定**  
-　「セル範囲」欄に、変換したい範囲（例：A1:E6）のように入力します．
+[リリースページ](https://github.com/yudo417/TeXcellentConverter/releases)からインストールしてください．
 
-4. **オプションの設定（任意）**  
-　- 表のキャプションやラベルを入力できます．
-　- 表の位置（h, t, bなど）を選べます．
-　- 「数式の代わりに値を表示」「空の行と列を削除」「数式を$で囲む」「罫線を追加」などのチェックボックスで細かい設定が可能です．
 
-5. **LaTeXコードの生成**  
-　「LaTeXに変換」ボタンをクリックすると、下部にLaTeXコードが表示されます．
-
-6. **LaTeXコードのコピー**  
-　「クリップボードにコピー」ボタンを押すと、生成されたLaTeXコードをワンクリックでコピーできます．
-
----
-
-### 3. LaTeX表の利用方法
-
-- 生成されたLaTeXコードを、TeXエディタやOverleafなどに貼り付けて利用できます．
-- 注意書きに従い、必要なパッケージ（例：`\usepackage{multirow}`）をプリアンブルに追加してください．
-
----
-
-### 4. その他の機能
-
-- **パッケージ名のコピー**  
-　画面上部の「コピー」ボタンで、`\usepackage{multirow}`をクリップボードにコピーできます．
-
-- **エラー表示**  
-　ファイル選択や範囲指定に誤りがある場合は、エラーメッセージが表示されます．
-
-## 動作環境
-- Windows 10以降
-- macOS 10.13 (High Sierra) 以降
-- Python, pip等のインストールは不要です（アプリに全て同梱されています）
-
-## ライセンス
-GNU General Public License v3.0 (GPL-3.0)
-
-Copyright (C) 2025 yudo417
-
-詳細は[LICENSE](https://github.com/yudo417/TeXcellentConverter/blob/main/LICENSE)をご覧ください。
