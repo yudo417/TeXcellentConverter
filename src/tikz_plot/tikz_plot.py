@@ -2124,7 +2124,8 @@ class TikZPlotTab(QWidget):
                 if hasattr(self, 'showTangentEquationCheck'):
                     self.showTangentEquationCheck.setChecked(dataset.get('show_tangent_equation', False))
             
-            self.update_ui_based_on_data_source_type()
+            # データソースタイプ変更処理を明示的に呼び出し(最後にupdate_ui_based_on_data_source_typeを呼ぶ)
+            self.on_data_source_type_changed(True)
             
             self.specialPointsCheck.setChecked(dataset.get('special_points_enabled', False))
             self.annotationsCheck.setChecked(dataset.get('annotations_enabled', False))
