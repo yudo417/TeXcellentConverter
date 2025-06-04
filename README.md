@@ -9,9 +9,19 @@
 TeXcellentConverterは、主に以下の2つの機能を提供しています
 
 1. **Excel表のLaTeX変換**
+   
+
+https://github.com/user-attachments/assets/0dfe4b4f-033a-4a20-b570-0210c4ea2fae
+
+
    - Excelで作成した表をtabular形式のLaTeXコードに変換
 
-2. **グラフ生成**
+3. **グラフ生成**
+   
+
+https://github.com/user-attachments/assets/e65eeb4d-19db-4e99-b3b5-3d9f344695c5
+
+
    - Excel/CSVデータや数式からTikZ形式の美しいグラフを生成
    - 手入力データにも対応
 
