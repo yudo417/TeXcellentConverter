@@ -56,8 +56,8 @@ else:
 
 # EXEファイルの設定
 base = None
-if sys.platform == "win32":
-    base = "Win32GUI"  # コンソールウィンドウを非表示
+if sys.platform == "win32": # sys.platformは64bitでもwin32となる
+    base = "Win32GUI"  
 
 target = Executable(
     script="src/app.py",

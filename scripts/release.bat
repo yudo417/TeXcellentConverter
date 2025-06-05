@@ -1,89 +1,57 @@
 @echo off
 setlocal enabledelayedexpansion
 
-echo TeXcellentConverter Release Build Script
-echo ==========================================
+echo TeXcellentConverter Release Build Script (Windows)
 
-echo [1/5] 依存関係をチェック中...
 python -c "import PyQt5; print('PyQt5: OK')" 2>nul
 if errorlevel 1 (
-    echo エラー: PyQt5がインストールされていません
-    echo pip install PyQt5 を実行してください
+    echo エラー: PyQt5が見つからない
     pause
     exit /b 1
 )
 
-python -m PyInstaller --version >nul 2>&1
+python -c "import cx_Freeze; print('cx_Freeze: OK')" 2>nul
 if errorlevel 1 (
-    echo エラー: PyInstallerがインストールされていません  
-    echo pip install pyinstaller を実行してください
+    echo エラー: cx_Freezeが見つからない
     pause
     exit /b 1
 )
 
-echo [2/5] 古いビルドファイルを削除中...
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
-if exist *.spec del /q *.spec
 
-echo [3/5] アイコンファイルを確認中...
-set ICON_PARAM=
 if exist "assets\icon\favicon.ico" (
-    set ICON_PARAM=--icon=assets\icon\favicon.ico
-    echo アイコンファイル発見: assets\icon\favicon.ico
 ) else (
-    echo 警告: アイコンファイルが見つかりません
+    echo 警告: アイコンファイルが見つからない
 )
 
-echo [4/5] PyInstallerでビルド中...
-echo コマンド: python -m PyInstaller --onedir --windowed !ICON_PARAM! --name TeXcellentConverter --add-data "assets;assets" src\app.py
+REM cx_Freezeでbuildが必要
+python scripts\create_exe.py build
 
-python -m PyInstaller --onedir --windowed !ICON_PARAM! --name TeXcellentConverter --add-data "assets;assets" src\app.py
-
-if not exist "dist\TeXcellentConverter\TeXcellentConverter.exe" (
-    echo エラー: ビルドに失敗しました
-    echo 予想されるファイル: dist\TeXcellentConverter\TeXcellentConverter.exe
-    echo.
-    echo 代替案: 以下のコマンドを手動で実行してください
-    echo python -m PyInstaller --onedir --windowed !ICON_PARAM! --name TeXcellentConverter src\app.py
+if not exist "build\exe.win-amd64-3.12\TeXcellentConverter.exe" (
+    echo エラー: ビルド失敗，exeの生成が失敗
     pause
     exit /b 1
 )
 
-echo [5/5] ビルド結果を確認中...
-for %%A in ("dist\TeXcellentConverter\TeXcellentConverter.exe") do set EXE_SIZE=%%~zA
-echo 実行ファイル作成完了: !EXE_SIZE! bytes
+for %%A in ("build\exe.win-amd64-3.12\TeXcellentConverter.exe") do set EXE_SIZE=%%~zA
+echo exe作成完了: !EXE_SIZE! bytes
 
-echo.
-echo ZIPファイルを作成しますか？ (Y/N)
-set /p CREATE_ZIP=
-if /i "!CREATE_ZIP!"=="Y" (
-    echo ZIPファイル生成中...
-    cd dist
-    powershell -Command "Compress-Archive -Path TeXcellentConverter -DestinationPath TeXcellentConverter-v1.0.0-Windows-x64.zip -Force"
-    cd ..
-    
-    if exist "dist\TeXcellentConverter-v1.0.0-Windows-x64.zip" (
-        for %%A in ("dist\TeXcellentConverter-v1.0.0-Windows-x64.zip") do set ZIP_SIZE=%%~zA
-        echo ZIPファイル作成完了: !ZIP_SIZE! bytes
-    )
+python scripts\create_zip.py
+
+if exist "TeXcellentConverter_EXE.zip" (
+    for %%A in ("TeXcellentConverter_EXE.zip") do set ZIP_SIZE=%%~zA
+    echo ZIPファイル作成完了: !ZIP_SIZE! bytes
+) else (
+    echo 警告: ZIP作成に失敗
 )
 
 echo.
-echo ==========================================
-echo ビルド完了!
-echo ==========================================
-echo 実行ファイル: dist\TeXcellentConverter\TeXcellentConverter.exe
-if exist "dist\TeXcellentConverter-v1.0.0-Windows-x64.zip" (
-    echo 配布ファイル: dist\TeXcellentConverter-v1.0.0-Windows-x64.zip
+echo ビルド完了
+echo 実行ファイル: build\exe.win-amd64-3.12\TeXcellentConverter.exe
+if exist "TeXcellentConverter_EXE.zip" (
+    echo 配布ファイル: TeXcellentConverter_EXE.zip
 )
-echo ==========================================
-echo.
-echo テスト実行しますか？ (Y/N)
-set /p TEST_RUN=
-if /i "!TEST_RUN!"=="Y" (
-    echo アプリケーションを起動中...
-    start "" "dist\TeXcellentConverter\TeXcellentConverter.exe"
-)
+
 
 pause 
