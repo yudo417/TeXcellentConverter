@@ -1,15 +1,45 @@
-
 import sys
 import os
+import platform
+
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, 
                              QVBoxLayout, QWidget, QStatusBar, QMenuBar, QAction)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QCoreApplication, QLibraryInfo
 from PyQt5.QtGui import QIcon, QFont
 
 # Tab 
 from table_latex.table_latex import TableLatexTab
 from tikz_plot.tikz_plot import TikZPlotTab
 from info.info import InfoTab
+
+def setup_qt_plugins():
+    try:
+        plugin_path = QLibraryInfo.location(QLibraryInfo.PluginsPath)
+        if plugin_path and os.path.exists(plugin_path):
+            os.environ['QT_PLUGIN_PATH'] = plugin_path
+            return True
+    except Exception:
+        pass
+    
+    # Windows固有、開発環境でのみ
+    if platform.system() == 'Windows' and not getattr(sys, 'frozen', False):
+        try:
+            import PyQt5
+            pyqt5_dir = os.path.dirname(PyQt5.__file__)
+            potential_plugin_paths = [
+                os.path.join(pyqt5_dir, 'Qt5', 'plugins'),
+                os.path.join(pyqt5_dir, 'Qt', 'plugins'),
+                os.path.join(pyqt5_dir, 'plugins'),
+            ]
+            
+            for path in potential_plugin_paths:
+                if os.path.exists(os.path.join(path, 'platforms')):
+                    os.environ['QT_PLUGIN_PATH'] = path
+                    return True
+        except Exception:
+            pass
+    
+    return False
 
 class TeXcellentConverterApp(QMainWindow):
     def __init__(self):
@@ -56,7 +86,11 @@ class TeXcellentConverterApp(QMainWindow):
 
 
 if __name__ == '__main__':
+    # Qtプラグインの設定をQApplicationの作成前に実行
+    setup_qt_plugins()
+    
     app = QApplication(sys.argv)
+    
     ex = TeXcellentConverterApp()
     ex.show()
     sys.exit(app.exec_())
