@@ -217,7 +217,7 @@ class TikZPlotTab(QWidget):
         dataSourceTypeButtonGroup.addButton(self.measuredRadio)
         dataSourceTypeButtonGroup.addButton(self.formulaRadio)
         
-        radioStyle = "QRadioButton { font-weight: bold; font-size: 14px; padding: 5px; }"
+        radioStyle = "QRadioButton { font-weight: bold; font-size: 16px; }"
         self.measuredRadio.setStyleSheet(radioStyle)
         self.formulaRadio.setStyleSheet(radioStyle)
         
@@ -231,7 +231,7 @@ class TikZPlotTab(QWidget):
         dataSourceTypeLayout.addWidget(self.formulaRadio)
         dataSourceTypeLayout.addWidget(formulaLabel)
         
-        dataSourceTypeGroup.setFixedHeight(150)
+        # dataSourceTypeGroup.setFixedHeight(150)
         
         self.measuredRadio.toggled.connect(self.on_data_source_type_changed)
         self.formulaRadio.toggled.connect(self.on_data_source_type_changed)

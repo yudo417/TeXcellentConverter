@@ -21,6 +21,7 @@ if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 
 if exist "assets\icon\favicon.ico" (
+    echo アイコンファイル確認: OK
 ) else (
     echo 警告: アイコンファイルが見つからない
 )

@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set "name=tizk.py"
+set "name=src\app.py"
 
 echo TexcellentConverter %name% running
 
