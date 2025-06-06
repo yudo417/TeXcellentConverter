@@ -8,7 +8,7 @@ rm -rf build dist
 
 
 echo "リリース用ビルド"
-pyinstaller --windowed --icon=assets/icon/favicon.ico --name TeXcellentConverter src/main.py
+pyinstaller --windowed --icon=assets/icon/favicon.ico --name TeXcellentConverter src/app.py
 
 if [ ! -d "dist/TeXcellentConverter.app" ]; then
     echo "エラー: ビルドに失敗。dist/TeXcellentConverter.appが見つかりません。"
