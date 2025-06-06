@@ -64,7 +64,25 @@ https://github.com/user-attachments/assets/e65eeb4d-19db-4e99-b3b5-3d9f344695c5
 
 ## 💿 インストール方法
 
-[リリースページ](https://github.com/yudo417/TeXcellentConverter/releases)からインストールしてください．
+
+[リリースページ](https://github.com/yudo417/TeXcellentConverter/releases)から最新版をダウンロードしてください。
+
+###  Windows版のインストール
+
+1. `TeXcellentConverter-v1.0.0-win-x64.zip`をダウンロードしてください
+2. ZIPファイルを右クリック → 「すべて展開」で任意のフォルダに展開してください
+3. 展開されたフォルダ内の`TeXcellentConverter.exe`をダブルクリックして起動してください
+
+> **注意**
+> -  `TeXcellentConverter.exe`は**展開されたフォルダから移動しないでください**
+> - デスクトップから起動したい場合は、**ショートカット**を作成することを推奨します
+>   - `TeXcellentConverter.exe`を右クリックし、「ショートカットの作成」等を選択して、生成されたショートカットをデスクトップに移動してください
+###  macOS版のインストール
+
+1. `TeXcellentConverter-v1.0.0-macOS-arm64.zip`をダウンロードしてください
+2.  ZIPファイルをダブルクリックして解凍してください
+3. 解凍された`TeXcellentConverter.app`をダブルクリックして起動してください
+
 
 
 
