@@ -2421,7 +2421,10 @@ class TikZPlotTab(QWidget):
             if all_x_values:
                 positive_x = [x for x in all_x_values if x > 0]
                 if positive_x:
-                    x_min = min(positive_x) * 0.5  
+                    # 対数スケールでは、データの最小値の1桁下の値から始める
+                    min_data = min(positive_x)
+                    log_min = math.floor(math.log10(min_data))
+                    x_min = 10 ** log_min
                 else:
                     x_min = 0.1  
             else:
@@ -2432,11 +2435,29 @@ class TikZPlotTab(QWidget):
             if all_y_values:
                 positive_y = [y for y in all_y_values if y > 0]
                 if positive_y:
-                    y_min = min(positive_y) * 0.5  
+                    min_data = min(positive_y)
+                    log_min = math.floor(math.log10(min_data))
+                    y_min = 10 ** log_min
                 else:
                     y_min = 0.1  
             else:
                 y_min = 0.1  
+        
+        if is_xlog and all_x_values:
+            positive_x = [x for x in all_x_values if x > 0]
+            if positive_x:
+                # データの最大値の1桁上まで表示
+                max_data = max(positive_x)
+                log_max = math.ceil(math.log10(max_data))
+                x_max = 10 ** log_max
+        
+        if is_ylog and all_y_values:
+            positive_y = [y for y in all_y_values if y > 0]
+            if positive_y:
+                # データの最大値の1桁上まで表示
+                max_data = max(positive_y)
+                log_max = math.ceil(math.log10(max_data))
+                y_max = 10 ** log_max
         
         if is_xlog:
             axis_options.append("xmode=log")
