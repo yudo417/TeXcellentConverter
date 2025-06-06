@@ -40,8 +40,8 @@ echo exe作成完了: !EXE_SIZE! bytes
 
 python scripts\create_zip.py
 
-if exist "TeXcellentConverter_EXE.zip" (
-    for %%A in ("TeXcellentConverter_EXE.zip") do set ZIP_SIZE=%%~zA
+if exist "TeXcellentConverter-v1.0.0-win-x64.zip" (
+    for %%A in ("TeXcellentConverter-v1.0.0-win-x64.zip") do set ZIP_SIZE=%%~zA
     echo ZIPファイル作成完了: !ZIP_SIZE! bytes
 ) else (
     echo 警告: ZIP作成に失敗
@@ -50,8 +50,8 @@ if exist "TeXcellentConverter_EXE.zip" (
 echo.
 echo ビルド完了
 echo 実行ファイル: build\exe.win-amd64-3.12\TeXcellentConverter.exe
-if exist "TeXcellentConverter_EXE.zip" (
-    echo 配布ファイル: TeXcellentConverter_EXE.zip
+if exist "TeXcellentConverter-v1.0.0-win-x64.zip" (
+    echo 配布ファイル: TeXcellentConverter-v1.0.0-win-x64.zip
 )
 
 

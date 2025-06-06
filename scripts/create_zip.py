@@ -19,8 +19,8 @@ def create_exe_zip():
         print("❌ EXEファイルが見つかりません。先にビルドしてください。")
         return
     
-    # zipファイルを作成
-    zip_filename = "TeXcellentConverter_EXE.zip"
+    #! zipファイル名
+    zip_filename = "TeXcellentConverter-v1.0.0-win-x64.zip"
     
     print("📦 zipファイルを作成中...")
     

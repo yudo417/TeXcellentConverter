@@ -2,7 +2,6 @@ import sys
 import os
 from cx_Freeze import setup, Executable
 
-# PyQt5のパスを取得
 try:
     import PyQt5
     pyqt5_path = os.path.dirname(PyQt5.__file__)
@@ -11,11 +10,9 @@ except ImportError:
     pyqt5_path = ""
     qt_plugins_path = ""
 
-# スクリプトのディレクトリを sys.path に追加
 if "src" not in sys.path:
     sys.path.insert(0, "src")
 
-# 依存関係
 build_exe_options = {
     "packages": [
         "PyQt5.QtCore", 
@@ -43,7 +40,6 @@ build_exe_options = {
     "zip_exclude_packages": []
 }
 
-# PyQt5のプラットフォームプラグインを追加
 if qt_plugins_path and os.path.exists(qt_plugins_path):
     platforms_path = os.path.join(qt_plugins_path, "platforms")
     if os.path.exists(platforms_path):
