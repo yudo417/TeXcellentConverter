@@ -123,9 +123,10 @@ class TableLatexTab(QWidget):
         
         optionsGroup.setLayout(optionsLayout)
         
-        convertButton = QPushButton('LaTeXに変換')
+        convertButton = QPushButton('LaTeXコードに変換')
         convertButton.clicked.connect(self.convert_to_latex)
-        convertButton.setStyleSheet('background-color: #4CAF50; color: white; font-size: 14px; padding: 10px;')
+        convertButton.setStyleSheet('background-color: #4CAF50; color: white; font-size: 14px; padding: 12px;')
+        convertButton.setMinimumHeight(40)
         
         settingsLayout.addLayout(infoLayout)
         settingsLayout.addLayout(fileLayout)
@@ -144,9 +145,14 @@ class TableLatexTab(QWidget):
         self.resultText.setReadOnly(True)
         self.resultText.setMinimumHeight(200)
         
+        # Windows環境限定で結果表示エリアの高さを増加
+        import platform
+        if platform.system() == 'Windows':
+            self.resultText.setMinimumHeight(300)  # より多くのLaTeXコードを一度に確認可能に
+        
         copyButton = QPushButton("クリップボードにコピー")
         copyButton.clicked.connect(self.copy_to_clipboard)
-        copyButton.setStyleSheet("background-color: #007BFF; color: white; font-size: 16px; padding: 12px; font-weight: bold; border-radius: 8px;")
+        copyButton.setStyleSheet("background-color: #007BFF; color: white; font-size: 16px; padding: 15px; font-weight: bold; border-radius: 8px;")
         
         resultLayout.addWidget(resultLabel)
         resultLayout.addWidget(self.resultText)

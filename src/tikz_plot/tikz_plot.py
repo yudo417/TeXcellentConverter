@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor
 import re
+import platform
 
 
 class TikZPlotTab(QWidget):
@@ -935,7 +936,7 @@ class TikZPlotTab(QWidget):
         convertButton = QPushButton("LaTeXコードに変換")
         convertButton.clicked.connect(self.convert_to_tikz)
         convertButton.setStyleSheet('background-color: #4CAF50; color: white; font-size: 14px; padding: 10px;')
-        convertButton.setFixedHeight(32)
+        convertButton.setMinimumHeight(50)
         settingsLayout.addWidget(convertButton)
         
         # --- 下部：結果表示部分 ---
@@ -984,6 +985,20 @@ class TikZPlotTab(QWidget):
         
         # 初期状態のデータソース選択を反映
         self.toggle_source_fields()
+
+        # Win版は縦幅を増加
+        if platform.system() == 'Windows':
+            # データ入力テーブル
+            self.dataTable.setMinimumHeight(350)
+            
+            # LaTeXコード表示エリア
+            self.resultText.setMinimumHeight(350)
+            
+            # データセットリスト
+            self.datasetList.setMinimumHeight(200)
+            
+            # TikZ関数テーブル
+            self.tikzFunctionsTable.setMinimumHeight(400)
 
         #* ======================処理============================================ 
 
