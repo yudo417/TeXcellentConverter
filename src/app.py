@@ -42,11 +42,8 @@ def setup_qt_plugins():
     return False
 
 def apply_simple_dark_theme(app):
-    """モダンで視認性の高いダークテーマを適用"""
-    # 改良されたダークパレットの設定
     dark_palette = QPalette()
     
-    # より洗練された色設定（コントラストとメリハリを重視）
     dark_palette.setColor(QPalette.Window, QColor(33, 37, 43))           # #21252b - 深めのダークブルーグレー
     dark_palette.setColor(QPalette.WindowText, QColor(230, 232, 236))    # #e6e8ec - 暖かみのある白
     dark_palette.setColor(QPalette.Base, QColor(40, 44, 52))             # #282c34 - 入力欄背景
@@ -61,16 +58,13 @@ def apply_simple_dark_theme(app):
     dark_palette.setColor(QPalette.Highlight, QColor(97, 175, 239))      # #61afef - ハイライト
     dark_palette.setColor(QPalette.HighlightedText, QColor(0, 0, 0))     # #000000 - ハイライトテキスト
     
-    # 無効化された要素の色
     dark_palette.setColor(QPalette.Disabled, QPalette.WindowText, QColor(130, 135, 145))
     dark_palette.setColor(QPalette.Disabled, QPalette.Text, QColor(130, 135, 145))
     dark_palette.setColor(QPalette.Disabled, QPalette.ButtonText, QColor(130, 135, 145))
     
     app.setPalette(dark_palette)
     
-    # モダンで視認性の高いスタイル設定
     app.setStyleSheet("""
-        /* 全体的な基本スタイル */
         QWidget {
             background-color: #21252b;
             color: #e6e8ec;
@@ -82,7 +76,6 @@ def apply_simple_dark_theme(app):
             border: none;
         }
         
-        /* タブ - より洗練されたデザイン */
         QTabWidget::pane {
             background-color: #282c34;
             border: 1px solid #3e4147;
@@ -120,7 +113,6 @@ def apply_simple_dark_theme(app):
             border-bottom: none;
         }
         
-        /* 入力欄 - ダークスタイルを維持（システムUI部品の見やすさ保持） */
         QLineEdit {
             background-color: #282c34;
             color: #e6e8ec;
@@ -169,7 +161,6 @@ def apply_simple_dark_theme(app):
             border: 2px solid #61afef;
         }
         
-        /* ボタン - グラデーションと立体感 */
         QPushButton {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                                       stop:0 #4a5059, stop:1 #3c414a);
@@ -205,7 +196,6 @@ def apply_simple_dark_theme(app):
             border: 2px solid #61afef;
         }
         
-        /* グループボックス - 背景色で区分け */
         QGroupBox {
             color: #e6e8ec;
             background-color: #32363e;
@@ -229,7 +219,6 @@ def apply_simple_dark_theme(app):
             font-weight: bold;
         }
         
-        /* ラベル */
         QLabel {
             color: #e6e8ec;
             background-color: transparent;
@@ -239,7 +228,6 @@ def apply_simple_dark_theme(app):
             color: #828791;
         }
         
-        /* コンボボックス - ダークスタイルを維持 */
         QComboBox {
             background-color: #282c34;
             color: #e6e8ec;
@@ -313,7 +301,6 @@ def apply_simple_dark_theme(app):
             color: #ffffff;
         }
         
-        /* チェックボックス・ラジオボタン - ダークスタイルを維持 */
         QCheckBox, QRadioButton {
             color: #e6e8ec;
             background-color: transparent;
@@ -366,7 +353,6 @@ def apply_simple_dark_theme(app):
             border-radius: 9px;
         }
         
-        /* テーブル - ダークスタイルを維持 */
         QTableWidget, QTableView {
             background-color: #282c34;
             alternate-background-color: #32363e;
@@ -406,7 +392,6 @@ def apply_simple_dark_theme(app):
                                       stop:0 #4a7bc8, stop:1 #3d6bb0);
         }
         
-        /* スクロールバー */
         QScrollBar:vertical, QScrollBar:horizontal {
             background-color: #32363e;
             border: 1px solid #3e4147;
@@ -435,7 +420,6 @@ def apply_simple_dark_theme(app):
             background-color: #4a5059;
         }
         
-        /* スピンボックス - システムUI部品を活かしたダークスタイル */
         QSpinBox, QDoubleSpinBox {
             background-color: #282c34;
             color: #e6e8ec;
@@ -463,7 +447,6 @@ def apply_simple_dark_theme(app):
             border: 2px solid #2c3036;
         }
         
-        /* プログレスバー */
         QProgressBar {
             background-color: #e9ecef;
             color: #2c3e50;
@@ -479,7 +462,6 @@ def apply_simple_dark_theme(app):
             border-radius: 4px;
         }
         
-        /* ステータスバー */
         QStatusBar {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                                       stop:0 #32363e, stop:1 #21252b);
@@ -487,7 +469,6 @@ def apply_simple_dark_theme(app):
             border-top: 1px solid #3e4147;
         }
         
-        /* リストウィジェット - ダークスタイルを維持 */
         QListWidget {
             background-color: #282c34;
             color: #e6e8ec;
@@ -512,7 +493,6 @@ def apply_simple_dark_theme(app):
             color: #ffffff;
         }
         
-        /* メニュー */
         QMenuBar {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                                       stop:0 #32363e, stop:1 #21252b);
@@ -606,12 +586,11 @@ class TeXcellentConverterApp(QMainWindow):
 
 
 if __name__ == '__main__':
-    # Qtプラグインの設定をQApplicationの作成前に実行
     setup_qt_plugins()
     
     app = QApplication(sys.argv)
     
-    # Windows版のみシンプルダークテーマを適用
+    # Win版のみ
     if platform.system() == 'Windows':
         apply_simple_dark_theme(app)
     
