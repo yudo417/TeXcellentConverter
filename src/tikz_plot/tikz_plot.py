@@ -2344,13 +2344,13 @@ class TikZPlotTab(QWidget):
                 data_y_max += 0.5 if abs(data_y_max) > 1 else 0.1
             
             # 軸の範囲を越える時の調整(10%余裕持たせる)
-            if x_min > data_x_min or x_min == 0:
+            if x_min > data_x_min :
                 x_min = data_x_min - abs(data_x_min) * 0.1 - 0.1
-            if x_max < data_x_max or x_max == 0:
+            if x_max < data_x_max :
                 x_max = data_x_max + abs(data_x_max) * 0.1 + 0.1
-            if y_min > data_y_min or y_min == 0:
+            if y_min > data_y_min :
                 y_min = data_y_min - abs(data_y_min) * 0.1 - 0.1
-            if y_max < data_y_max or y_max == 0:
+            if y_max < data_y_max :
                 y_max = data_y_max + abs(data_y_max) * 0.1 + 0.1
             
             # 小さすぎる値を補正
