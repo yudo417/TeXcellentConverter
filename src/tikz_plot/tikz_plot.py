@@ -867,6 +867,10 @@ class TikZPlotTab(QWidget):
             assignToDatasetBtn.setEnabled(checked)
         ])
         
+        addSpButton.setEnabled(False)
+        removeSpButton.setEnabled(False)
+        assignToDatasetBtn.setEnabled(False)
+        
         specialPointsGroup.setLayout(specialPointsLayout)
         
         annotationsGroup = QGroupBox("注釈")
@@ -902,6 +906,10 @@ class TikZPlotTab(QWidget):
             assignAnnToDatasetBtn.setEnabled(checked)
         ])
         
+        addAnnButton.setEnabled(False)
+        removeAnnButton.setEnabled(False)
+        assignAnnToDatasetBtn.setEnabled(False)
+        
         annotationsGroup.setLayout(annotationsLayout)
         
         annotationTabLayout.addWidget(specialPointsGroup)
@@ -932,6 +940,12 @@ class TikZPlotTab(QWidget):
         settingsLayout.addWidget(tabWidget)
 
         self.dataTable.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        
+        # LaTeX変換の注意書き
+        convertWarningLabel = QLabel("※ コードの生成には時間がかかる場合があります")
+        convertWarningLabel.setStyleSheet("color: gray; font-size: 16px; font-weight: bold;")
+        convertWarningLabel.setWordWrap(True)
+        settingsLayout.addWidget(convertWarningLabel)
         
         convertButton = QPushButton("LaTeXコードに変換")
         convertButton.clicked.connect(self.convert_to_tikz)

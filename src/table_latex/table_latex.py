@@ -122,17 +122,24 @@ class TableLatexTab(QWidget):
         optionsLayout.addWidget(self.addBordersCheck, 3, 1)
         
         optionsGroup.setLayout(optionsLayout)
+
+        convertWarningLabel = QLabel("※ コードの生成には時間がかかる場合があります")
+        convertWarningLabel.setStyleSheet("color: gray; font-size: 16px; font-weight: bold;")
+        convertWarningLabel.setWordWrap(True)
         
         convertButton = QPushButton('LaTeXコードに変換')
         convertButton.clicked.connect(self.convert_to_latex)
         convertButton.setStyleSheet('background-color: #4CAF50; color: white; font-size: 14px; padding: 12px;')
         convertButton.setMinimumHeight(40)
+
+        
         
         settingsLayout.addLayout(infoLayout)
         settingsLayout.addLayout(fileLayout)
         settingsLayout.addLayout(sheetLayout)
         settingsLayout.addLayout(rangeLayout)
         settingsLayout.addWidget(optionsGroup)
+        settingsLayout.addWidget(convertWarningLabel)
         settingsLayout.addWidget(convertButton)
         
         # --- 下部：結果表示部分 ---

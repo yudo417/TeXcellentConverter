@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-"""
-TeXcellentConverter EXE版配布用zipファイル作成スクリプト
-"""
 
 import os
 import shutil
@@ -9,20 +6,18 @@ import zipfile
 from pathlib import Path
 
 def create_exe_zip():
-    """EXE版の配布用zipファイルを作成"""
     
-    print("🚀 TeXcellentConverter EXE版 配布用zipファイルを作成中...")
+    print("TeXcellentConverter win版zipファイル作成")
     
-    # ビルドディレクトリの確認
     build_dir = Path("build/exe.win-amd64-3.12")
     if not build_dir.exists():
-        print("❌ EXEファイルが見つかりません。先にビルドしてください。")
+        print("EXEファイルが見つからない")
         return
     
     #! zipファイル名
     zip_filename = "TeXcellentConverter-v1.0.0-win-x64.zip"
     
-    print("📦 zipファイルを作成中...")
+    print("zipファイルを作成中")
     
     with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
         # buildディレクトリ内のすべてのファイルを含める
@@ -35,33 +30,18 @@ def create_exe_zip():
                 zipf.write(file_path, arc_name)
     
     # READMEファイルを追加
-    readme_content = """# TeXcellentConverter EXE版
+    readme_content = """# TeXcellentConverter windows版
 
 ## 使用方法
 1. このzipファイルを解凍
 2. `TeXcellentConverter.exe` をダブルクリックして実行
-
-## 特徴
-- Pythonのインストール不要
-- スタンドアロンで動作
-- Excel表データをLaTeX形式に変換
-- グラフ作成機能
-- 直感的なUI
-
-## システム要件
-- Windows 10以上
-- 64bit環境
-
-ご利用ありがとうございます！
 """
     
     with zipfile.ZipFile(zip_filename, 'a') as zipf:
         zipf.writestr("TeXcellentConverter/README.txt", readme_content)
     
-    print(f"✅ 作成完了: {zip_filename}")
-    print(f"📁 ファイルサイズ: {os.path.getsize(zip_filename) / 1024 / 1024:.1f} MB")
-    print("\n🎉 EXE版配布準備完了！このzipファイルを共有してください。")
-    print("💡 受け取った人はPythonなしで直接EXEを実行できます！")
+    print(f"作成完了: {zip_filename}")
+    print(f"ファイルサイズ: {os.path.getsize(zip_filename) / 1024 / 1024:.1f} MB")
 
 if __name__ == "__main__":
     create_exe_zip() 
