@@ -1,7 +1,6 @@
 build/
 dist/
 
-*.ico
 *.spec
 
 __pycache__/
