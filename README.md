@@ -1,6 +1,6 @@
 # TeXcellentConverter
 
-**Excelの表や採集したデータを，表やグラフを生成するLaTeXのコードに変換するソフトです．**
+**Excelの表や収集したデータを，表やグラフを生成するLaTeXのコードに変換するソフトです．**
 
 
 
@@ -16,7 +16,7 @@ https://github.com/user-attachments/assets/0dfe4b4f-033a-4a20-b570-0210c4ea2fae
 
    - Excelで作成した表をtabular形式のLaTeXコードに変換
 
-3. **グラフ生成**
+2. **グラフ生成**
    
 
 https://github.com/user-attachments/assets/e65eeb4d-19db-4e99-b3b5-3d9f344695c5
@@ -24,6 +24,8 @@ https://github.com/user-attachments/assets/e65eeb4d-19db-4e99-b3b5-3d9f344695c5
 
    - Excel/CSVデータや数式からTikZ形式の美しいグラフを生成
    - 手入力データにも対応
+
+**⚠️　上記の動画はmacOS版の画面を使用しています．Windows版では画面のデザインや見た目が一部異なります．**
 
 ## 🛠️ 主要機能
 
@@ -52,10 +54,10 @@ https://github.com/user-attachments/assets/e65eeb4d-19db-4e99-b3b5-3d9f344695c5
 
 ## 💻 システム条件
 
-| プラットフォーム | 対応バージョン 
-|------------------|----------------
-| **Windows** | Windows 10 (64bit) 以降 
-| **macOS** | macOS 13.0 (Ventura) 以降
+| プラットフォーム | 対応バージョン |
+|------------------|----------------|
+| **Windows** | Windows 10 (64bit) 以降 |
+| **macOS** | macOS 13.0 (Ventura) 以降 |
 
 > **重要**:
 > - **Windows版**: Windows 10 (64bit) では環境によって動作しない場合がございます．
@@ -67,9 +69,11 @@ https://github.com/user-attachments/assets/e65eeb4d-19db-4e99-b3b5-3d9f344695c5
 
 [リリースページ](https://github.com/yudo417/TeXcellentConverter/releases)から最新版をダウンロードしてください。
 
+ここでは最新バージョンを`{version}`とします．
+
 ###  Windows版のインストール
 
-1. `TeXcellentConverter-v1.0.0-win-x64.zip`をダウンロードしてください
+1. `TeXcellentConverter-v{version}-win-x64.zip`をダウンロードしてください
 2. ZIPファイルを右クリック → 「すべて展開」で任意のフォルダに展開してください
 3. 展開されたフォルダ内の`TeXcellentConverter.exe`をダブルクリックして起動してください
 
@@ -79,9 +83,12 @@ https://github.com/user-attachments/assets/e65eeb4d-19db-4e99-b3b5-3d9f344695c5
 >   - `TeXcellentConverter.exe`を右クリックし、「ショートカットの作成」等を選択して、生成されたショートカットをデスクトップに移動してください
 ###  macOS版のインストール
 
-1. `TeXcellentConverter-v1.0.0-macOS-arm64.zip`をダウンロードしてください
+1. `TeXcellentConverter-v{version}-macOS-arm64.zip`をダウンロードしてください
 2.  ZIPファイルをダブルクリックして解凍してください
 3. 解凍された`TeXcellentConverter.app`をダブルクリックして起動してください
+
+## 機能要望
+新機能の要望があれば，
 
 
 

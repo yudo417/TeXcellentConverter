@@ -39,7 +39,7 @@ class InfoTab(QWidget):
         githubButton.setFont(QFont("Arial", 12))
         githubButton.setStyleSheet("""
             QPushButton {
-                background-color: #24292e;
+                background-color: #0366d6;
                 color: white;
                 border: none;
                 padding: 15px 1px;
@@ -56,7 +56,7 @@ class InfoTab(QWidget):
         licenseButton.setFont(QFont("Arial", 12))
         licenseButton.setStyleSheet("""
             QPushButton {
-                background-color: #0366d6;
+                background-color: #ff9800;
                 color: white;
                 border: none;
                 padding: 15px 1px;
@@ -64,12 +64,12 @@ class InfoTab(QWidget):
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #0256cc;
+                background-color: #cc7000;
             }
         """)
         licenseButton.clicked.connect(lambda: webbrowser.open("https://github.com/yudo417/TeXcellentConverter/blob/main/LICENSE"))
         
-        helpButton = QPushButton("📖 使い方を参照")
+        helpButton = QPushButton("📖 機能を参照")
         helpButton.setFont(QFont("Arial", 12))
         helpButton.setStyleSheet("""
             QPushButton {
@@ -84,7 +84,7 @@ class InfoTab(QWidget):
                 background-color: #218838;
             }
         """)
-        helpButton.clicked.connect(lambda: webbrowser.open("https://github.com/yudo417/TeXcellentConverter#%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95"))
+        helpButton.clicked.connect(lambda: webbrowser.open("https://github.com/yudo417/TeXcellentConverter?tab=readme-ov-file#%EF%B8%8F-%E4%B8%BB%E8%A6%81%E6%A9%9F%E8%83%BD"))
         
 
         

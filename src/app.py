@@ -44,19 +44,19 @@ def setup_qt_plugins():
 def apply_simple_dark_theme(app):
     dark_palette = QPalette()
     
-    dark_palette.setColor(QPalette.Window, QColor(33, 37, 43))           # #21252b - 深めのダークブルーグレー
-    dark_palette.setColor(QPalette.WindowText, QColor(230, 232, 236))    # #e6e8ec - 暖かみのある白
-    dark_palette.setColor(QPalette.Base, QColor(40, 44, 52))             # #282c34 - 入力欄背景
-    dark_palette.setColor(QPalette.AlternateBase, QColor(50, 54, 62))    # #32363e - 交互背景
-    dark_palette.setColor(QPalette.ToolTipBase, QColor(20, 22, 26))      # #14161a - ツールチップ
-    dark_palette.setColor(QPalette.ToolTipText, QColor(255, 255, 255))   # #ffffff - ツールチップテキスト
-    dark_palette.setColor(QPalette.Text, QColor(230, 232, 236))          # #e6e8ec - メインテキスト
-    dark_palette.setColor(QPalette.Button, QColor(45, 50, 58))           # #2d323a - ボタン背景
-    dark_palette.setColor(QPalette.ButtonText, QColor(230, 232, 236))    # #e6e8ec - ボタンテキスト
-    dark_palette.setColor(QPalette.BrightText, QColor(255, 255, 255))    # #ffffff - 強調テキスト
-    dark_palette.setColor(QPalette.Link, QColor(97, 175, 239))           # #61afef - リンク色
-    dark_palette.setColor(QPalette.Highlight, QColor(97, 175, 239))      # #61afef - ハイライト
-    dark_palette.setColor(QPalette.HighlightedText, QColor(0, 0, 0))     # #000000 - ハイライトテキスト
+    dark_palette.setColor(QPalette.Window, QColor(33, 37, 43))          
+    dark_palette.setColor(QPalette.WindowText, QColor(230, 232, 236))    
+    dark_palette.setColor(QPalette.Base, QColor(40, 44, 52))             
+    dark_palette.setColor(QPalette.AlternateBase, QColor(50, 54, 62))    
+    dark_palette.setColor(QPalette.ToolTipBase, QColor(20, 22, 26))      
+    dark_palette.setColor(QPalette.ToolTipText, QColor(255, 255, 255))   
+    dark_palette.setColor(QPalette.Text, QColor(230, 232, 236))          
+    dark_palette.setColor(QPalette.Button, QColor(45, 50, 58))           
+    dark_palette.setColor(QPalette.ButtonText, QColor(230, 232, 236))    
+    dark_palette.setColor(QPalette.BrightText, QColor(255, 255, 255))    
+    dark_palette.setColor(QPalette.Link, QColor(97, 175, 239))           
+    dark_palette.setColor(QPalette.Highlight, QColor(97, 175, 239))      
+    dark_palette.setColor(QPalette.HighlightedText, QColor(0, 0, 0))     
     
     dark_palette.setColor(QPalette.Disabled, QPalette.WindowText, QColor(130, 135, 145))
     dark_palette.setColor(QPalette.Disabled, QPalette.Text, QColor(130, 135, 145))
