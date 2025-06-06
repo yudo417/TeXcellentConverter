@@ -3083,12 +3083,10 @@ class TikZPlotTab(QWidget):
                     self.insert_into_equation(function_text)
                 else:
                     if "(" in function_text and ")" in function_text:
-                        bracket_content = function_text[function_text.find("(")+1:function_text.find(")")]
-                        # ()内の内容を削除
-                        insert_text = function_text.replace(bracket_content, "")
+                        func_name = function_text[:function_text.find("(")]
+                        insert_text = func_name + "()"
                         self.insert_into_equation(insert_text)
                     else:
-                        # 括弧のない関数の場合はそのまま挿入
                         self.insert_into_equation(function_text)
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"関数の挿入中にエラーが発生しました: {str(e)}")

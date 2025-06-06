@@ -34,4 +34,4 @@ config.local.py
 .coverage
 htmlcov/
 platforms/
-TeXcellentConverter_EXE/
+TeXcellentConverter-v*
