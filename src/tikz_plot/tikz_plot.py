@@ -153,7 +153,7 @@ class TikZPlotTab(QWidget):
         
         infoLayout = QVBoxLayout()
         
-        infoLabel = QLabel("注意: このグラフを使用するには、LaTeXドキュメントのプリアンブルに以下を追加してください:")
+        infoLabel = QLabel("注意: 本ソフトを使用する際は、以下のパッケージを必ずコード内に記述してください:")
         infoLabel.setStyleSheet("color: #cc0000; font-weight: bold;") 
         
         packageLayout = QHBoxLayout()
