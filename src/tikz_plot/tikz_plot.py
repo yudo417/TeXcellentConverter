@@ -3093,26 +3093,29 @@ class TikZPlotTab(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"関数の挿入中にエラーが発生しました: {str(e)}")
 
-    def insert_function_from_table(self, row):
-        """関数テーブルの関数をダブルクリックして挿入"""
-        try:
-            function_item = self.tikzFunctionsTable.item(row, 0)
-            if function_item:
-                function_text = function_item.text()
-                
-                if function_text in ["pi", "e"]:
-                    self.insert_into_equation(function_text)
-                else:
-                    if "(" in function_text and ")" in function_text:
-                        bracket_content = function_text[function_text.find("(")+1:function_text.find(")")]
-                        # ()内の内容を削除
-                        insert_text = function_text.replace(bracket_content, "")
-                        self.insert_into_equation(insert_text)
-                    else:
-                        # 括弧のない関数の場合はそのまま挿入
-                        self.insert_into_equation(function_text)
-        except Exception as e:
-            QMessageBox.critical(self, "エラー", f"関数の挿入中にエラーが発生しました: {str(e)}")
+    def insert_into_equation(self, text):
+        """
+        数式入力欄にテキストを挿入\n
+        current_posで現用語の右
+        """
+        current_text = self.equationEntry.text()
+        current_pos = self.equationEntry.cursorPosition()
+        
+        if current_text.strip() == "":
+            self.equationEntry.setText(text)
+            if "(" in text and ")" in text:
+                self.equationEntry.setCursorPosition(text.find("(")+1)
+        else:
+            # 現カーソル位置に挿入
+            new_text = current_text[:current_pos] + text + current_text[current_pos:]
+            self.equationEntry.setText(new_text)
+            if "(" in text and ")" in text:
+                new_cursor_pos = current_pos + text.find("(")+1
+                self.equationEntry.setCursorPosition(new_cursor_pos)
+            else:
+                self.equationEntry.setCursorPosition(current_pos + len(text))
+        
+        self.equationEntry.setFocus()
 
     def create_styled_delete_confirmation(self, title, message, dangerous_action_text="削除"):
         """スタイル付き削除確認ダイアログを作成（QMessageBox使用）"""
